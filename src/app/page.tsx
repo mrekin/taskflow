@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import Image from 'next/image';
@@ -26,6 +27,7 @@ import {
   Tag,
   GripVertical,
   XCircle,
+  LogIn,
 } from 'lucide-react';
 
 import { cn, findByShortId } from '@/lib/utils';
@@ -255,6 +257,7 @@ function HomeContent() {
   } = useAppStore();
 
   const { setTheme } = useTheme();
+  const { data: session } = useSession();
   const [showCreateArea, setShowCreateArea] = useState(false);
   const [newAreaName, setNewAreaName] = useState('');
   const [newAreaDescription, setNewAreaDescription] = useState('');
@@ -789,13 +792,29 @@ function HomeContent() {
         {/* Sidebar footer */}
         <div className="p-3 border-t shrink-0 space-y-1">
           <div className="flex items-center gap-2 px-3 py-2">
-            <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
-              D
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate">Demo User</p>
-              <p className="text-[10px] text-muted-foreground truncate">demo@taskflow.app</p>
-            </div>
+            {session?.user ? (
+              <>
+                <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
+                  {session.user.name?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate">{session.user.name || 'User'}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{session.user.email}</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <LogIn className="size-4 text-muted-foreground shrink-0" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => signIn('oidc')}
+                >
+                  Sign In
+                </Button>
+              </>
+            )}
             <Button
               variant="ghost"
               size="icon"
