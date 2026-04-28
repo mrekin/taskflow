@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
       args:
         # Set subpath if deploying behind a proxy (e.g., "/app")
-        NEXT_BASE_PATH: ""
+        NEXT_BASE_PATH: "/taskflow"
     container_name: taskflow
     restart: unless-stopped
     ports:

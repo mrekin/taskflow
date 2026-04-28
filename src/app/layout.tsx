@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   keywords: ["task manager", "notes", "productivity", "Next.js", "TypeScript"],
   authors: [{ name: "TaskFlow" }],
   icons: {
-    icon: "/logo.png",
+    icon: `${process.env.NEXT_BASE_PATH || ''}/logo.png`,
   },
   robots: {
     index: false,

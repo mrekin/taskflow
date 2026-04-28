@@ -470,7 +470,7 @@ function HomeContent() {
           className="text-center space-y-4"
         >
           <div className="flex items-center justify-center gap-2">
-            <Image src="/logo.png" alt="TaskFlow" width={40} height={40} className="h-10 w-10 rounded-xl object-cover" />
+            <Image src={`${process.env.NEXT_BASE_PATH || ''}/logo.png`} alt="TaskFlow" width={40} height={40} className="h-10 w-10 rounded-xl object-cover" unoptimized />
             <h1 className="text-3xl font-bold">TaskFlow</h1>
           </div>
           <div className="w-48 h-1 bg-muted rounded-full overflow-hidden">
@@ -498,7 +498,7 @@ function HomeContent() {
         {/* Sidebar header */}
         <div className="p-4 flex items-center justify-between border-b shrink-0">
           <div className="flex items-center gap-2">
-            <Image src="/logo.png" alt="TaskFlow" width={20} height={20} className="h-5 w-5 rounded object-cover" />
+            <Image src={`${process.env.NEXT_BASE_PATH || ''}/logo.png`} alt="TaskFlow" width={20} height={20} className="h-5 w-5 rounded object-cover" unoptimized />
             <h2 className="font-semibold text-lg">TaskFlow</h2>
           </div>
           <Button variant="ghost" size="icon" className="size-7" onClick={toggleSidebar}>
@@ -924,7 +924,7 @@ export default function Home() {
       fallback={
         <div className="flex h-screen items-center justify-center bg-background">
           <div className="flex items-center gap-2">
-            <Image src="/logo.png" alt="TaskFlow" width={32} height={32} className="h-8 w-8 rounded-lg object-cover animate-pulse" />
+            <Image src={`${process.env.NEXT_BASE_PATH || ''}/logo.png`} alt="TaskFlow" width={32} height={32} className="h-8 w-8 rounded-lg object-cover animate-pulse" unoptimized />
             <h1 className="text-3xl font-bold">TaskFlow</h1>
           </div>
         </div>

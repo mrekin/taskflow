@@ -103,11 +103,12 @@ export function SidebarNav() {
         <div className="flex items-center gap-2.5">
           <div className="flex size-8 items-center justify-center rounded-lg overflow-hidden">
             <Image
-              src="/logo.png"
+              src={`${process.env.NEXT_BASE_PATH || ''}/logo.png`}
               alt="TaskFlow"
               width={32}
               height={32}
               className="size-8 rounded-lg object-cover"
+              unoptimized
             />
           </div>
           <span className="text-lg font-bold tracking-tight text-foreground">

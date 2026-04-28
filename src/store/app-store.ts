@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import type { Area, Project, Task, Note, Comment, Tag, Webhook, WebhookDelivery } from '@/lib/types';
 
+const basePath = process.env.NEXT_BASE_PATH || '';
+const api = (path: string) => `${basePath}${path}`;
+
 type ViewType = 'areas' | 'projects' | 'tasks' | 'kanban' | 'notes' | 'note-editor' | 'settings' | 'quick-create';
 
 interface AppState {
@@ -120,7 +123,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchAreas: async () => {
     set({ isLoading: true });
     try {
-      const res = await fetch('/api/areas');
+      const res = await fetch(api('/api/areas'));
       if (!res.ok) throw new Error('Failed to fetch areas');
       const areas: Area[] = await res.json();
       set({ areas });
@@ -134,7 +137,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchProjects: async (areaId?: string) => {
     set({ isLoading: true });
     try {
-      const url = areaId ? `/api/projects?areaId=${areaId}` : '/api/projects';
+      const url = areaId ? api(`/api/projects?areaId=${areaId}`) : api('/api/projects');
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch projects');
       const projects: Project[] = await res.json();
@@ -149,7 +152,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchTasks: async (projectId?: string) => {
     set({ isLoading: true });
     try {
-      const url = projectId ? `/api/tasks?projectId=${projectId}` : '/api/tasks';
+      const url = projectId ? api(`/api/tasks?projectId=${projectId}`) : api('/api/tasks');
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch tasks');
       const tasks: Task[] = await res.json();
@@ -164,7 +167,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchNotes: async (projectId?: string) => {
     set({ isLoading: true });
     try {
-      const url = projectId ? `/api/notes?projectId=${projectId}` : '/api/notes';
+      const url = projectId ? api(`/api/notes?projectId=${projectId}`) : api('/api/notes');
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch notes');
       const notes: Note[] = await res.json();
@@ -178,7 +181,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchTags: async () => {
     try {
-      const res = await fetch('/api/tags');
+      const res = await fetch(api('/api/tags'));
       if (!res.ok) throw new Error('Failed to fetch tags');
       const tags: Tag[] = await res.json();
       set({ tags });
@@ -189,7 +192,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchComments: async (taskId: string) => {
     try {
-      const res = await fetch(`/api/comments?taskId=${taskId}`);
+      const res = await fetch(api(`/api/comments?taskId=${taskId}`));
       if (!res.ok) throw new Error('Failed to fetch comments');
       const comments: Comment[] = await res.json();
       set({ comments });
@@ -201,7 +204,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // CRUD Areas
   createArea: async (data) => {
     try {
-      const res = await fetch('/api/areas', {
+      const res = await fetch(api('/api/areas'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -216,7 +219,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateArea: async (id, data) => {
     try {
-      const res = await fetch(`/api/areas/${id}`, {
+      const res = await fetch(api(`/api/areas/${id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -233,7 +236,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteArea: async (id) => {
     try {
-      const res = await fetch(`/api/areas/${id}`, { method: 'DELETE' });
+      const res = await fetch(api(`/api/areas/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete area');
       set((state) => ({
         areas: state.areas.filter((a) => a.id !== id),
@@ -247,7 +250,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // CRUD Projects
   createProject: async (data) => {
     try {
-      const res = await fetch('/api/projects', {
+      const res = await fetch(api('/api/projects'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -262,7 +265,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateProject: async (id, data) => {
     try {
-      const res = await fetch(`/api/projects/${id}`, {
+      const res = await fetch(api(`/api/projects/${id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -279,7 +282,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteProject: async (id) => {
     try {
-      const res = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+      const res = await fetch(api(`/api/projects/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete project');
       set((state) => ({
         projects: state.projects.filter((p) => p.id !== id),
@@ -293,7 +296,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // CRUD Tasks
   createTask: async (data) => {
     try {
-      const res = await fetch('/api/tasks', {
+      const res = await fetch(api('/api/tasks'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -308,7 +311,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateTask: async (id, data) => {
     try {
-      const res = await fetch(`/api/tasks/${id}`, {
+      const res = await fetch(api(`/api/tasks/${id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -325,7 +328,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteTask: async (id) => {
     try {
-      const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+      const res = await fetch(api(`/api/tasks/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete task');
       set((state) => ({
         tasks: state.tasks.filter((t) => t.id !== id),
@@ -339,7 +342,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // CRUD Notes
   createNote: async (data) => {
     try {
-      const res = await fetch('/api/notes', {
+      const res = await fetch(api('/api/notes'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -354,7 +357,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateNote: async (id, data) => {
     try {
-      const res = await fetch(`/api/notes/${id}`, {
+      const res = await fetch(api(`/api/notes/${id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -371,7 +374,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteNote: async (id) => {
     try {
-      const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' });
+      const res = await fetch(api(`/api/notes/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete note');
       set((state) => ({
         notes: state.notes.filter((n) => n.id !== id),
@@ -385,7 +388,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // CRUD Comments
   createComment: async (data) => {
     try {
-      const res = await fetch('/api/comments', {
+      const res = await fetch(api('/api/comments'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -400,7 +403,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateComment: async (id, data) => {
     try {
-      const res = await fetch(`/api/comments/${id}`, {
+      const res = await fetch(api(`/api/comments/${id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -417,7 +420,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteComment: async (id) => {
     try {
-      const res = await fetch(`/api/comments/${id}`, { method: 'DELETE' });
+      const res = await fetch(api(`/api/comments/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete comment');
       set((state) => ({
         comments: state.comments.filter((c) => c.id !== id),
@@ -430,7 +433,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // CRUD Tags
   createTag: async (data) => {
     try {
-      const res = await fetch('/api/tags', {
+      const res = await fetch(api('/api/tags'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -445,7 +448,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateTag: async (id, data) => {
     try {
-      const res = await fetch(`/api/tags/${id}`, {
+      const res = await fetch(api(`/api/tags/${id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -462,7 +465,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteTag: async (id) => {
     try {
-      const res = await fetch(`/api/tags/${id}`, { method: 'DELETE' });
+      const res = await fetch(api(`/api/tags/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete tag');
       set((state) => ({
         tags: state.tags.filter((t) => t.id !== id),
@@ -475,7 +478,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // CRUD Webhooks
   fetchWebhooks: async () => {
     try {
-      const res = await fetch('/api/webhooks');
+      const res = await fetch(api('/api/webhooks'));
       if (!res.ok) throw new Error('Failed to fetch webhooks');
       const webhooks: Webhook[] = await res.json();
       set({ webhooks });
@@ -486,7 +489,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   createWebhook: async (data) => {
     try {
-      const res = await fetch('/api/webhooks', {
+      const res = await fetch(api('/api/webhooks'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -505,7 +508,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateWebhook: async (id, data) => {
     try {
-      const res = await fetch(`/api/webhooks/${id}`, {
+      const res = await fetch(api(`/api/webhooks/${id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -523,7 +526,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   deleteWebhook: async (id) => {
     try {
-      const res = await fetch(`/api/webhooks/${id}`, { method: 'DELETE' });
+      const res = await fetch(api(`/api/webhooks/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete webhook');
       set((state) => ({
         webhooks: state.webhooks.filter((w) => w.id !== id),
@@ -535,7 +538,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   testWebhook: async (id) => {
     try {
-      const res = await fetch(`/api/webhooks/${id}/test`, { method: 'POST' });
+      const res = await fetch(api(`/api/webhooks/${id}/test`), { method: 'POST' });
       if (!res.ok) throw new Error('Failed to test webhook');
       return await res.json();
     } catch (error) {
@@ -546,7 +549,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchWebhookDeliveries: async (id) => {
     try {
-      const res = await fetch(`/api/webhooks/${id}/deliveries`);
+      const res = await fetch(api(`/api/webhooks/${id}/deliveries`));
       if (!res.ok) throw new Error('Failed to fetch deliveries');
       return await res.json();
     } catch (error) {
