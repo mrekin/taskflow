@@ -14,6 +14,15 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_BASE_PATH: basePath,
   },
+  async rewrites() {
+    if (!basePath) return [];
+    return [
+      {
+        source: `${basePath}/callback/:path*`,
+        destination: `${basePath}/api/auth/callback/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

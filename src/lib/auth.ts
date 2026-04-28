@@ -40,7 +40,6 @@ const oidcClientId = process.env.OIDC_CLIENT_ID;
 const oidcClientSecret = process.env.OIDC_CLIENT_SECRET;
 
 if (oidcIssuer && oidcClientId && oidcClientSecret) {
-  const nextauthUrl = process.env.NEXTAUTH_URL || "";
   providers.push({
     id: "oidc",
     name: "OIDC Provider",
@@ -52,7 +51,6 @@ if (oidcIssuer && oidcClientId && oidcClientSecret) {
     authorization: {
       params: {
         scope: "openid email profile",
-        redirect_uri: `${nextauthUrl}/api/auth/callback/oidc`,
       },
     },
     idToken: true,
