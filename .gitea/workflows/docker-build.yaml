@@ -21,7 +21,7 @@ on:
         type: string
 
 env:
-  REGISTRY: git.${{ gitea.server_url || gitea.server }}
+  REGISTRY: ${{ gitea.server }}
   IMAGE_NAME: ${{ gitea.repository }}
 
 jobs:
@@ -41,7 +41,7 @@ jobs:
         run: |
           if [ "${{ gitea.event_name }}" = "push" ]; then
             # Release tag (e.g. v1.2.3) — strip the 'v' prefix
-            TAG="${GITHUB_REF#refs/tags/v}"
+            TAG="${GITEA_REF#refs/tags/v}"
             echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
             echo "base_path=" >> "$GITHUB_OUTPUT"
           else
@@ -74,7 +74,7 @@ jobs:
           echo "image=${{ env.REGISTRY }}/${REPO_LOWER}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
@@ -82,5 +82,3 @@ jobs:
             ${{ steps.repo.outputs.image }}:${{ steps.meta.outputs.tag }}
           build-args: |
             NEXT_BASE_PATH=${{ steps.meta.outputs.base_path }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
