@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAppStore } from '@/store/app-store';
 import { useTheme } from 'next-themes';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import {
   Sidebar,
   SidebarContent,
@@ -37,6 +38,8 @@ import {
   Plus,
   ChevronRight,
   Settings,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
 import { CreateAreaDialog } from '@/components/create-area-dialog';
 import { CreateProjectDialog } from '@/components/create-project-dialog';
@@ -54,6 +57,7 @@ export function SidebarNav() {
   } = useAppStore();
 
   const { theme, setTheme } = useTheme();
+  const { data: session } = useSession();
   const [createAreaOpen, setCreateAreaOpen] = useState(false);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [expandedAreas, setExpandedAreas] = useState<Set<string>>(new Set());
@@ -284,14 +288,28 @@ export function SidebarNav() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="User">
-              <Avatar className="size-5">
-                <AvatarFallback className="bg-primary/10 text-[10px] text-primary">
-                  D
-                </AvatarFallback>
-              </Avatar>
-              <span>Demo User</span>
-            </SidebarMenuButton>
+            {session?.user ? (
+              <SidebarMenuButton
+                tooltip="Sign Out"
+                onClick={() => signOut()}
+              >
+                <Avatar className="size-5">
+                  <AvatarFallback className="bg-primary/10 text-[10px] text-primary">
+                    {session.user.name?.[0]?.toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="truncate">{session.user.name || session.user.email}</span>
+                <LogOut className="ml-auto size-4 text-muted-foreground" />
+              </SidebarMenuButton>
+            ) : (
+              <SidebarMenuButton
+                tooltip="Sign In"
+                onClick={() => signIn('oidc')}
+              >
+                <LogIn className="size-4" />
+                <span>Sign In</span>
+              </SidebarMenuButton>
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
