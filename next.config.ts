@@ -18,8 +18,8 @@ const nextConfig: NextConfig = {
     if (!basePath) return [];
     return [
       {
-        source: `${basePath}/callback/:path*`,
-        destination: `${basePath}/api/auth/callback/:path*`,
+        source: "/callback/:path*",
+        destination: "/api/auth/callback/:path*",
       },
     ];
   },
