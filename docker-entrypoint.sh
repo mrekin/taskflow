@@ -43,7 +43,7 @@ fi
 #   - Existing DB with current schema: no-op (idempotent)
 #   - Existing DB with older schema (new columns added): adds missing columns
 #   - Existing DB with incompatible changes: will error with clear message
-npx prisma db push --skip-generate 2>&1 || {
+npx prisma db push 2>&1 || {
   echo ""
   echo "⚠ WARNING: Schema sync encountered an issue."
   echo "If you have an existing database with an incompatible schema, you may need to:"
