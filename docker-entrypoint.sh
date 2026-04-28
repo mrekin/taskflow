@@ -28,6 +28,22 @@ esac
 DB_DIR=$(dirname "$DB_PATH")
 mkdir -p "$DB_DIR"
 
+# Check writability of database directory
+echo "Database directory: $DB_DIR (owner: $(ls -ld "$DB_DIR" | awk '{print $3":"$4}'), permissions: $(ls -ld "$DB_DIR" | awk '{print $1}'))"
+if ! touch "$DB_DIR/.write_test" 2>/dev/null; then
+  echo ""
+  echo "⚠ ERROR: Cannot write to $DB_DIR"
+  echo "Current user: $(id)"
+  echo ""
+  echo "If using a Docker bind mount (volumes: ./taskflow-data:/app/db),"
+  echo "fix permissions on the HOST before starting the container:"
+  echo "  chown -R 1001:1001 ./taskflow-data"
+  echo ""
+  echo "Starting the app anyway — database will NOT work."
+  exec node server.js
+fi
+rm -f "$DB_DIR/.write_test"
+
 # Check if database file exists
 if [ -f "$DB_PATH" ]; then
   echo "Database file found: $DB_PATH"
@@ -38,19 +54,9 @@ else
 fi
 
 # Run prisma db push to create/migrate the schema
-# This is safe and non-destructive:
-#   - Fresh DB: creates all tables from current schema
-#   - Existing DB with current schema: no-op (idempotent)
-#   - Existing DB with older schema (new columns added): adds missing columns
-#   - Existing DB with incompatible changes: will error with clear message
 npx prisma db push 2>&1 || {
   echo ""
   echo "⚠ WARNING: Schema sync encountered an issue."
-  echo "If you have an existing database with an incompatible schema, you may need to:"
-  echo "  1. Back up your data"
-  echo "  2. Delete the database file and restart (it will be recreated)"
-  echo "  3. Or manually adjust the schema"
-  echo ""
   echo "Starting the app anyway — some features may not work correctly."
 }
 

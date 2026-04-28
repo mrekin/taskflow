@@ -10,9 +10,10 @@ WORKDIR /app
 # Install bun
 RUN npm install -g bun
 
-# Copy package files
+# Copy package files and prisma config
 COPY package.json bun.lock ./
 COPY prisma ./prisma/
+COPY prisma.config.ts ./
 
 # Install dependencies
 RUN bun install --frozen-lockfile
@@ -49,7 +50,7 @@ ENV NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-me-in-production}
 ENV DATABASE_URL=${DATABASE_URL:-file:./db/taskflow.db}
 
 # Install prisma CLI for db push at runtime (schema migration)
-RUN npm install -g prisma
+RUN npm install -g prisma@7
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \
@@ -60,10 +61,11 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Copy Prisma files (schema + client + engine)
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+# Copy Prisma files (schema + config + generated client)
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 # Create data directory for SQLite
 RUN mkdir -p /app/db && chown taskflow:nodejs /app/db
