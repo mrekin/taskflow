@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  taskflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Set subpath if deploying behind a proxy (e.g., "/app")
+        NEXT_BASE_PATH: ""
+    container_name: taskflow
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/db/taskflow.db
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=change-me-in-production-use-openssl-rand-base64-32
+      # OIDC Configuration (optional - uncomment and configure)
+      # - OIDC_ISSUER=https://your-keycloak.com/realms/your-realm
+      # - OIDC_CLIENT_ID=taskflow
+      # - OIDC_CLIENT_SECRET=your-client-secret
+    volumes:
+      - ./taskflow-data:/app/db
+
+volumes:
+  taskflow-data:

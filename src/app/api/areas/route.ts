@@ -1,0 +1,73 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { parseJsonFields } from "@/lib/api-utils";
+import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+
+// GET /api/areas - List all areas with project counts
+export async function GET() {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return NextResponse.json([]);
+
+    const areas = await db.area.findMany({
+      where: { ownerId: userId },
+      orderBy: { sortOrder: "asc" },
+      include: {
+        _count: { select: { projects: true } },
+      },
+    });
+
+    const result = areas.map((area) => ({
+      ...parseJsonFields(area),
+      _count: { projects: area._count.projects },
+    }));
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Failed to fetch areas:", error);
+    return NextResponse.json({ error: "Failed to fetch areas" }, { status: 500 });
+  }
+}
+
+// POST /api/areas - Create new area
+export async function POST(request: NextRequest) {
+  try {
+    const authResult = await requireAuth();
+    if ("error" in authResult) return authResult.error;
+    const { userId } = authResult;
+
+    const body = await request.json();
+    const { name, description, color, icon, metadata, tagIds } = body;
+
+    if (!name || typeof name !== "string" || name.trim() === "") {
+      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    }
+
+    const maxSortArea = await db.area.findFirst({
+      where: { ownerId: userId },
+      orderBy: { sortOrder: "desc" },
+      select: { sortOrder: true },
+    });
+
+    const area = await db.area.create({
+      data: {
+        name: name.trim(),
+        description: description ?? null,
+        color: color ?? "#6366f1",
+        icon: icon ?? null,
+        metadata: metadata ? JSON.stringify(metadata) : "{}",
+        tagIds: tagIds ? JSON.stringify(tagIds) : "[]",
+        ownerId: userId,
+        sortOrder: (maxSortArea?.sortOrder ?? -1) + 1,
+      },
+    });
+
+    return NextResponse.json(
+      { ...parseJsonFields(area), _count: { projects: 0 } },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Failed to create area:", error);
+    return NextResponse.json({ error: "Failed to create area" }, { status: 500 });
+  }
+}
