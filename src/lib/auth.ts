@@ -35,12 +35,12 @@ const providers: NextAuthOptions["providers"] = [
 
 // Conditionally add OIDC provider if env vars are configured
 // Uses a custom OAuth provider configuration for generic OIDC
-const oidcIssuer = process.env.OIDC_ISSUER;
+const oidcIssuer = process.env.OIDC_ISSUER?.replace(/\/+$/, '');
 const oidcClientId = process.env.OIDC_CLIENT_ID;
 const oidcClientSecret = process.env.OIDC_CLIENT_SECRET;
 
 if (oidcIssuer && oidcClientId && oidcClientSecret) {
-  // Dynamic import for OIDC - using inline OAuth config
+  const nextauthUrl = process.env.NEXTAUTH_URL || "";
   providers.push({
     id: "oidc",
     name: "OIDC Provider",
@@ -49,7 +49,12 @@ if (oidcIssuer && oidcClientId && oidcClientSecret) {
     clientId: oidcClientId,
     clientSecret: oidcClientSecret,
     wellKnown: `${oidcIssuer}/.well-known/openid-configuration`,
-    authorization: { params: { scope: "openid email profile" } },
+    authorization: {
+      params: {
+        scope: "openid email profile",
+        redirect_uri: `${nextauthUrl}/api/auth/callback/oidc`,
+      },
+    },
     idToken: true,
     checks: ["pkce", "state"],
     profile(profile) {
