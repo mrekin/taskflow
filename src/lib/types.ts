@@ -6,6 +6,8 @@ export interface Area {
   icon: string | null;
   metadata: Record<string, unknown>;
   tagIds: string[];
+  shortIdNum: number;
+  shortId: string;
   ownerId: string;
   sortOrder: number;
   createdAt: string;
@@ -23,6 +25,8 @@ export interface Project {
   status: string;
   metadata: Record<string, unknown>;
   tagIds: string[];
+  shortIdNum: number;
+  shortId: string;
   areaId: string | null;
   ownerId: string;
   sortOrder: number;
@@ -31,7 +35,7 @@ export interface Project {
   area?: Area;
   tasks?: Task[];
   notes?: Note[];
-  _count?: { tasks: number; notes: number };
+  _count?: { tasks: number; topLevelTasks: number; notes: number };
 }
 
 export interface Task {
@@ -46,6 +50,8 @@ export interface Task {
   parentId: string | null;
   metadata: Record<string, unknown>;
   tagIds: string[];
+  shortIdNum: number;
+  shortId: string;
   sortOrder: number;
   ownerId: string;
   createdAt: string;
@@ -76,6 +82,34 @@ export interface Tag {
   updatedAt: string;
 }
 
+export interface Webhook {
+  id: string;
+  name: string;
+  url: string;
+  method: string;
+  events: string[];
+  scopeType: string | null;
+  scopeId: string | null;
+  headers: Record<string, string>;
+  bodyTemplate: string | null;
+  active: boolean;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { deliveries: number };
+}
+
+export interface WebhookDelivery {
+  id: string;
+  webhookId: string;
+  event: string;
+  payload: string;
+  statusCode: number | null;
+  response: string | null;
+  success: boolean;
+  createdAt: string;
+}
+
 export interface Note {
   id: string;
   title: string;
@@ -83,6 +117,8 @@ export interface Note {
   projectId: string | null;
   metadata: Record<string, unknown>;
   tagIds: string[];
+  shortIdNum: number;
+  shortId: string;
   ownerId: string;
   sortOrder: number;
   createdAt: string;

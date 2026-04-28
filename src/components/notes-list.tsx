@@ -384,7 +384,7 @@ export function NotesList() {
                           <h3 className="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-primary transition-colors">
                             {note.title}
                           </h3>
-                          <EntityIdBadge id={note.id} type="note" className="mt-1" />
+                          <EntityIdBadge id={note.id} shortId={note.shortId || 'N-?'} type="note" className="mt-1" />
                         </div>
                         <Button
                           variant="ghost"

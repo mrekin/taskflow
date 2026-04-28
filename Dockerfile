@@ -1,5 +1,6 @@
 # TaskFlow - Multi-stage Docker build
 # Supports subpath deployment via NEXT_BASE_PATH env var
+# Auto-creates and migrates database on startup
 
 # Stage 1: Dependencies
 FROM node:22-alpine AS deps
@@ -47,6 +48,9 @@ ENV NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
 ENV NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-me-in-production}
 ENV DATABASE_URL=${DATABASE_URL:-file:./db/taskflow.db}
 
+# Install prisma CLI for db push at runtime (schema migration)
+RUN npm install -g prisma
+
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 taskflow
@@ -56,7 +60,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Copy Prisma files
+# Copy Prisma files (schema + client + engine)
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/prisma ./prisma
@@ -64,8 +68,9 @@ COPY --from=builder /app/prisma ./prisma
 # Create data directory for SQLite
 RUN mkdir -p /app/db && chown taskflow:nodejs /app/db
 
-# Copy initial DB if exists
-COPY --from=builder /app/db ./db
+# Copy entrypoint script
+COPY --chown=taskflow:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
 
 USER taskflow
 
@@ -74,4 +79,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

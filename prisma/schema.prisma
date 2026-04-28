@@ -28,6 +28,7 @@ model User {
   assignedTasks Task[]    @relation("TaskAssignee")
   comments      Comment[]
   tags          Tag[]
+  webhooks      Webhook[]
 }
 
 model Area {
@@ -38,6 +39,7 @@ model Area {
   icon        String?
   metadata    String   @default("{}")
   tagIds      String   @default("[]")
+  shortIdNum  Int      @default(0)
   ownerId     String
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
@@ -56,6 +58,7 @@ model Project {
   status      String   @default("active")
   metadata    String   @default("{}")
   tagIds      String   @default("[]")
+  shortIdNum  Int      @default(0)
   areaId      String?
   ownerId     String
   sortOrder   Int      @default(0)
@@ -80,6 +83,7 @@ model Task {
   parentId    String?
   metadata    String    @default("{}")
   tagIds      String    @default("[]")
+  shortIdNum  Int       @default(0)
   sortOrder   Int       @default(0)
   ownerId     String
   createdAt   DateTime  @default(now())
@@ -100,6 +104,7 @@ model Note {
   projectId   String?
   metadata    String   @default("{}")
   tagIds      String   @default("[]")
+  shortIdNum  Int      @default(0)
   ownerId     String
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
@@ -132,4 +137,36 @@ model Tag {
   owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@unique([name, ownerId])
+}
+
+model Webhook {
+  id          String   @id @default(cuid())
+  name        String
+  url         String
+  method      String   @default("POST")
+  events      String   @default("[]")
+  scopeType   String?
+  scopeId     String?
+  headers     String   @default("{}")
+  bodyTemplate String?
+  active      Boolean  @default(true)
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner    User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id         String   @id @default(cuid())
+  webhookId  String
+  event      String
+  payload    String   @default("{}")
+  statusCode Int?
+  response   String?
+  success    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
 }

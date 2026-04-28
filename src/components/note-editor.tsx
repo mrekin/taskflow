@@ -506,7 +506,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
               {/* Title area */}
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-                <EntityIdBadge id={note.id} type="note" />
+                <EntityIdBadge id={note.id} shortId={note.shortId || 'N-?'} type="note" />
               </div>
 
               {/* Meta row: project, tags, date */}

@@ -163,7 +163,7 @@ export function ProjectDetail() {
     );
   }
 
-  const taskCount = tasks.filter((t) => t.projectId === selectedProjectId).length;
+  const taskCount = tasks.filter((t) => t.projectId === selectedProjectId && !t.parentId).length;
 
   return (
     <div className="space-y-4">
@@ -197,7 +197,7 @@ export function ProjectDetail() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold">{project.name}</h1>
-              <EntityIdBadge id={project.id} type="project" />
+              <EntityIdBadge id={project.id} shortId={project.shortId || 'P-?'} type="project" />
             </div>
             {project.description && (
               <p className="text-sm text-muted-foreground mt-1">{project.description}</p>
@@ -237,7 +237,7 @@ export function ProjectDetail() {
         <Card className="py-3">
           <CardContent className="text-center px-4 py-0">
             <div className="text-2xl font-bold">
-              {tasks.filter((t) => t.projectId === selectedProjectId && t.status === 'done').length}
+              {tasks.filter((t) => t.projectId === selectedProjectId && !t.parentId && t.status === 'done').length}
             </div>
             <div className="text-xs text-muted-foreground">Completed</div>
           </CardContent>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { parseJsonFields } from "@/lib/api-utils";
+import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
 
 // GET /api/notes - List notes with optional project filter
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const result = notes.map((note) => parseJsonFields(note));
+    const result = notes.map((note) => parseJsonFields(note, "note"));
 
     return NextResponse.json(result);
   } catch (error) {
@@ -52,6 +52,8 @@ export async function POST(request: NextRequest) {
       select: { sortOrder: true },
     });
 
+    const shortIdNum = await getNextShortIdNum(db.note, userId);
+
     const note = await db.note.create({
       data: {
         title: title.trim(),
@@ -59,6 +61,7 @@ export async function POST(request: NextRequest) {
         projectId: projectId ?? null,
         metadata: metadata ? JSON.stringify(metadata) : "{}",
         tagIds: tagIds ? JSON.stringify(tagIds) : "[]",
+        shortIdNum,
         ownerId: userId,
         sortOrder: (maxSortNote?.sortOrder ?? -1) + 1,
       },
@@ -67,7 +70,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(parseJsonFields(note), { status: 201 });
+    return NextResponse.json(parseJsonFields(note, "note"), { status: 201 });
   } catch (error) {
     console.error("Failed to create note:", error);
     return NextResponse.json({ error: "Failed to create note" }, { status: 500 });

@@ -5,7 +5,6 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Separator } from '@/components/ui/separator';
 import { useAppStore } from '@/store/app-store';
-import { shortId } from '@/lib/utils';
 
 interface MarkdownRendererProps {
   content: string;
@@ -13,79 +12,64 @@ interface MarkdownRendererProps {
   compact?: boolean;
 }
 
-// Entity reference patterns: #T-id, #P-id, #N-id, #A-id
-const ENTITY_REF_REGEX = /^#([TPNA])-([a-z0-9]+)$/i;
+// Entity reference pattern: #T-7, #P-3, #N-258, #A-2
+const ENTITY_REF_REGEX = /#([TPNA])-(\d+)/gi;
 
-function EntityReferenceLink({ type, id }: { type: string; id: string }) {
+function EntityReferenceLink({ type, num }: { type: string; num: number }) {
   const { tasks, projects, notes, areas, selectTask, selectNote, selectProject, selectArea, setCurrentView, fetchTasks, fetchNotes } = useAppStore();
 
-  const entityTypeMap: Record<string, string> = { T: 'task', P: 'project', N: 'note', A: 'area' };
-  const entityPrefixMap: Record<string, string> = { T: 'T', P: 'P', N: 'N', A: 'A' };
+  const upperType = type.toUpperCase();
 
-  // Try to find the entity name from store data
+  // Find entity by shortIdNum
+  let entityId: string | null = null;
   let entityName: string | null = null;
 
-  if (type === 'T' || type === 't') {
-    const task = tasks.find((t) => t.id.startsWith(id));
-    if (task) entityName = task.title;
-  } else if (type === 'P' || type === 'p') {
-    const project = projects.find((p) => p.id.startsWith(id));
-    if (project) entityName = project.name;
-  } else if (type === 'N' || type === 'n') {
-    const note = notes.find((n) => n.id.startsWith(id));
-    if (note) entityName = note.title;
-  } else if (type === 'A' || type === 'a') {
-    const area = areas.find((a) => a.id.startsWith(id));
-    if (area) entityName = area.name;
+  if (upperType === 'T') {
+    const task = tasks.find((t) => t.shortIdNum === num);
+    if (task) { entityId = task.id; entityName = task.title; }
+  } else if (upperType === 'P') {
+    const project = projects.find((p) => p.shortIdNum === num);
+    if (project) { entityId = project.id; entityName = project.name; }
+  } else if (upperType === 'N') {
+    const note = notes.find((n) => n.shortIdNum === num);
+    if (note) { entityId = note.id; entityName = note.title; }
+  } else if (upperType === 'A') {
+    const area = areas.find((a) => a.shortIdNum === num);
+    if (area) { entityId = area.id; entityName = area.name; }
   }
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
-    const upperType = type.toUpperCase();
+    if (!entityId) return;
 
     if (upperType === 'T') {
-      // Find full task ID from partial
-      const task = tasks.find((t) => t.id.startsWith(id));
-      if (task) selectTask(task.id);
+      selectTask(entityId);
     } else if (upperType === 'P') {
-      const project = projects.find((p) => p.id.startsWith(id));
-      if (project) {
-        selectProject(project.id);
-        setCurrentView('projects');
-        fetchTasks(project.id);
-        fetchNotes(project.id);
-      }
+      selectProject(entityId);
+      setCurrentView('projects');
+      fetchTasks(entityId);
+      fetchNotes(entityId);
     } else if (upperType === 'N') {
-      const note = notes.find((n) => n.id.startsWith(id));
-      if (note) {
-        selectNote(note.id);
-        setCurrentView('note-editor');
-      }
+      selectNote(entityId);
+      setCurrentView('note-editor');
     } else if (upperType === 'A') {
-      const area = areas.find((a) => a.id.startsWith(id));
-      if (area) {
-        selectArea(area.id);
-        setCurrentView('areas');
-      }
+      selectArea(entityId);
+      setCurrentView('areas');
     }
   };
 
-  const prefix = entityPrefixMap[type.toUpperCase()] || type.toUpperCase();
-  const displayName = entityName
-    ? `${prefix}: ${entityName}`
-    : `${prefix}-${id}`;
+  const displayId = `${upperType}-${num}`;
 
   return (
     <button
       type="button"
       onClick={handleClick}
       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-mono hover:bg-primary/20 transition-colors cursor-pointer border border-primary/20"
-      title={`Open ${entityTypeMap[type.toUpperCase()] || 'entity'} ${id}`}
+      title={entityName ? `Open ${displayId}: ${entityName}` : `Open ${displayId}`}
     >
-      <span className="font-semibold">{prefix}</span>
-      <span className="opacity-60">{entityName ? `"${entityName}"` : id}</span>
+      <span className="font-semibold">{displayId}</span>
+      {entityName && <span className="opacity-70 max-w-[120px] truncate">"{entityName}"</span>}
     </button>
   );
 }
@@ -95,11 +79,11 @@ export function MarkdownRenderer({ content, className = '', compact = false }: M
     return <span className="text-muted-foreground text-xs">No content</span>;
   }
 
-  // Pre-process content to convert entity references into a special format
-  // that ReactMarkdown won't swallow. We'll convert #T-abc123 into [#T-abc123](entity:T:abc123)
+  // Pre-process content to convert entity references into markdown links
+  // #T-7 → [#T-7](entity:T:7)
   const processedContent = content.replace(
-    /#([TPNA])-([a-z0-9]+)/gi,
-    (_match, type, id) => `[#${type}-${id}](entity:${type.toUpperCase()}:${id})`
+    ENTITY_REF_REGEX,
+    (_match, type, num) => `[#${type}-${num}](entity:${type.toUpperCase()}:${num})`
   );
 
   const proseSize = compact ? 'prose-xs' : 'prose-sm';
@@ -150,7 +134,7 @@ export function MarkdownRenderer({ content, className = '', compact = false }: M
           },
           h2({ children }) {
             return compact ? (
-              <p className="font-bold text-sm m-0">{children}</p>
+              <p className="bold text-sm m-0">{children}</p>
             ) : (
               <h2 className="text-xl">{children}</h2>
             );
@@ -172,8 +156,12 @@ export function MarkdownRenderer({ content, className = '', compact = false }: M
           a({ children, href }) {
             // Handle entity references
             if (href?.startsWith('entity:')) {
-              const [, type, id] = href.split(':');
-              return <EntityReferenceLink type={type} id={id} />;
+              const parts = href.split(':');
+              const type = parts[1];
+              const num = parseInt(parts[2], 10);
+              if (type && !isNaN(num)) {
+                return <EntityReferenceLink type={type} num={num} />;
+              }
             }
             return (
               <a

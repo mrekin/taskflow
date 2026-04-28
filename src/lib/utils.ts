@@ -6,7 +6,29 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Get a short display ID from a CUID.
+ * Entity type prefix for mentions and links
+ */
+export type EntityType = 'task' | 'project' | 'note' | 'area';
+
+/**
+ * Short ID prefix map - maps entity type to display prefix
+ */
+export const SHORT_ID_PREFIX: Record<EntityType, string> = {
+  task: 'T',
+  project: 'P',
+  note: 'N',
+  area: 'A',
+};
+
+/**
+ * Format a short ID for display (e.g., "T-7", "P-3")
+ */
+export function formatShortId(type: EntityType, shortIdNum: number): string {
+  return `${SHORT_ID_PREFIX[type]}-${shortIdNum}`;
+}
+
+/**
+ * Get a short display ID from a CUID (legacy).
  * Shows first 8 characters for readability while remaining unique enough.
  */
 export function shortId(id: string): string {
@@ -14,25 +36,34 @@ export function shortId(id: string): string {
 }
 
 /**
- * Entity type prefix for mentions and links
- */
-export type EntityType = 'task' | 'project' | 'note' | 'area';
-
-/**
  * Build a direct link URL for an entity.
- * Uses query parameters since we only have a single page route.
+ * Uses shortId format (e.g., ?task=T-7, ?project=P-3) for human-readable URLs.
  */
-export function getEntityLink(type: EntityType, id: string): string {
+export function getEntityLink(type: EntityType, shortId: string): string {
   const base = window.location.pathname;
-  return `${base}?${type}=${id}`;
+  return `${base}?${type}=${shortId}`;
 }
 
 /**
- * Parse an entity reference from text like #T-abc12345 or #TASK-abc12345
- * Returns { type, id } or null if not a valid reference.
+ * Check if a string looks like a shortId (e.g., "T-7", "P-3", "N-12", "A-2")
  */
-export function parseEntityReference(text: string): { type: EntityType; id: string } | null {
-  const match = text.match(/^#(?:([TPNA])|task|project|note|area)-([a-z0-9]+)$/i);
+export function isShortId(value: string): boolean {
+  return /^[TPNA]-\d+$/i.test(value);
+}
+
+/**
+ * Find an entity in a list by shortId (e.g., "T-7", "P-3")
+ */
+export function findByShortId<T extends { shortId?: string }>(list: T[], shortId: string): T | undefined {
+  return list.find((item) => item.shortId === shortId);
+}
+
+/**
+ * Parse an entity reference from text like #T-7, #P-3, #N-12, #A-2
+ * Returns { type, shortIdNum } or null if not a valid reference.
+ */
+export function parseEntityReference(text: string): { type: EntityType; shortIdNum: number } | null {
+  const match = text.match(/^#([TPNA])-(\d+)$/i);
   if (!match) return null;
 
   const prefixMap: Record<string, EntityType> = {
@@ -41,30 +72,17 @@ export function parseEntityReference(text: string): { type: EntityType; id: stri
     N: 'note',
     A: 'area',
   };
-
-  const type = match[1]
-    ? prefixMap[match[1].toUpperCase()]
-    : text.toLowerCase().startsWith('#task') ? 'task'
-    : text.toLowerCase().startsWith('#project') ? 'project'
-    : text.toLowerCase().startsWith('#note') ? 'note'
-    : 'area';
-
+  const type = prefixMap[match[1].toUpperCase()];
   if (!type) return null;
-  return { type, id: match[2] };
+  return { type, shortIdNum: parseInt(match[2], 10) };
 }
 
 /**
  * Format an entity reference for display in markdown.
- * Usage: #T-cuid or #TASK-cuid
+ * Usage: #T-7, #P-3, #N-12, #A-2
  */
-export function formatEntityRef(type: EntityType, id: string): string {
-  const prefixMap: Record<EntityType, string> = {
-    task: 'T',
-    project: 'P',
-    note: 'N',
-    area: 'A',
-  };
-  return `#${prefixMap[type]}-${shortId(id)}`;
+export function formatEntityRef(type: EntityType, shortIdNum: number): string {
+  return `#${SHORT_ID_PREFIX[type]}-${shortIdNum}`;
 }
 
 /**

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { parseJsonFields } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+import { fireWebhookEvent, buildTaskContext, resolveTaskAreaId, computeChanges } from "@/lib/webhook-engine";
 
 // GET /api/tasks/[id] - Get single task with subtasks and comments
 export async function GET(
@@ -20,7 +21,7 @@ export async function GET(
           orderBy: { sortOrder: "asc" },
           include: {
             _count: { select: { subtasks: true } },
-            subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true } },
+            subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true } },
             assignee: { select: { id: true, name: true, email: true, image: true } },
           },
         },
@@ -40,16 +41,20 @@ export async function GET(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
+    const { subtasks, comments, ...rest } = task;
     const result = {
-      ...parseJsonFields(task),
-      _count: { subtasks: task.subtasks.length },
-      completedSubtasks: task.subtasks.filter((s) => s.status === "done").length,
-      subtasks: task.subtasks.map((sub) => ({
-        ...parseJsonFields(sub),
-        _count: { subtasks: sub._count.subtasks },
-        completedSubtasks: sub.subtasks.filter((s) => s.status === "done").length,
-      })),
-      comments: task.comments,
+      ...parseJsonFields(rest, "task"),
+      _count: { subtasks: subtasks.length },
+      completedSubtasks: subtasks.filter((s) => s.status === "done").length,
+      subtasks: subtasks.map((sub) => {
+        const { subtasks: _, ...subRest } = sub;
+        return {
+          ...parseJsonFields(subRest, "task"),
+          _count: { subtasks: sub._count.subtasks },
+          completedSubtasks: sub.subtasks.filter((s) => s.status === "done").length,
+        };
+      }),
+      comments,
     };
 
     return NextResponse.json(result);
@@ -108,17 +113,52 @@ export async function PUT(
       data: updateData,
       include: {
         assignee: { select: { id: true, name: true, email: true, image: true } },
-        project: { select: { id: true, name: true, color: true } },
+        project: { select: { id: true, name: true, color: true, areaId: true } },
         parent: { select: { id: true, title: true } },
         _count: { select: { subtasks: true } },
-        subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true } },
+        subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true } },
       },
     });
 
+    // Fire webhook events if relevant fields changed
+    try {
+      const changes = computeChanges(
+        existing as unknown as Record<string, unknown>,
+        updateData,
+        ['status', 'dueDate']
+      );
+
+      if (Object.keys(changes).length > 0) {
+        const areaId = task.project?.areaId ?? await resolveTaskAreaId(task.projectId);
+
+        if (changes.status) {
+          await fireWebhookEvent(buildTaskContext(
+            { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: task.ownerId },
+            'task.status_changed',
+            changes,
+            areaId
+          ));
+        }
+
+        if (changes.dueDate) {
+          await fireWebhookEvent(buildTaskContext(
+            { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: task.ownerId },
+            'task.due_date_reached',
+            changes,
+            areaId
+          ));
+        }
+      }
+    } catch (webhookError) {
+      console.error('[Webhook] Error in task update webhook:', webhookError);
+      // Don't fail the request if webhook fails
+    }
+
+    const { subtasks, ...rest } = task;
     return NextResponse.json({
-      ...parseJsonFields(task),
+      ...parseJsonFields(rest, "task"),
       _count: { subtasks: task._count.subtasks },
-      completedSubtasks: task.subtasks.filter((s) => s.status === "done").length,
+      completedSubtasks: subtasks.filter((s) => s.status === "done").length,
     });
   } catch (error) {
     console.error("Failed to update task:", error);

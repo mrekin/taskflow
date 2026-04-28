@@ -390,7 +390,7 @@ export function TaskList() {
                         >
                           {task.title}
                         </span>
-                        <EntityIdBadge id={task.id} type="task" />
+                        <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" />
                       </div>
                       {task.tagIds && task.tagIds.length > 0 && (
                         <div className="mt-0.5">

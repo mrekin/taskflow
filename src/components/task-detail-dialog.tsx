@@ -236,7 +236,7 @@ export function TaskDetailDialog() {
                     <SheetTitle className="text-lg truncate">
                       {task.parentId ? 'Subtask Details' : isEditing ? 'Edit Task' : 'Task Details'}
                     </SheetTitle>
-                    <EntityIdBadge id={task.id} type="task" />
+                    <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" />
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {!isEditing ? (

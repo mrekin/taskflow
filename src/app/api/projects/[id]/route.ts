@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { parseJsonFields } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+import { fireWebhookEvent, buildProjectContext, computeChanges } from "@/lib/webhook-engine";
 
 // GET /api/projects/[id] - Get single project with tasks and notes
 export async function GET(
@@ -20,7 +21,7 @@ export async function GET(
           orderBy: { sortOrder: "asc" },
           include: {
             _count: { select: { subtasks: true } },
-            subtasks: { select: { id: true, status: true } },
+            subtasks: { select: { id: true, title: true, status: true, shortIdNum: true } },
             assignee: { select: { id: true, name: true, email: true, image: true } },
           },
         },
@@ -35,15 +36,19 @@ export async function GET(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
+    const { tasks, notes, ...rest } = project;
     const result = {
-      ...parseJsonFields(project),
-      _count: { tasks: project.tasks.length, notes: project.notes.length },
-      tasks: project.tasks.map((task) => ({
-        ...parseJsonFields(task),
-        _count: { subtasks: task._count.subtasks },
-        completedSubtasks: task.subtasks.filter((s) => s.status === "done").length,
-      })),
-      notes: project.notes.map((note) => parseJsonFields(note)),
+      ...parseJsonFields(rest, "project"),
+      _count: { tasks: tasks.length, notes: notes.length },
+      tasks: tasks.map((task) => {
+        const { subtasks, ...taskRest } = task;
+        return {
+          ...parseJsonFields(taskRest, "task"),
+          _count: { subtasks: task._count.subtasks },
+          completedSubtasks: subtasks.filter((s) => s.status === "done").length,
+        };
+      }),
+      notes: notes.map((note) => parseJsonFields(note, "note")),
     };
 
     return NextResponse.json(result);
@@ -92,8 +97,28 @@ export async function PUT(
       },
     });
 
+    // Fire webhook events if status changed
+    try {
+      const changes = computeChanges(
+        existing as unknown as Record<string, unknown>,
+        updateData,
+        ['status']
+      );
+
+      if (changes.status) {
+        await fireWebhookEvent(buildProjectContext(
+          { id: project.id, name: project.name, shortIdNum: project.shortIdNum, areaId: project.areaId, ownerId: project.ownerId },
+          'project.status_changed',
+          changes
+        ));
+      }
+    } catch (webhookError) {
+      console.error('[Webhook] Error in project update webhook:', webhookError);
+      // Don't fail the request if webhook fails
+    }
+
     return NextResponse.json({
-      ...parseJsonFields(project),
+      ...parseJsonFields(project, "project"),
       _count: { tasks: project._count.tasks, notes: project._count.notes },
     });
   } catch (error) {

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Area, Project, Task, Note, Comment, Tag } from '@/lib/types';
+import type { Area, Project, Task, Note, Comment, Tag, Webhook, WebhookDelivery } from '@/lib/types';
 
 type ViewType = 'areas' | 'projects' | 'tasks' | 'kanban' | 'notes' | 'note-editor' | 'settings' | 'quick-create';
 
@@ -18,6 +18,7 @@ interface AppState {
   notes: Note[];
   tags: Tag[];
   comments: Comment[];
+  webhooks: Webhook[];
 
   // UI State
   sidebarOpen: boolean;
@@ -72,6 +73,14 @@ interface AppState {
   createTag: (data: { name: string; color?: string }) => Promise<void>;
   updateTag: (id: string, data: Partial<Tag>) => Promise<void>;
   deleteTag: (id: string) => Promise<void>;
+
+  // Actions - CRUD Webhooks
+  fetchWebhooks: () => Promise<void>;
+  createWebhook: (data: Partial<Webhook>) => Promise<void>;
+  updateWebhook: (id: string, data: Partial<Webhook>) => Promise<void>;
+  deleteWebhook: (id: string) => Promise<void>;
+  testWebhook: (id: string) => Promise<{ success: boolean; statusCode: number | null; response: string | null; elapsed: number }>;
+  fetchWebhookDeliveries: (id: string) => Promise<WebhookDelivery[]>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -89,6 +98,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   notes: [],
   tags: [],
   comments: [],
+  webhooks: [],
 
   // UI initial state
   sidebarOpen: true,
@@ -459,6 +469,89 @@ export const useAppStore = create<AppState>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to delete tag:', error);
+    }
+  },
+
+  // CRUD Webhooks
+  fetchWebhooks: async () => {
+    try {
+      const res = await fetch('/api/webhooks');
+      if (!res.ok) throw new Error('Failed to fetch webhooks');
+      const webhooks: Webhook[] = await res.json();
+      set({ webhooks });
+    } catch (error) {
+      console.error('Failed to fetch webhooks:', error);
+    }
+  },
+
+  createWebhook: async (data) => {
+    try {
+      const res = await fetch('/api/webhooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to create webhook');
+      }
+      const newWebhook: Webhook = await res.json();
+      set((state) => ({ webhooks: [...state.webhooks, newWebhook] }));
+    } catch (error) {
+      console.error('Failed to create webhook:', error);
+      throw error;
+    }
+  },
+
+  updateWebhook: async (id, data) => {
+    try {
+      const res = await fetch(`/api/webhooks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to update webhook');
+      const updatedWebhook: Webhook = await res.json();
+      set((state) => ({
+        webhooks: state.webhooks.map((w) => (w.id === id ? updatedWebhook : w)),
+      }));
+    } catch (error) {
+      console.error('Failed to update webhook:', error);
+      throw error;
+    }
+  },
+
+  deleteWebhook: async (id) => {
+    try {
+      const res = await fetch(`/api/webhooks/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete webhook');
+      set((state) => ({
+        webhooks: state.webhooks.filter((w) => w.id !== id),
+      }));
+    } catch (error) {
+      console.error('Failed to delete webhook:', error);
+    }
+  },
+
+  testWebhook: async (id) => {
+    try {
+      const res = await fetch(`/api/webhooks/${id}/test`, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to test webhook');
+      return await res.json();
+    } catch (error) {
+      console.error('Failed to test webhook:', error);
+      throw error;
+    }
+  },
+
+  fetchWebhookDeliveries: async (id) => {
+    try {
+      const res = await fetch(`/api/webhooks/${id}/deliveries`);
+      if (!res.ok) throw new Error('Failed to fetch deliveries');
+      return await res.json();
+    } catch (error) {
+      console.error('Failed to fetch deliveries:', error);
+      return [];
     }
   },
 }));

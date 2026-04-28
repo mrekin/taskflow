@@ -30,10 +30,10 @@ export async function GET(
     }
 
     const result = {
-      ...parseJsonFields(area),
+      ...parseJsonFields(area, "area"),
       _count: { projects: area.projects.length },
       projects: area.projects.map((project) => ({
-        ...parseJsonFields(project),
+        ...parseJsonFields(project, "project"),
         _count: { tasks: project._count.tasks },
       })),
     };
@@ -82,7 +82,7 @@ export async function PUT(
     });
 
     return NextResponse.json({
-      ...parseJsonFields(area),
+      ...parseJsonFields(area, "area"),
       _count: { projects: area._count.projects },
     });
   } catch (error) {

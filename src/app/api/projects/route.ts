@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { parseJsonFields } from "@/lib/api-utils";
+import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+import { fireWebhookEvent, buildProjectContext } from "@/lib/webhook-engine";
 
 // GET /api/projects - List projects with task counts
 export async function GET(request: NextRequest) {
@@ -24,9 +25,28 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Also count top-level tasks (without parentId) for each project
+    const projectIds = projects.map((p) => p.id);
+    const topLevelTaskCounts = await db.task.groupBy({
+      by: ["projectId"],
+      where: {
+        ownerId: userId,
+        projectId: { in: projectIds },
+        parentId: null,
+      },
+      _count: true,
+    });
+    const topLevelMap = new Map(
+      topLevelTaskCounts.map((r) => [r.projectId, r._count])
+    );
+
     const result = projects.map((project) => ({
-      ...parseJsonFields(project),
-      _count: { tasks: project._count.tasks, notes: project._count.notes },
+      ...parseJsonFields(project, "project"),
+      _count: {
+        tasks: project._count.tasks,
+        topLevelTasks: topLevelMap.get(project.id) ?? 0,
+        notes: project._count.notes,
+      },
     }));
 
     return NextResponse.json(result);
@@ -44,7 +64,7 @@ export async function POST(request: NextRequest) {
     const { userId } = authResult;
 
     const body = await request.json();
-    const { name, description, color, icon, areaId, metadata, tagIds } = body;
+    const { name, description, color, icon, areaId, status, metadata, tagIds } = body;
 
     if (!name || typeof name !== "string" || name.trim() === "") {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -56,15 +76,19 @@ export async function POST(request: NextRequest) {
       select: { sortOrder: true },
     });
 
+    const shortIdNum = await getNextShortIdNum(db.project, userId);
+
     const project = await db.project.create({
       data: {
         name: name.trim(),
         description: description ?? null,
         color: color ?? "#8b5cf6",
         icon: icon ?? null,
+        status: status ?? "active",
         areaId: areaId ?? null,
         metadata: metadata ? JSON.stringify(metadata) : "{}",
         tagIds: tagIds ? JSON.stringify(tagIds) : "[]",
+        shortIdNum,
         ownerId: userId,
         sortOrder: (maxSortProject?.sortOrder ?? -1) + 1,
       },
@@ -73,8 +97,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Fire webhook event for project creation (non-blocking)
+    try {
+      fireWebhookEvent(buildProjectContext(
+        { id: project.id, name: project.name, shortIdNum: project.shortIdNum, areaId: project.areaId, ownerId: project.ownerId },
+        'project.created'
+      ));
+    } catch (webhookError) {
+      console.error('[Webhook] Error in project create webhook:', webhookError);
+    }
+
     return NextResponse.json(
-      { ...parseJsonFields(project), _count: { tasks: 0, notes: 0 } },
+      { ...parseJsonFields(project, "project"), _count: { tasks: 0, notes: 0 } },
       { status: 201 }
     );
   } catch (error) {

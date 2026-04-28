@@ -40,6 +40,7 @@ export function AreaDetail() {
     areas,
     selectedAreaId,
     projects,
+    tasks,
     selectArea,
     selectProject,
     setCurrentView,
@@ -130,7 +131,7 @@ export function AreaDetail() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold">{area.name}</h1>
-              <EntityIdBadge id={area.id} type="area" />
+              <EntityIdBadge id={area.id} shortId={area.shortId || 'A-?'} type="area" />
             </div>
             {area.description && (
               <p className="text-sm text-muted-foreground mt-1">{area.description}</p>
@@ -193,7 +194,7 @@ export function AreaDetail() {
                       <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                         <span className="flex items-center gap-1">
                           <FolderOpen className="size-3" />
-                          {project._count?.tasks ?? 0} tasks
+                          {project._count?.topLevelTasks ?? tasks.filter((t) => t.projectId === project.id && !t.parentId).length} tasks
                         </span>
                         {project.tagIds && project.tagIds.length > 0 && (
                           <TagBadges tagIds={project.tagIds} max={2} size="sm" />

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { parseJsonFields } from "@/lib/api-utils";
+import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+import { fireWebhookEvent, buildTaskContext, resolveTaskAreaId } from "@/lib/webhook-engine";
 
 // GET /api/tasks - List tasks with optional filters
 export async function GET(request: NextRequest) {
@@ -24,17 +25,25 @@ export async function GET(request: NextRequest) {
       orderBy: { sortOrder: "asc" },
       include: {
         _count: { select: { subtasks: true } },
-        subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true } },
+        subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true } },
         assignee: { select: { id: true, name: true, email: true, image: true } },
         project: { select: { id: true, name: true, color: true } },
       },
     });
 
-    const result = tasks.map((task) => ({
-      ...parseJsonFields(task),
-      _count: { subtasks: task._count.subtasks },
-      completedSubtasks: task.subtasks.filter((s) => s.status === "done").length,
-    }));
+    const result = tasks.map((task) => {
+      const { subtasks, ...rest } = task;
+      const parsed = parseJsonFields(rest, "task");
+      return {
+        ...parsed,
+        _count: { subtasks: task._count.subtasks },
+        completedSubtasks: subtasks.filter((s) => s.status === "done").length,
+        subtasks: subtasks.map((s) => ({
+          ...s,
+          shortId: `T-${s.shortIdNum}`,
+        })),
+      };
+    });
 
     return NextResponse.json(result);
   } catch (error) {
@@ -68,7 +77,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
     }
 
-    // Get the max sortOrder for tasks in the same project/status context
     const maxSortTask = await db.task.findFirst({
       where: {
         ownerId: userId,
@@ -78,6 +86,8 @@ export async function POST(request: NextRequest) {
       orderBy: { sortOrder: "desc" },
       select: { sortOrder: true },
     });
+
+    const shortIdNum = await getNextShortIdNum(db.task, userId);
 
     const task = await db.task.create({
       data: {
@@ -91,6 +101,7 @@ export async function POST(request: NextRequest) {
         assigneeId: assigneeId ?? null,
         metadata: metadata ? JSON.stringify(metadata) : "{}",
         tagIds: tagIds ? JSON.stringify(tagIds) : "[]",
+        shortIdNum,
         ownerId: userId,
         sortOrder: (maxSortTask?.sortOrder ?? -1) + 1,
       },
@@ -100,9 +111,22 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Fire webhook event for task creation (non-blocking)
+    try {
+      const areaId = await resolveTaskAreaId(task.projectId);
+      fireWebhookEvent(buildTaskContext(
+        { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: task.ownerId },
+        'task.created',
+        undefined,
+        areaId
+      ));
+    } catch (webhookError) {
+      console.error('[Webhook] Error in task create webhook:', webhookError);
+    }
+
     return NextResponse.json(
       {
-        ...parseJsonFields(task),
+        ...parseJsonFields(task, "task"),
         _count: { subtasks: 0 },
         completedSubtasks: 0,
       },

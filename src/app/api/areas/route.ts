@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { parseJsonFields } from "@/lib/api-utils";
+import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
 
 // GET /api/areas - List all areas with project counts
@@ -18,7 +18,7 @@ export async function GET() {
     });
 
     const result = areas.map((area) => ({
-      ...parseJsonFields(area),
+      ...parseJsonFields(area, "area"),
       _count: { projects: area._count.projects },
     }));
 
@@ -49,6 +49,8 @@ export async function POST(request: NextRequest) {
       select: { sortOrder: true },
     });
 
+    const shortIdNum = await getNextShortIdNum(db.area, userId);
+
     const area = await db.area.create({
       data: {
         name: name.trim(),
@@ -57,13 +59,14 @@ export async function POST(request: NextRequest) {
         icon: icon ?? null,
         metadata: metadata ? JSON.stringify(metadata) : "{}",
         tagIds: tagIds ? JSON.stringify(tagIds) : "[]",
+        shortIdNum,
         ownerId: userId,
         sortOrder: (maxSortArea?.sortOrder ?? -1) + 1,
       },
     });
 
     return NextResponse.json(
-      { ...parseJsonFields(area), _count: { projects: 0 } },
+      { ...parseJsonFields(area, "area"), _count: { projects: 0 } },
       { status: 201 }
     );
   } catch (error) {

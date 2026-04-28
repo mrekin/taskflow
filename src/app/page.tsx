@@ -28,7 +28,7 @@ import {
   XCircle,
 } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
+import { cn, findByShortId } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -55,6 +55,7 @@ import { NoteEditor } from '@/components/note-editor';
 import { SettingsView } from '@/components/settings-view';
 import { QuickCreate } from '@/components/quick-create';
 import { TagBadges } from '@/components/tag-badges';
+import { EntityIdBadge } from '@/components/entity-id-badge';
 import { useAppStore } from '@/store/app-store';
 import {
   STATUS_LABELS,
@@ -62,7 +63,6 @@ import {
   DEFAULT_COLORS,
   getNextColor,
 } from '@/lib/constants';
-import { shortId } from '@/lib/utils';
 import { toast } from 'sonner';
 
 // ─── Sub-Components ─────────────────────────────────────────────────────
@@ -105,7 +105,10 @@ function AllAreasView({
                   onClick={() => onAreaClick(area.id)}
                 >
                   <CardHeader className="pb-2 pt-0 px-4">
-                    <CardTitle className="text-base group-hover:text-primary transition-colors">{area.name}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base group-hover:text-primary transition-colors">{area.name}</CardTitle>
+                      <EntityIdBadge id={area.id} shortId={area.shortId || 'A-?'} type="area" />
+                    </div>
                   </CardHeader>
                   <CardContent className="px-4 pb-2">
                     {area.description && (
@@ -141,9 +144,11 @@ function AllAreasView({
 
 function AllProjectsView({
   projects,
+  tasks,
   onProjectClick,
 }: {
   projects: ReturnType<typeof useAppStore.getState>['projects'];
+  tasks: ReturnType<typeof useAppStore.getState>['tasks'];
   onProjectClick: (id: string) => void;
 }) {
   return (
@@ -171,7 +176,10 @@ function AllProjectsView({
                 >
                   <CardHeader className="pb-2 pt-0 px-4">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base group-hover:text-primary transition-colors">{project.name}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-base group-hover:text-primary transition-colors">{project.name}</CardTitle>
+                        <EntityIdBadge id={project.id} shortId={project.shortId || 'P-?'} type="project" />
+                      </div>
                       <Badge variant="outline" className="text-[10px] h-5">
                         {STATUS_LABELS[project.status] || project.status}
                       </Badge>
@@ -186,7 +194,7 @@ function AllProjectsView({
                     <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                       <span className="flex items-center gap-1">
                         <FolderOpen className="size-3" />
-                        {project._count?.tasks ?? 0} tasks
+                        {project._count?.topLevelTasks ?? tasks.filter((t) => t.projectId === project.id && !t.parentId).length} tasks
                       </span>
                       <span className="flex items-center gap-1">
                         <StickyNote className="size-3" />
@@ -318,38 +326,37 @@ function HomeContent() {
     const areaId = searchParams.get('area');
 
     if (taskId) {
-      // Verify the task belongs to current user (exists in our loaded data)
-      const task = tasks.find((t) => t.id === taskId);
+      const task = findByShortId(tasks, taskId);
       if (task) {
-        selectTask(taskId);
+        selectTask(task.id);
       } else {
         toast.error('Access denied', { description: 'This task does not exist or you do not have access to it.' });
       }
       deepLinkHandledRef.current = true;
     } else if (noteId) {
-      const note = notes.find((n) => n.id === noteId);
+      const note = findByShortId(notes, noteId);
       if (note) {
-        selectNote(noteId);
+        selectNote(note.id);
         setCurrentView('note-editor');
       } else {
         toast.error('Access denied', { description: 'This note does not exist or you do not have access to it.' });
       }
       deepLinkHandledRef.current = true;
     } else if (projectId) {
-      const project = projects.find((p) => p.id === projectId);
+      const project = findByShortId(projects, projectId);
       if (project) {
-        selectProject(projectId);
+        selectProject(project.id);
         setCurrentView('projects');
-        fetchTasks(projectId);
-        fetchNotes(projectId);
+        fetchTasks(project.id);
+        fetchNotes(project.id);
       } else {
         toast.error('Access denied', { description: 'This project does not exist or you do not have access to it.' });
       }
       deepLinkHandledRef.current = true;
     } else if (areaId) {
-      const area = areas.find((a) => a.id === areaId);
+      const area = findByShortId(areas, areaId);
       if (area) {
-        selectArea(areaId);
+        selectArea(area.id);
         setCurrentView('areas');
       } else {
         toast.error('Access denied', { description: 'This area does not exist or you do not have access to it.' });
@@ -410,7 +417,7 @@ function HomeContent() {
         if (selectedProjectId) {
           return <ProjectDetail />;
         }
-        return <AllProjectsView projects={projects} onProjectClick={handleProjectClick} />;
+        return <AllProjectsView projects={projects} tasks={tasks} onProjectClick={handleProjectClick} />;
       case 'tasks':
         return <TaskList />;
       case 'kanban':

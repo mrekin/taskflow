@@ -10,6 +10,7 @@ import { format, isPast, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { EntityIdBadge } from '@/components/entity-id-badge';
 import type { Task } from '@/lib/types';
 import { PRIORITY_LABELS, PRIORITY_COLORS, STATUS_COLORS } from '@/lib/constants';
 import { useAppStore } from '@/store/app-store';
@@ -99,6 +100,7 @@ export function TaskCard({ task, isDragOverlay = false }: TaskCardProps) {
             <span className="text-sm font-medium leading-tight line-clamp-2 flex-1">
               {task.title}
             </span>
+            <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" className="shrink-0" />
             <span
               className="shrink-0 w-2.5 h-2.5 rounded-full mt-1"
               style={{ backgroundColor: PRIORITY_COLORS[task.priority] || '#94a3b8' }}

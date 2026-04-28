@@ -23,8 +23,10 @@ import {
   Settings,
   Save,
   FileText,
+  Webhook,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { WebhooksSection } from '@/components/webhooks-section';
 
 type SidebarPosition = 'left' | 'right';
 
@@ -274,6 +276,9 @@ export function SettingsView() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Webhooks Section */}
+        <WebhooksSection />
 
         {/* Data Section */}
         <Card>
