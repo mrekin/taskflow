@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAppStore } from '@/store/app-store';
-import { DEFAULT_COLORS, getNextColor } from '@/lib/constants';
+import { DEFAULT_COLORS, getRandomColor } from '@/lib/constants';
 import {
   Dialog,
   DialogContent,
@@ -28,17 +28,19 @@ import { Check } from 'lucide-react';
 interface CreateProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultAreaId?: string;
 }
 
 export function CreateProjectDialog({
   open,
   onOpenChange,
+  defaultAreaId,
 }: CreateProjectDialogProps) {
   const { createProject, areas, projects, selectedAreaId } = useAppStore();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [color, setColor] = useState(() => getNextColor(0));
-  const [areaId, setAreaId] = useState(selectedAreaId || '');
+  const [color, setColor] = useState(() => getRandomColor());
+  const [areaId, setAreaId] = useState(defaultAreaId ?? selectedAreaId ?? '');
   const [isCreating, setIsCreating] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,8 +58,8 @@ export function CreateProjectDialog({
       // Reset form
       setName('');
       setDescription('');
-      setColor(getNextColor(projects.length));
-      setAreaId(selectedAreaId || '');
+      setColor(getRandomColor());
+      setAreaId(defaultAreaId ?? selectedAreaId ?? '');
       onOpenChange(false);
     } finally {
       setIsCreating(false);
@@ -68,8 +70,8 @@ export function CreateProjectDialog({
     if (!newOpen) {
       setName('');
       setDescription('');
-      setColor(getNextColor(projects.length));
-      setAreaId(selectedAreaId || '');
+      setColor(getRandomColor());
+      setAreaId(defaultAreaId ?? selectedAreaId ?? '');
     }
     onOpenChange(newOpen);
   };

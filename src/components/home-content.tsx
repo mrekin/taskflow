@@ -64,7 +64,7 @@ import {
   STATUS_LABELS,
   STATUS_COLORS,
   DEFAULT_COLORS,
-  getNextColor,
+  getRandomColor,
 } from '@/lib/constants';
 import { toast } from 'sonner';
 
@@ -262,7 +262,7 @@ function HomeContent() {
   const [showCreateArea, setShowCreateArea] = useState(false);
   const [newAreaName, setNewAreaName] = useState('');
   const [newAreaDescription, setNewAreaDescription] = useState('');
-  const [newAreaColor, setNewAreaColor] = useState(() => getNextColor(0));
+  const [newAreaColor, setNewAreaColor] = useState(() => getRandomColor());
 
   // Drag-and-drop state
   const [dragOverAreaId, setDragOverAreaId] = useState<string | null>(null);
@@ -392,7 +392,7 @@ function HomeContent() {
     setShowCreateArea(false);
     setNewAreaName('');
     setNewAreaDescription('');
-    setNewAreaColor(getNextColor(areas.length));
+    setNewAreaColor(getRandomColor());
   };
 
   // Task status counts for sidebar

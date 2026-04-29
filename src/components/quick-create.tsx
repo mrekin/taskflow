@@ -20,7 +20,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useAppStore } from '@/store/app-store';
-import { getNextColor } from '@/lib/constants';
+import { getRandomColor } from '@/lib/constants';
 import { toast } from '@/hooks/use-toast';
 
 export function QuickCreate() {
@@ -96,7 +96,7 @@ export function QuickCreate() {
       await createArea({
         name: title,
         description,
-        color: getNextColor(areas.length),
+        color: getRandomColor(),
         tagIds: selectedTagIds,
       });
       toast({ title: 'Area created', description: `"${title}" has been added.` });
@@ -118,7 +118,7 @@ export function QuickCreate() {
         name: title,
         description,
         areaId: selectedAreaId === 'none' ? null : selectedAreaId,
-        color: getNextColor(areas.length),
+        color: getRandomColor(),
         tagIds: selectedTagIds,
       });
       toast({ title: 'Project created', description: `"${title}" has been added.` });

@@ -40,10 +40,6 @@ export const DEFAULT_COLORS = [
   '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9',
 ];
 
-/**
- * Get the next color in the cycle based on the current entity count.
- * This ensures each new entity gets a different color from the previous one.
- */
-export function getNextColor(existingCount: number): string {
-  return DEFAULT_COLORS[existingCount % DEFAULT_COLORS.length];
+export function getRandomColor(): string {
+  return DEFAULT_COLORS[Math.floor(Math.random() * DEFAULT_COLORS.length)];
 }

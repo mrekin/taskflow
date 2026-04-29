@@ -34,6 +34,7 @@ import { DEFAULT_COLORS, STATUS_LABELS } from '@/lib/constants';
 import { TagBadges } from '@/components/tag-badges';
 import { TagPicker } from '@/components/tag-picker';
 import { EntityIdBadge } from '@/components/entity-id-badge';
+import { CreateProjectDialog } from '@/components/create-project-dialog';
 
 export function AreaDetail() {
   const {
@@ -46,7 +47,6 @@ export function AreaDetail() {
     setCurrentView,
     updateArea,
     deleteArea,
-    createProject,
   } = useAppStore();
 
   const area = areas.find((a) => a.id === selectedAreaId);
@@ -58,9 +58,6 @@ export function AreaDetail() {
   const [editColor, setEditColor] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCreateProject, setShowCreateProject] = useState(false);
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectDescription, setNewProjectDescription] = useState('');
-  const [newProjectColor, setNewProjectColor] = useState(DEFAULT_COLORS[0]);
   const [editTagIds, setEditTagIds] = useState<string[]>([]);
 
   const handleEdit = () => {
@@ -89,21 +86,6 @@ export function AreaDetail() {
     selectArea(null);
     setCurrentView('areas');
     setShowDeleteDialog(false);
-  };
-
-  const handleCreateProject = async () => {
-    if (!area || !newProjectName.trim()) return;
-    await createProject({
-      name: newProjectName.trim(),
-      description: newProjectDescription.trim() || null,
-      color: newProjectColor,
-      areaId: area.id,
-      status: 'active',
-    });
-    setShowCreateProject(false);
-    setNewProjectName('');
-    setNewProjectDescription('');
-    setNewProjectColor(DEFAULT_COLORS[0]);
   };
 
   const handleProjectClick = (projectId: string) => {
@@ -293,58 +275,11 @@ export function AreaDetail() {
       </AlertDialog>
 
       {/* Create Project Dialog */}
-      <Dialog open={showCreateProject} onOpenChange={setShowCreateProject}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Create Project</DialogTitle>
-            <DialogDescription>Add a new project to this area.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                placeholder="Project name"
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea
-                value={newProjectDescription}
-                onChange={(e) => setNewProjectDescription(e.target.value)}
-                placeholder="Description"
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Color</Label>
-              <div className="flex flex-wrap gap-2">
-                {DEFAULT_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    className={cn(
-                      'w-7 h-7 rounded-full transition-all',
-                      newProjectColor === color && 'ring-2 ring-offset-2 ring-primary scale-110',
-                    )}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setNewProjectColor(color)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateProject(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateProject} disabled={!newProjectName.trim()}>
-              Create Project
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateProjectDialog
+        open={showCreateProject}
+        onOpenChange={setShowCreateProject}
+        defaultAreaId={selectedAreaId ?? undefined}
+      />
     </div>
   );
 }

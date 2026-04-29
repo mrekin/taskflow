@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAppStore } from '@/store/app-store';
-import { DEFAULT_COLORS, getNextColor } from '@/lib/constants';
+import { DEFAULT_COLORS, getRandomColor } from '@/lib/constants';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,7 @@ export function CreateAreaDialog({ open, onOpenChange }: CreateAreaDialogProps) 
   const { createArea, areas } = useAppStore();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [color, setColor] = useState(() => getNextColor(0));
+  const [color, setColor] = useState(() => getRandomColor());
   const [isCreating, setIsCreating] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,7 +44,7 @@ export function CreateAreaDialog({ open, onOpenChange }: CreateAreaDialogProps) 
       // Reset form
       setName('');
       setDescription('');
-      setColor(getNextColor(areas.length));
+      setColor(getRandomColor());
       onOpenChange(false);
     } finally {
       setIsCreating(false);
@@ -56,7 +56,7 @@ export function CreateAreaDialog({ open, onOpenChange }: CreateAreaDialogProps) 
       // Reset form on close
       setName('');
       setDescription('');
-      setColor(getNextColor(areas.length));
+      setColor(getRandomColor());
     }
     onOpenChange(newOpen);
   };
