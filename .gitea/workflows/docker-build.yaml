@@ -75,3 +75,5 @@ jobs:
             ${{ steps.repo.outputs.image }}:${{ steps.meta.outputs.tag }}
           build-args: |
             NEXT_BASE_PATH=${{ steps.meta.outputs.base_path }}
+          cache-from: type=registry,ref=${{ steps.repo.outputs.image }}:buildcache
+          cache-to: type=registry,ref=${{ steps.repo.outputs.image }}:buildcache,mode=max
