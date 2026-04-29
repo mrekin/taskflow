@@ -21,6 +21,14 @@ const nextConfig: NextConfig = {
         source: "/callback/:path*",
         destination: "/api/auth/callback/:path*",
       },
+      {
+        source: "/signin",
+        destination: "/api/auth/signin",
+      },
+      {
+        source: "/signout",
+        destination: "/api/auth/signout",
+      },
     ];
   },
 };

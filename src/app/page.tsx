@@ -28,6 +28,7 @@ import {
   GripVertical,
   XCircle,
   LogIn,
+  LogOut,
 } from 'lucide-react';
 
 import { cn, findByShortId } from '@/lib/utils';
@@ -791,7 +792,10 @@ function HomeContent() {
 
         {/* Sidebar footer */}
         <div className="p-3 border-t shrink-0 space-y-1">
-          <div className="flex items-center gap-2 px-3 py-2">
+          <div
+            className="flex items-center gap-2 px-3 py-2 cursor-pointer rounded-md hover:bg-accent"
+            onClick={() => session?.user ? signOut() : signIn('oidc')}
+          >
             {session?.user ? (
               <>
                 <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
@@ -801,18 +805,12 @@ function HomeContent() {
                   <p className="text-xs font-medium truncate">{session.user.name || 'User'}</p>
                   <p className="text-[10px] text-muted-foreground truncate">{session.user.email}</p>
                 </div>
+                <LogOut className="size-4 text-muted-foreground shrink-0" />
               </>
             ) : (
               <>
                 <LogIn className="size-4 text-muted-foreground shrink-0" />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => signIn('oidc')}
-                >
-                  Sign In
-                </Button>
+                <span className="text-xs text-muted-foreground">Sign In</span>
               </>
             )}
             <Button
