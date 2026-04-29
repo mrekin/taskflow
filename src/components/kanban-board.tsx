@@ -108,7 +108,7 @@ function KanbanColumn({ status, tasks, onAddTask }: KanbanColumnProps) {
 }
 
 export function KanbanBoard() {
-  const { tasks, selectedProjectId, updateTask } = useAppStore();
+  const { tasks, selectedProjectId, tagFilter, updateTask } = useAppStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [defaultStatus, setDefaultStatus] = useState<string>('todo');
@@ -120,8 +120,17 @@ export function KanbanBoard() {
       filtered = filtered.filter((t) => t.projectId === selectedProjectId);
     }
     // Only show top-level tasks (no parent)
-    return filtered.filter((t) => !t.parentId);
-  }, [tasks, selectedProjectId]);
+    filtered = filtered.filter((t) => !t.parentId);
+
+    // Filter by tags
+    if (tagFilter && tagFilter.length > 0) {
+      filtered = filtered.filter((t) =>
+        tagFilter.some((tagId) => (t.tagIds || []).includes(tagId))
+      );
+    }
+
+    return filtered;
+  }, [tasks, selectedProjectId, tagFilter]);
 
   // Group tasks by status
   const tasksByStatus = useMemo(() => {
