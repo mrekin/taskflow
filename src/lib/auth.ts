@@ -73,10 +73,10 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user, account }) {
-      // First time login - store user id
       if (user) {
         token.id = user.id;
         token.email = user.email;
+        console.log('[auth] jwt user:', JSON.stringify({ id: user.id, email: user.email, name: user.name, provider: account?.provider }));
       }
       // OIDC login - auto-create user in DB
       if (account?.provider === "oidc" && user?.email) {

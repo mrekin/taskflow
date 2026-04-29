@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import { useTheme } from 'next-themes';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,10 +51,18 @@ function getLocalStorageItem(key: string, fallback: string): string {
 
 export function SettingsView() {
   const { theme, setTheme } = useTheme();
+  const { data: session } = useSession();
   const mounted = useIsMounted();
 
-  const [displayName, setDisplayName] = useState('Demo User');
-  const [email] = useState('demo@taskflow.app');
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    if (session?.user) {
+      setDisplayName(session.user.name || '');
+      setEmail(session.user.email || '');
+    }
+  }, [session]);
   const [sidebarPosition, setSidebarPosition] = useState<SidebarPosition>(
     () => getLocalStorageItem('taskflow-sidebar-position', 'left') as SidebarPosition
   );
