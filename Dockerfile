@@ -23,6 +23,7 @@ RUN bun run db:generate
 
 # Stage 2: Build
 FROM node:22-alpine AS builder
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
