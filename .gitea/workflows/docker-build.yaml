@@ -5,6 +5,8 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - main
 
   # Ручной запуск с возможностью указать NEXT_BASE_PATH
   workflow_dispatch:
@@ -40,9 +42,14 @@ jobs:
         id: meta
         run: |
           if [ "${{ gitea.event_name }}" = "push" ]; then
-            TAG="${GITEA_REF#refs/tags/v}"
-            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-            echo "base_path=" >> "$GITHUB_OUTPUT"
+            if [ "${GITEA_REF#refs/tags/}" != "${GITEA_REF}" ]; then
+              TAG="${GITEA_REF#refs/tags/v}"
+              echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+              echo "base_path=" >> "$GITHUB_OUTPUT"
+            else
+              echo "tag=test" >> "$GITHUB_OUTPUT"
+              echo "base_path=/taskflow" >> "$GITHUB_OUTPUT"
+            fi
           else
             TAG="${{ inputs.tag }}"
             [ -z "$TAG" ] && TAG="latest"
