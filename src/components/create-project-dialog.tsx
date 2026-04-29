@@ -114,27 +114,29 @@ export function CreateProjectDialog({
             </div>
 
             {/* Area Selector */}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="project-area">Area</Label>
-              <Select value={areaId} onValueChange={setAreaId}>
-                <SelectTrigger id="project-area">
-                  <SelectValue placeholder="Select an area (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {areas.map((area) => (
-                    <SelectItem key={area.id} value={area.id}>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="size-2.5 rounded-full"
-                          style={{ backgroundColor: area.color }}
-                        />
-                        {area.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!defaultAreaId && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="project-area">Area</Label>
+                <Select value={areaId} onValueChange={setAreaId}>
+                  <SelectTrigger id="project-area">
+                    <SelectValue placeholder="Select an area (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {areas.map((area) => (
+                      <SelectItem key={area.id} value={area.id}>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="size-2.5 rounded-full"
+                            style={{ backgroundColor: area.color }}
+                          />
+                          {area.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Color Picker */}
             <div className="flex flex-col gap-2">
