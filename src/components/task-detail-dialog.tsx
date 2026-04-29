@@ -85,6 +85,7 @@ export function TaskDetailDialog() {
   const [status, setStatus] = useState('');
   const [priority, setPriority] = useState('');
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -104,6 +105,7 @@ export function TaskDetailDialog() {
       setStatus(task.status);
       setPriority(task.priority);
       setDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
+      setProjectId(task.projectId ?? null);
       setLocalTagIds(task.tagIds || []);
       setIsEditing(false);
       setEditingSubtaskId(null);
@@ -120,6 +122,7 @@ export function TaskDetailDialog() {
         status,
         priority,
         dueDate: dueDate ? dueDate.toISOString() : null,
+        projectId,
         tagIds: localTagIds,
       });
       setIsEditing(false);
@@ -256,6 +259,7 @@ export function TaskDetailDialog() {
                             setStatus(task.status);
                             setPriority(task.priority);
                             setDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
+                            setProjectId(task.projectId ?? null);
                           }}
                         >
                           Cancel
@@ -444,17 +448,36 @@ export function TaskDetailDialog() {
                   </div>
 
                   {/* Project */}
-                  {project && (
-                    <div className="space-y-2">
-                      <Label className="text-muted-foreground text-xs uppercase tracking-wider">
-                        Project
-                      </Label>
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                      Project
+                    </Label>
+                    {isEditing ? (
+                      <Select
+                        value={projectId ?? 'none'}
+                        onValueChange={(v) => setProjectId(v === 'none' ? null : v)}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No project</SelectItem>
+                          {projects.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : project ? (
                       <div className="flex items-center gap-2">
                         <FolderOpen className="size-4 text-muted-foreground" />
                         <span className="text-sm">{project.name}</span>
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <span className="text-sm text-muted-foreground">No project</span>
+                    )}
+                  </div>
 
                   {/* Tags */}
                   <>

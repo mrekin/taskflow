@@ -28,6 +28,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAppStore } from '@/store/app-store';
 import { TASK_STATUSES, TASK_PRIORITIES, STATUS_LABELS, PRIORITY_LABELS } from '@/lib/constants';
+import { TagPicker } from '@/components/tag-picker';
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -53,6 +54,7 @@ export function CreateTaskDialog({
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
   const [projectId, setProjectId] = useState<string>(defaultProjectId || selectedProjectId || 'none');
   const [parentTaskId, setParentTaskId] = useState<string>(parentId || 'none');
+  const [tagIds, setTagIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Reset form when dialog opens
@@ -65,6 +67,7 @@ export function CreateTaskDialog({
       setDueDate(undefined);
       setProjectId(defaultProjectId || selectedProjectId || 'none');
       setParentTaskId(parentId || 'none');
+      setTagIds([]);
       setIsSubmitting(false);
     }
   }, [open, defaultStatus, defaultProjectId, selectedProjectId, parentId]);
@@ -82,6 +85,7 @@ export function CreateTaskDialog({
         dueDate: dueDate ? dueDate.toISOString() : null,
         projectId: projectId === 'none' ? null : projectId,
         parentId: parentTaskId === 'none' ? null : parentTaskId,
+        tagIds,
       });
       onOpenChange(false);
     } finally {
@@ -203,6 +207,12 @@ export function CreateTaskDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Tags */}
+          <div className="space-y-2">
+            <Label>Tags</Label>
+            <TagPicker selectedTagIds={tagIds} onTagIdsChange={setTagIds} />
           </div>
 
           {/* Parent task selector */}
