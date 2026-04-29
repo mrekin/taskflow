@@ -8,7 +8,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Install bun
-RUN npm install -g bun
+COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
 
 # Copy package files and prisma config
 COPY package.json bun.lock ./
@@ -25,7 +25,7 @@ RUN bun run db:generate
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-RUN npm install -g bun
+COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
