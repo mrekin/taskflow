@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useSession, signIn } from 'next-auth/react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Home from '@/components/home-content';
+
+const DEMO_EMAIL = 'demo@taskflow.app';
 
 export default function Page() {
   const { data: session, status } = useSession();
@@ -13,13 +15,24 @@ export default function Page() {
 
   useEffect(() => {
     if (status === 'loading') return;
-    if (session) return;
 
     fetch(`${basePath}/api/config`)
       .then(r => r.json())
       .then((config: { demoMode: boolean; hasOidc: boolean }) => {
+        const isDemoSession = session?.user?.email === DEMO_EMAIL;
+
+        // Demo session but demo mode turned off — invalidate
+        if (isDemoSession && !config.demoMode) {
+          signOut({ redirect: false });
+          return;
+        }
+
+        // Already authenticated — nothing to do
+        if (session) return;
+
+        // Not authenticated
         if (config.demoMode) {
-          signIn('credentials', { email: 'demo@taskflow.app', redirect: false });
+          signIn('credentials', { email: DEMO_EMAIL, redirect: false });
         } else {
           router.replace('/login');
         }
