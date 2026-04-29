@@ -88,7 +88,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set, get) => ({
   // Navigation initial state
-  currentView: 'areas',
+  currentView: 'quick-create',
   selectedAreaId: null,
   selectedProjectId: null,
   selectedTaskId: null,
