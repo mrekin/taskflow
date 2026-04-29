@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAppStore } from '@/store/app-store';
-import { DEFAULT_COLORS, getRandomColor } from '@/lib/constants';
+import { getRandomColor } from '@/lib/constants';
 import {
   Dialog,
   DialogContent,
@@ -15,8 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
-import { Check } from 'lucide-react';
+import { ColorPicker } from '@/components/color-picker';
 
 interface CreateAreaDialogProps {
   open: boolean;
@@ -101,24 +100,7 @@ export function CreateAreaDialog({ open, onOpenChange }: CreateAreaDialogProps) 
             {/* Color Picker */}
             <div className="flex flex-col gap-2">
               <Label>Color</Label>
-              <div className="grid grid-cols-8 gap-2">
-                {DEFAULT_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    className={cn(
-                      'flex size-8 items-center justify-center rounded-md transition-all hover:scale-110',
-                      color === c && 'ring-2 ring-primary ring-offset-2'
-                    )}
-                    style={{ backgroundColor: c }}
-                    onClick={() => setColor(c)}
-                  >
-                    {color === c && (
-                      <Check className="size-4 text-white drop-shadow-sm" />
-                    )}
-                  </button>
-                ))}
-              </div>
+              <ColorPicker value={color} onChange={setColor} />
             </div>
           </div>
 

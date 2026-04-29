@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon, Loader2 } from 'lucide-react';
+import { CalendarIcon } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import {
@@ -55,7 +55,7 @@ export function CreateTaskDialog({
   const [projectId, setProjectId] = useState<string>(defaultProjectId || selectedProjectId || 'none');
   const [parentTaskId, setParentTaskId] = useState<string>(parentId || 'none');
   const [tagIds, setTagIds] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -68,13 +68,14 @@ export function CreateTaskDialog({
       setProjectId(defaultProjectId || selectedProjectId || 'none');
       setParentTaskId(parentId || 'none');
       setTagIds([]);
-      setIsSubmitting(false);
+      setIsCreating(false);
     }
   }, [open, defaultStatus, defaultProjectId, selectedProjectId, parentId]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!title.trim()) return;
-    setIsSubmitting(true);
+    setIsCreating(true);
 
     try {
       await createTask({
@@ -89,162 +90,176 @@ export function CreateTaskDialog({
       });
       onOpenChange(false);
     } finally {
-      setIsSubmitting(false);
+      setIsCreating(false);
     }
+  };
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setTitle('');
+      setDescription('');
+      setStatus(defaultStatus || 'todo');
+      setPriority('medium');
+      setDueDate(undefined);
+      setProjectId(defaultProjectId || selectedProjectId || 'none');
+      setParentTaskId(parentId || 'none');
+      setTagIds([]);
+    }
+    onOpenChange(newOpen);
   };
 
   // Filter tasks that could be parent tasks (top-level only)
   const topLevelTasks = tasks.filter((t) => !t.parentId);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{parentId ? 'Create Subtask' : 'Create Task'}</DialogTitle>
-          <DialogDescription>
-            Add a new task to your workflow.
-          </DialogDescription>
-        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>{parentId ? 'Create Subtask' : 'Create Task'}</DialogTitle>
+            <DialogDescription>
+              Add a new task to your workflow.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Title */}
-          <div className="space-y-2">
-            <Label htmlFor="task-title">Title *</Label>
-            <Input
-              id="task-title"
-              placeholder="Task title..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              autoFocus
-            />
-          </div>
+          <div className="mt-4 flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="task-title">Title *</Label>
+              <Input
+                id="task-title"
+                placeholder="Task title..."
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                autoFocus
+              />
+            </div>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="task-desc">Description</Label>
-            <Textarea
-              id="task-desc"
-              placeholder="Optional description..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-            />
-          </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="task-desc">Description</Label>
+              <Textarea
+                id="task-desc"
+                placeholder="What needs to be done?"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
 
-          {/* Status + Priority row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={setStatus}>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-2">
+                <Label>Status</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TASK_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {STATUS_LABELS[s]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Priority</Label>
+                <Select value={priority} onValueChange={setPriority}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TASK_PRIORITIES.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {PRIORITY_LABELS[p]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label>Due Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      'w-full justify-start text-left font-normal',
+                      !dueDate && 'text-muted-foreground',
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 size-4" />
+                    {dueDate ? format(dueDate, 'PPP') : 'Pick a date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dueDate}
+                    onSelect={setDueDate}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label>Project</Label>
+              <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue placeholder="Select project" />
                 </SelectTrigger>
                 <SelectContent>
-                  {TASK_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {STATUS_LABELS[s]}
+                  <SelectItem value="none">No project</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Priority</Label>
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TASK_PRIORITIES.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {PRIORITY_LABELS[p]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            <div className="flex flex-col gap-2">
+              <Label>Tags</Label>
+              <TagPicker selectedTagIds={tagIds} onTagIdsChange={setTagIds} />
             </div>
+
+            {!parentId && (
+              <div className="flex flex-col gap-2">
+                <Label>Parent Task</Label>
+                <Select value={parentTaskId} onValueChange={setParentTaskId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="No parent" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No parent</SelectItem>
+                    {topLevelTasks.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        <span className="line-clamp-1">{t.title}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
-          {/* Due Date */}
-          <div className="space-y-2">
-            <Label>Due Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    'w-full justify-start text-left font-normal',
-                    !dueDate && 'text-muted-foreground',
-                  )}
-                >
-                  <CalendarIcon className="mr-2 size-4" />
-                  {dueDate ? format(dueDate, 'PPP') : 'Pick a date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dueDate}
-                  onSelect={setDueDate}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Project selector */}
-          <div className="space-y-2">
-            <Label>Project</Label>
-            <Select value={projectId} onValueChange={setProjectId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select project" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No project</SelectItem>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Tags */}
-          <div className="space-y-2">
-            <Label>Tags</Label>
-            <TagPicker selectedTagIds={tagIds} onTagIdsChange={setTagIds} />
-          </div>
-
-          {/* Parent task selector */}
-          {!parentId && (
-            <div className="space-y-2">
-              <Label>Parent Task</Label>
-              <Select value={parentTaskId} onValueChange={setParentTaskId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="No parent" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No parent</SelectItem>
-                  {topLevelTasks.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      <span className="line-clamp-1">{t.title}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={!title.trim() || isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
-            Create Task
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="mt-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={isCreating}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!title.trim() || isCreating}>
+              {isCreating ? 'Creating...' : 'Create Task'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

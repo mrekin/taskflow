@@ -12,7 +12,6 @@ import {
   StickyNote,
 } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { Button } from '@/components/ui/button';
@@ -59,13 +58,13 @@ import { KanbanBoard } from '@/components/kanban-board';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { useAppStore } from '@/store/app-store';
 import {
-  DEFAULT_COLORS,
   STATUS_LABELS,
   PROJECT_STATUSES,
 } from '@/lib/constants';
 import { TagPicker } from '@/components/tag-picker';
 import { TagBadges } from '@/components/tag-badges';
 import { EntityIdBadge } from '@/components/entity-id-badge';
+import { ColorPicker } from '@/components/color-picker';
 
 export function ProjectDetail() {
   const {
@@ -365,19 +364,7 @@ export function ProjectDetail() {
             </div>
             <div className="space-y-2">
               <Label>Color</Label>
-              <div className="flex flex-wrap gap-2">
-                {DEFAULT_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    className={cn(
-                      'w-7 h-7 rounded-full transition-all',
-                      editColor === color && 'ring-2 ring-offset-2 ring-primary scale-110',
-                    )}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setEditColor(color)}
-                  />
-                ))}
-              </div>
+              <ColorPicker value={editColor} onChange={setEditColor} />
             </div>
             <div className="space-y-2">
               <Label>Tags</Label>

@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Edit2, Plus, Trash2, FolderOpen } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,11 +29,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useAppStore } from '@/store/app-store';
-import { DEFAULT_COLORS, STATUS_LABELS } from '@/lib/constants';
+import { STATUS_LABELS } from '@/lib/constants';
 import { TagBadges } from '@/components/tag-badges';
 import { TagPicker } from '@/components/tag-picker';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { CreateProjectDialog } from '@/components/create-project-dialog';
+import { ColorPicker } from '@/components/color-picker';
 
 export function AreaDetail() {
   const {
@@ -224,19 +224,7 @@ export function AreaDetail() {
             </div>
             <div className="space-y-2">
               <Label>Color</Label>
-              <div className="flex flex-wrap gap-2">
-                {DEFAULT_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    className={cn(
-                      'w-7 h-7 rounded-full transition-all',
-                      editColor === color && 'ring-2 ring-offset-2 ring-primary scale-110',
-                    )}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setEditColor(color)}
-                  />
-                ))}
-              </div>
+              <ColorPicker value={editColor} onChange={setEditColor} />
             </div>
             <div className="space-y-2">
               <Label>Tags</Label>

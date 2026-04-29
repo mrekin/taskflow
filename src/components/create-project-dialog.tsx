@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAppStore } from '@/store/app-store';
-import { DEFAULT_COLORS, getRandomColor } from '@/lib/constants';
+import { getRandomColor } from '@/lib/constants';
 import {
   Dialog,
   DialogContent,
@@ -22,8 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
-import { Check } from 'lucide-react';
+import { ColorPicker } from '@/components/color-picker';
 
 interface CreateProjectDialogProps {
   open: boolean;
@@ -36,7 +35,7 @@ export function CreateProjectDialog({
   onOpenChange,
   defaultAreaId,
 }: CreateProjectDialogProps) {
-  const { createProject, areas, projects, selectedAreaId } = useAppStore();
+  const { createProject, areas, selectedAreaId } = useAppStore();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(() => getRandomColor());
@@ -124,13 +123,7 @@ export function CreateProjectDialog({
                   <SelectContent>
                     {areas.map((area) => (
                       <SelectItem key={area.id} value={area.id}>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="size-2.5 rounded-full"
-                            style={{ backgroundColor: area.color }}
-                          />
-                          {area.name}
-                        </div>
+                        {area.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -141,24 +134,7 @@ export function CreateProjectDialog({
             {/* Color Picker */}
             <div className="flex flex-col gap-2">
               <Label>Color</Label>
-              <div className="grid grid-cols-8 gap-2">
-                {DEFAULT_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    className={cn(
-                      'flex size-8 items-center justify-center rounded-md transition-all hover:scale-110',
-                      color === c && 'ring-2 ring-primary ring-offset-2'
-                    )}
-                    style={{ backgroundColor: c }}
-                    onClick={() => setColor(c)}
-                  >
-                    {color === c && (
-                      <Check className="size-4 text-white drop-shadow-sm" />
-                    )}
-                  </button>
-                ))}
-              </div>
+              <ColorPicker value={color} onChange={setColor} />
             </div>
           </div>
 

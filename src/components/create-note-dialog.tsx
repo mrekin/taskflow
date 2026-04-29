@@ -22,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileText } from 'lucide-react';
 
 interface CreateNoteDialogProps {
   open: boolean;
@@ -36,14 +35,8 @@ export function CreateNoteDialog({ open, onOpenChange }: CreateNoteDialogProps) 
   const [content, setContent] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  const resetForm = () => {
-    setTitle('');
-    setProjectId(selectedProjectId ?? 'none');
-    setContent('');
-    setIsCreating(false);
-  };
-
-  const handleCreate = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!title.trim()) return;
 
     setIsCreating(true);
@@ -56,7 +49,6 @@ export function CreateNoteDialog({ open, onOpenChange }: CreateNoteDialogProps) 
 
       await createNote(data);
 
-      // Get the newly created note from the store (it was just added)
       const store = useAppStore.getState();
       const newNote = store.notes.find(
         (n) => n.title === title.trim() && n.content === content
@@ -66,100 +58,92 @@ export function CreateNoteDialog({ open, onOpenChange }: CreateNoteDialogProps) 
         selectNote(newNote.id);
       }
 
-      resetForm();
+      setTitle('');
+      setProjectId(selectedProjectId ?? 'none');
+      setContent('');
       onOpenChange(false);
       setCurrentView('note-editor');
-    } catch (error) {
-      console.error('Failed to create note:', error);
+    } finally {
       setIsCreating(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && e.metaKey) {
-      e.preventDefault();
-      handleCreate();
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setTitle('');
+      setProjectId(selectedProjectId ?? 'none');
+      setContent('');
     }
+    onOpenChange(newOpen);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-[480px]" onKeyDown={handleKeyDown}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            New Note
-          </DialogTitle>
-          <DialogDescription>
-            Create a new note to capture your thoughts and ideas.
-          </DialogDescription>
-        </DialogHeader>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Create Note</DialogTitle>
+            <DialogDescription>
+              Create a new note to capture your thoughts and ideas.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="note-title">Title *</Label>
-            <Input
-              id="note-title"
-              placeholder="Note title..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              autoFocus
-            />
-          </div>
+          <div className="mt-4 flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="note-title">Title *</Label>
+              <Input
+                id="note-title"
+                placeholder="Note title..."
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                autoFocus
+              />
+            </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="note-project">Project</Label>
-            <Select value={projectId} onValueChange={setProjectId}>
-              <SelectTrigger id="note-project">
-                <SelectValue placeholder="Select a project" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No project</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2.5 w-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: project.color }}
-                      />
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="note-project">Project</Label>
+              <Select value={projectId} onValueChange={setProjectId}>
+                <SelectTrigger id="note-project">
+                  <SelectValue placeholder="Select a project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No project</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
                       {project.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="note-content">Content</Label>
+              <Textarea
+                id="note-content"
+                placeholder="Start writing... (Markdown supported)"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={5}
+                className="font-mono text-sm resize-none"
+              />
+            </div>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="note-content">Content</Label>
-            <Textarea
-              id="note-content"
-              placeholder="Start writing... (Markdown supported)"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={5}
-              className="font-mono text-sm resize-none"
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => {
-              resetForm();
-              onOpenChange(false);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleCreate}
-            disabled={!title.trim() || isCreating}
-          >
-            {isCreating ? 'Creating...' : 'Create Note'}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="mt-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={isCreating}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!title.trim() || isCreating}>
+              {isCreating ? 'Creating...' : 'Create Note'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

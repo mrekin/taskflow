@@ -63,9 +63,9 @@ import { useAppStore } from '@/store/app-store';
 import {
   STATUS_LABELS,
   STATUS_COLORS,
-  DEFAULT_COLORS,
   getRandomColor,
 } from '@/lib/constants';
+import { ColorPicker } from '@/components/color-picker';
 import { toast } from 'sonner';
 
 // ─── Sub-Components ─────────────────────────────────────────────────────
@@ -909,19 +909,7 @@ function HomeContent() {
             </div>
             <div className="space-y-2">
               <Label>Color</Label>
-              <div className="flex flex-wrap gap-2">
-                {DEFAULT_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    className={cn(
-                      'w-7 h-7 rounded-full transition-all',
-                      newAreaColor === color && 'ring-2 ring-offset-2 ring-primary scale-110',
-                    )}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setNewAreaColor(color)}
-                  />
-                ))}
-              </div>
+              <ColorPicker value={newAreaColor} onChange={setNewAreaColor} />
             </div>
           </div>
           <DialogFooter>
