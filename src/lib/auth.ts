@@ -2,7 +2,6 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
 
-// Build providers list - OIDC is optional
 const providers: NextAuthOptions["providers"] = [
   CredentialsProvider({
     name: "Demo Login",
@@ -12,7 +11,6 @@ const providers: NextAuthOptions["providers"] = [
     async authorize(credentials) {
       if (!credentials?.email) return null;
 
-      // Auto-create user if not exists
       let user = await db.user.findUnique({ where: { email: credentials.email } });
       if (!user) {
         user = await db.user.create({
@@ -76,7 +74,6 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.email = user.email;
-        console.log('[auth] jwt user:', JSON.stringify({ id: user.id, email: user.email, name: user.name, provider: account?.provider }));
       }
       // OIDC login - auto-create user in DB
       if (account?.provider === "oidc" && user?.email) {

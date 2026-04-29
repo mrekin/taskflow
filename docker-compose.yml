@@ -11,6 +11,7 @@ services:
     ports:
       - "3000:3000"
     environment:
+    #  - DEMO_MODE=true
       - NODE_ENV=production
       - DATABASE_URL=file:/app/db/taskflow.db
       - NEXTAUTH_URL=http://localhost:3000
