@@ -71,6 +71,7 @@ bun run dev
 | `OIDC_ISSUER` | no | — | OIDC provider URL (e.g. Keycloak realm) |
 | `OIDC_CLIENT_ID` | no | — | OIDC client ID |
 | `OIDC_CLIENT_SECRET` | no | — | OIDC client secret |
+| `DEMO_MODE` | no | `false` | Skip authentication, auto-login as demo user |
 | `NEXT_BASE_PATH` | no | `""` | Subpath for reverse proxy deployment (build-time) |
 
 ## Documentation
