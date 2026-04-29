@@ -56,6 +56,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TaskList } from '@/components/task-list';
 import { KanbanBoard } from '@/components/kanban-board';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
+import { CreateNoteDialog } from '@/components/create-note-dialog';
 import { useAppStore } from '@/store/app-store';
 import {
   STATUS_LABELS,
@@ -76,7 +77,6 @@ export function ProjectDetail() {
     selectArea,
     updateProject,
     deleteProject,
-    createNote,
     notes,
     fetchNotes,
     tasks,
@@ -93,8 +93,6 @@ export function ProjectDetail() {
   const [editStatus, setEditStatus] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCreateNote, setShowCreateNote] = useState(false);
-  const [newNoteTitle, setNewNoteTitle] = useState('');
-  const [newNoteContent, setNewNoteContent] = useState('');
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [editTagIds, setEditTagIds] = useState<string[]>([]);
 
@@ -133,18 +131,6 @@ export function ProjectDetail() {
     selectProject(null);
     setCurrentView('areas');
     setShowDeleteDialog(false);
-  };
-
-  const handleCreateNote = async () => {
-    if (!selectedProjectId || !newNoteTitle.trim()) return;
-    await createNote({
-      title: newNoteTitle.trim(),
-      content: newNoteContent,
-      projectId: selectedProjectId,
-    });
-    setShowCreateNote(false);
-    setNewNoteTitle('');
-    setNewNoteContent('');
   };
 
   const handleAreaClick = () => {
@@ -327,8 +313,9 @@ export function ProjectDetail() {
             <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription>Update the project details.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
+          <form onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }}>
+          <div className="mt-4 flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               <Label>Name</Label>
               <Input
                 value={editName}
@@ -336,7 +323,7 @@ export function ProjectDetail() {
                 placeholder="Project name"
               />
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>Description</Label>
               <Textarea
                 value={editDescription}
@@ -346,7 +333,7 @@ export function ProjectDetail() {
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 <Label>Status</Label>
                 <Select value={editStatus} onValueChange={setEditStatus}>
                   <SelectTrigger className="w-full">
@@ -362,11 +349,11 @@ export function ProjectDetail() {
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>Color</Label>
               <ColorPicker value={editColor} onChange={setEditColor} />
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>Tags</Label>
               <TagPicker
                 selectedTagIds={editTagIds}
@@ -374,14 +361,15 @@ export function ProjectDetail() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditing(false)}>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit} disabled={!editName.trim()}>
+            <Button type="submit" disabled={!editName.trim()}>
               Save
             </Button>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -403,42 +391,11 @@ export function ProjectDetail() {
       </AlertDialog>
 
       {/* Create Note Dialog */}
-      <Dialog open={showCreateNote} onOpenChange={setShowCreateNote}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Create Note</DialogTitle>
-            <DialogDescription>Add a new note to this project.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Title</Label>
-              <Input
-                value={newNoteTitle}
-                onChange={(e) => setNewNoteTitle(e.target.value)}
-                placeholder="Note title"
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Content</Label>
-              <Textarea
-                value={newNoteContent}
-                onChange={(e) => setNewNoteContent(e.target.value)}
-                placeholder="Write your note..."
-                rows={6}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateNote(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateNote} disabled={!newNoteTitle.trim()}>
-              Create Note
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateNoteDialog
+        open={showCreateNote}
+        onOpenChange={setShowCreateNote}
+        defaultProjectId={selectedProjectId || undefined}
+      />
 
       {/* Create Task Dialog */}
       <CreateTaskDialog

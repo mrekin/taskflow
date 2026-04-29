@@ -204,8 +204,9 @@ export function AreaDetail() {
             <DialogTitle>Edit Area</DialogTitle>
             <DialogDescription>Update the area details.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
+          <form onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }}>
+          <div className="mt-4 flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               <Label>Name</Label>
               <Input
                 value={editName}
@@ -213,7 +214,7 @@ export function AreaDetail() {
                 placeholder="Area name"
               />
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>Description</Label>
               <Textarea
                 value={editDescription}
@@ -222,11 +223,11 @@ export function AreaDetail() {
                 rows={3}
               />
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>Color</Label>
               <ColorPicker value={editColor} onChange={setEditColor} />
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>Tags</Label>
               <TagPicker
                 selectedTagIds={editTagIds}
@@ -234,14 +235,15 @@ export function AreaDetail() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditing(false)}>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit} disabled={!editName.trim()}>
+            <Button type="submit" disabled={!editName.trim()}>
               Save
             </Button>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

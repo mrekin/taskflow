@@ -37,17 +37,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { CreateAreaDialog } from '@/components/create-area-dialog';
 import { KanbanBoard } from '@/components/kanban-board';
 import { TaskList } from '@/components/task-list';
 import { AreaDetail } from '@/components/area-detail';
@@ -63,9 +53,7 @@ import { useAppStore } from '@/store/app-store';
 import {
   STATUS_LABELS,
   STATUS_COLORS,
-  getRandomColor,
 } from '@/lib/constants';
-import { ColorPicker } from '@/components/color-picker';
 import { toast } from 'sonner';
 
 // ─── Sub-Components ─────────────────────────────────────────────────────
@@ -253,16 +241,12 @@ function HomeContent() {
     fetchTasks,
     fetchNotes,
     fetchTags,
-    createArea,
     updateProject,
   } = useAppStore();
 
   const { setTheme } = useTheme();
   const { data: session } = useSession();
   const [showCreateArea, setShowCreateArea] = useState(false);
-  const [newAreaName, setNewAreaName] = useState('');
-  const [newAreaDescription, setNewAreaDescription] = useState('');
-  const [newAreaColor, setNewAreaColor] = useState(() => getRandomColor());
 
   // Drag-and-drop state
   const [dragOverAreaId, setDragOverAreaId] = useState<string | null>(null);
@@ -380,19 +364,6 @@ function HomeContent() {
     setCurrentView('projects');
     fetchTasks(projectId);
     fetchNotes(projectId);
-  };
-
-  const handleCreateArea = async () => {
-    if (!newAreaName.trim()) return;
-    await createArea({
-      name: newAreaName.trim(),
-      description: newAreaDescription.trim() || null,
-      color: newAreaColor,
-    });
-    setShowCreateArea(false);
-    setNewAreaName('');
-    setNewAreaDescription('');
-    setNewAreaColor(getRandomColor());
   };
 
   // Task status counts for sidebar
@@ -882,46 +853,7 @@ function HomeContent() {
       <TaskDetailDialog />
 
       {/* Create Area Dialog */}
-      <Dialog open={showCreateArea} onOpenChange={setShowCreateArea}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Create Area</DialogTitle>
-            <DialogDescription>Organize your projects into areas.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input
-                value={newAreaName}
-                onChange={(e) => setNewAreaName(e.target.value)}
-                placeholder="Area name"
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea
-                value={newAreaDescription}
-                onChange={(e) => setNewAreaDescription(e.target.value)}
-                placeholder="Description (optional)"
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Color</Label>
-              <ColorPicker value={newAreaColor} onChange={setNewAreaColor} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateArea(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateArea} disabled={!newAreaName.trim()}>
-              Create Area
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateAreaDialog open={showCreateArea} onOpenChange={setShowCreateArea} />
     </div>
   );
 }

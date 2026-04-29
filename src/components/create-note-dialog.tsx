@@ -26,12 +26,13 @@ import {
 interface CreateNoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultProjectId?: string;
 }
 
-export function CreateNoteDialog({ open, onOpenChange }: CreateNoteDialogProps) {
+export function CreateNoteDialog({ open, onOpenChange, defaultProjectId }: CreateNoteDialogProps) {
   const { projects, createNote, selectNote, setCurrentView, selectedProjectId } = useAppStore();
   const [title, setTitle] = useState('');
-  const [projectId, setProjectId] = useState<string>(selectedProjectId ?? 'none');
+  const [projectId, setProjectId] = useState<string>(defaultProjectId ?? selectedProjectId ?? 'none');
   const [content, setContent] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
@@ -59,7 +60,7 @@ export function CreateNoteDialog({ open, onOpenChange }: CreateNoteDialogProps) 
       }
 
       setTitle('');
-      setProjectId(selectedProjectId ?? 'none');
+      setProjectId(defaultProjectId ?? selectedProjectId ?? 'none');
       setContent('');
       onOpenChange(false);
       setCurrentView('note-editor');
@@ -71,7 +72,7 @@ export function CreateNoteDialog({ open, onOpenChange }: CreateNoteDialogProps) 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       setTitle('');
-      setProjectId(selectedProjectId ?? 'none');
+      setProjectId(defaultProjectId ?? selectedProjectId ?? 'none');
       setContent('');
     }
     onOpenChange(newOpen);
@@ -100,22 +101,24 @@ export function CreateNoteDialog({ open, onOpenChange }: CreateNoteDialogProps) 
               />
             </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="note-project">Project</Label>
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger id="note-project">
-                  <SelectValue placeholder="Select a project" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No project</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!defaultProjectId && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="note-project">Project</Label>
+                <Select value={projectId} onValueChange={setProjectId}>
+                  <SelectTrigger id="note-project">
+                    <SelectValue placeholder="Select a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No project</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="note-content">Content</Label>
