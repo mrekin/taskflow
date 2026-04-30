@@ -56,8 +56,7 @@ jobs:
               TAGS="${{ steps.repo.outputs.image }}:test"
               if git diff --name-only ${{ gitea.event.before }} ${{ gitea.event.after }} | grep -q "package.json"; then
                 VERSION=$(cat package.json | grep '"version"' | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
-                TAGS="${TAGS}
-${{ steps.repo.outputs.image }}:${VERSION}-dev"
+                TAGS="${TAGS}"$'\n'"${{ steps.repo.outputs.image }}:${VERSION}-dev"
               fi
               echo "tag<<EOF" >> "$GITHUB_OUTPUT"
               echo "${TAGS}" >> "$GITHUB_OUTPUT"
