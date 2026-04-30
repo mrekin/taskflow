@@ -18,7 +18,6 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { TaskDetailDialog } from '@/components/task-detail-dialog';
 import { TagBadges } from '@/components/tag-badges';
@@ -346,7 +345,7 @@ export function TaskList() {
         </div>
 
         {/* Task rows */}
-        <ScrollArea className="max-h-[calc(100vh-360px)]">
+        <div className="max-h-[calc(100vh-360px)] overflow-y-auto custom-scrollbar">
           <AnimatePresence mode="popLayout">
             {sortedTasks.length > 0 ? (
               sortedTasks.map((task) => {
@@ -448,7 +447,7 @@ export function TaskList() {
               </div>
             )}
           </AnimatePresence>
-        </ScrollArea>
+        </div>
       </div>
 
       <CreateTaskDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
