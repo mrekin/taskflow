@@ -2,8 +2,8 @@
 # Supports subpath deployment via NEXT_BASE_PATH env var
 # Auto-creates and migrates database on startup
 
-# Stage 1: Dependencies
-FROM node:22-alpine AS deps
+# Stage 1: Build (deps + build in one stage, cache mount for bun)
+FROM node:22-alpine AS builder
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -15,20 +15,14 @@ COPY package.json bun.lock ./
 COPY prisma ./prisma/
 COPY prisma.config.ts ./
 
-# Install dependencies
-RUN bun install --frozen-lockfile
+# Install dependencies with cache mount
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 
 # Generate Prisma client
 RUN bun run db:generate
 
-# Stage 2: Build
-FROM node:22-alpine AS builder
-RUN apk add --no-cache libc6-compat
-WORKDIR /app
-
-COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
-
-COPY --from=deps /app/node_modules ./node_modules
+# Copy source code
 COPY . .
 
 # Build args for subpath support
@@ -41,7 +35,7 @@ ENV DATABASE_URL=${DATABASE_URL:-file:./db/taskflow.db}
 # Build the application
 RUN bun run build
 
-# Stage 3: Production
+# Stage 2: Production
 FROM node:22-alpine AS runner
 WORKDIR /app
 
