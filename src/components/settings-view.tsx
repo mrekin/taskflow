@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { useTheme } from 'next-themes';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,15 +55,9 @@ export function SettingsView() {
   const { data: session } = useSession();
   const mounted = useIsMounted();
 
-  const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
+  const email = session?.user?.email || '';
 
-  useEffect(() => {
-    if (session?.user) {
-      setDisplayName(session.user.name || '');
-      setEmail(session.user.email || '');
-    }
-  }, [session]);
+  const [displayName, setDisplayName] = useState(session?.user?.name || '');
   const [sidebarPosition, setSidebarPosition] = useState<SidebarPosition>(
     () => getLocalStorageItem('taskflow-sidebar-position', 'left') as SidebarPosition
   );

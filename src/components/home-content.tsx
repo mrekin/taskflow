@@ -35,7 +35,6 @@ import {
 import { cn, findByShortId } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { CreateAreaDialog } from '@/components/create-area-dialog';
@@ -728,7 +727,7 @@ function HomeContent() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'border-r bg-muted/20 transition-all duration-300 flex flex-col shrink-0 overflow-hidden',
+          'border-r bg-muted/20 transition-all duration-300 flex flex-col shrink-0 overflow-hidden h-screen',
           sidebarOpen ? 'w-64' : 'w-0',
         )}
       >
@@ -744,7 +743,7 @@ function HomeContent() {
         </div>
 
         {/* Navigation */}
-        <ScrollArea className="flex-1">
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
           <div className="p-3 space-y-1">
             {/* Quick Create - first */}
             <Button
@@ -1032,7 +1031,7 @@ function HomeContent() {
               </>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Sidebar footer */}
         <div className="p-3 border-t shrink-0 space-y-1">

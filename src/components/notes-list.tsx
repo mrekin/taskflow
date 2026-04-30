@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '@/store/app-store';
 import type { Note, NoteFolder } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -100,9 +100,7 @@ export function NotesList() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
 
-  // Folder navigation state
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [folderBreadcrumbs, setFolderBreadcrumbs] = useState<NoteFolder[]>([]);
+  // Folder navigation state (currentFolderId derived from selectedFolderId)
 
   // Folder dialog state
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
@@ -116,27 +114,21 @@ export function NotesList() {
     fetchFolders(selectedProjectId ?? undefined);
   }, [fetchNotes, fetchFolders, selectedProjectId]);
 
-  // Reset folder navigation when project changes
-  useEffect(() => {
-    setCurrentFolderId(null);
-    setFolderBreadcrumbs([]);
-  }, [selectedProjectId]);
+  const currentFolderId = useMemo(() => {
+    return selectedFolderId ?? null;
+  }, [selectedFolderId]);
 
-  // Sync with sidebar folder selection
-  useEffect(() => {
-    if (selectedFolderId) {
-      // Build breadcrumb chain for the selected folder
-      const chain: NoteFolder[] = [];
-      let current = folders.find((f) => f.id === selectedFolderId);
-      while (current) {
-        chain.unshift(current);
-        current = current.parentId
-          ? folders.find((f) => f.id === current!.parentId)
-          : undefined;
-      }
-      setCurrentFolderId(selectedFolderId);
-      setFolderBreadcrumbs(chain);
+  const folderBreadcrumbs = useMemo((): NoteFolder[] => {
+    if (!selectedFolderId) return [];
+    const chain: NoteFolder[] = [];
+    let current = folders.find((f) => f.id === selectedFolderId);
+    while (current) {
+      chain.unshift(current);
+      current = current.parentId
+        ? folders.find((f) => f.id === current!.parentId)
+        : undefined;
     }
+    return chain;
   }, [selectedFolderId, folders]);
 
   const filteredProject = useMemo(() => {
@@ -156,36 +148,12 @@ export function NotesList() {
     return result;
   }, [folders, currentFolderId, searchQuery]);
 
-  // Build the ancestor chain for breadcrumb navigation
-  const buildBreadcrumbs = useCallback(
-    (folderId: string): NoteFolder[] => {
-      const chain: NoteFolder[] = [];
-      let current = folders.find((f) => f.id === folderId);
-      while (current) {
-        chain.unshift(current);
-        if (!current.parentId) break;
-        current = folders.find((f) => f.id === current!.parentId);
-      }
-      return chain;
-    },
-    [folders]
-  );
-
   const handleFolderClick = (folder: NoteFolder) => {
-    setCurrentFolderId(folder.id);
-    setFolderBreadcrumbs(buildBreadcrumbs(folder.id));
     useAppStore.getState().selectFolder(folder.id);
   };
 
   const handleBreadcrumbClick = (folderId: string | null) => {
-    setCurrentFolderId(folderId);
-    if (folderId) {
-      setFolderBreadcrumbs(buildBreadcrumbs(folderId));
-      useAppStore.getState().selectFolder(folderId);
-    } else {
-      setFolderBreadcrumbs([]);
-      useAppStore.getState().selectFolder(null);
-    }
+    useAppStore.getState().selectFolder(folderId);
   };
 
   const filteredAndSortedNotes = useMemo(() => {

@@ -32,7 +32,6 @@ export const parseMetadata = parseJsonFields;
  * Get the next shortIdNum for a given entity type and owner.
  * Finds the max shortIdNum and increments by 1.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getNextShortIdNum(
   model: { findFirst: (args: any) => Promise<{ shortIdNum: number } | null> },
   ownerId: string

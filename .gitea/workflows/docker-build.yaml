@@ -38,6 +38,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Extract repository name (lowercase)
+        id: repo
+        run: |
+          REPO_LOWER=$(echo "${{ gitea.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "image=${{ env.REGISTRY }}/${REPO_LOWER}" >> "$GITHUB_OUTPUT"
+
       - name: Determine image tag
         id: meta
         run: |
@@ -47,7 +53,15 @@ jobs:
               echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
               echo "base_path=" >> "$GITHUB_OUTPUT"
             else
-              echo "tag=test" >> "$GITHUB_OUTPUT"
+              TAGS="${{ steps.repo.outputs.image }}:test"
+              if git diff --name-only ${{ gitea.event.before }} ${{ gitea.event.after }} | grep -q "package.json"; then
+                VERSION=$(cat package.json | grep '"version"' | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
+                TAGS="${TAGS}
+${{ steps.repo.outputs.image }}:${VERSION}-dev"
+              fi
+              echo "tag<<EOF" >> "$GITHUB_OUTPUT"
+              echo "${TAGS}" >> "$GITHUB_OUTPUT"
+              echo "EOF" >> "$GITHUB_OUTPUT"
               echo "base_path=/taskflow" >> "$GITHUB_OUTPUT"
             fi
           else
@@ -67,19 +81,12 @@ jobs:
           username: ${{ gitea.actor }}
           password: ${{ secrets.ACTIONS_TOKEN }}
 
-      - name: Extract repository name (lowercase)
-        id: repo
-        run: |
-          REPO_LOWER=$(echo "${{ gitea.repository }}" | tr '[:upper:]' '[:lower:]')
-          echo "image=${{ env.REGISTRY }}/${REPO_LOWER}" >> "$GITHUB_OUTPUT"
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: |
-            ${{ steps.repo.outputs.image }}:${{ steps.meta.outputs.tag }}
+          tags: ${{ steps.meta.outputs.tag }}
           build-args: |
             NEXT_BASE_PATH=${{ steps.meta.outputs.base_path }}
           cache-from: type=registry,ref=${{ steps.repo.outputs.image }}:buildcache
