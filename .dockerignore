@@ -16,3 +16,8 @@ Dockerfile
 taskflow-data
 CLAUDE.md
 .claude
+dist
+coverage
+.nyc_output
+*.tsbuildinfo
+.DS_Store

@@ -80,6 +80,10 @@ jobs:
           username: ${{ gitea.actor }}
           password: ${{ secrets.ACTIONS_TOKEN }}
 
+      - name: Prepare buildx cache
+        run: |
+          mkdir -p /tmp/.buildx-cache
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -88,5 +92,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tag }}
           build-args: |
             NEXT_BASE_PATH=${{ steps.meta.outputs.base_path }}
-          cache-from: type=registry,ref=${{ steps.repo.outputs.image }}:buildcache
-          cache-to: type=registry,ref=${{ steps.repo.outputs.image }}:buildcache,mode=max
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+      - name: Swap buildx cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
