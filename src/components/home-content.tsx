@@ -320,22 +320,31 @@ function HomeContent() {
     await updateProject(projectId, { areaId: null });
   };
 
-  // Initial data load
+  // Initial data load — wait for ALL fetches before allowing deep links
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+
   useEffect(() => {
-    fetchAreas();
-    fetchProjects();
-    fetchTasks();
-    fetchNotes();
-    fetchFolders();
-    fetchTags();
+    Promise.all([
+      fetchAreas(),
+      fetchProjects(),
+      fetchTasks(),
+      fetchNotes(),
+      fetchFolders(),
+      fetchTags(),
+    ]).finally(() => setInitialLoadDone(true));
   }, [fetchAreas, fetchProjects, fetchTasks, fetchNotes, fetchFolders, fetchTags]);
 
   // Handle deep links from URL query params
   const searchParams = useSearchParams();
   const deepLinkHandledRef = useRef(false);
 
+  // Reset handled flag when URL params change to allow re-navigation
   useEffect(() => {
-    if (deepLinkHandledRef.current || isLoading) return;
+    deepLinkHandledRef.current = false;
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (deepLinkHandledRef.current || !initialLoadDone) return;
 
     const taskId = searchParams.get('task');
     const projectId = searchParams.get('project');
@@ -380,7 +389,7 @@ function HomeContent() {
       }
       deepLinkHandledRef.current = true;
     }
-  }, [searchParams, isLoading, selectTask, selectNote, selectProject, selectArea, setCurrentView, fetchTasks, fetchNotes, tasks, notes, projects, areas]);
+  }, [searchParams, initialLoadDone, selectTask, selectNote, selectProject, selectArea, setCurrentView, fetchTasks, fetchNotes, tasks, notes, projects, areas]);
 
   const handleAreaClick = (areaId: string) => {
     selectArea(areaId);
