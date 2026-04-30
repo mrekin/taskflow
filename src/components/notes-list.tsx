@@ -256,8 +256,10 @@ export function NotesList() {
       setNewFolderName('');
       setCreateFolderOpen(false);
       toast.success(`Folder "${newFolderName.trim()}" created`);
-    } catch {
-      toast.error('Failed to create folder');
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to create folder';
+      toast.error(message);
     }
   };
 
@@ -273,10 +275,11 @@ export function NotesList() {
     }
   };
 
-  const handleDeleteFolder = async () => {
-    if (!deleteFolderId) return;
+  const handleDeleteFolder = async (folderId?: string) => {
+    const id = folderId ?? deleteFolderId;
+    if (!id) return;
     try {
-      await deleteFolder(deleteFolderId);
+      await deleteFolder(id);
       setDeleteFolderId(null);
       toast.success('Folder deleted');
     } catch (error: unknown) {
@@ -284,6 +287,10 @@ export function NotesList() {
         error instanceof Error ? error.message : 'Failed to delete folder';
       toast.error(message);
     }
+  };
+
+  const isFolderNonEmpty = (folderId: string) => {
+    return folders.some((f) => f.parentId === folderId) || notes.some((n) => n.folderId === folderId);
   };
 
   const openRenameDialog = (folder: NoteFolder) => {
@@ -641,7 +648,11 @@ export function NotesList() {
                                 className="text-destructive focus:text-destructive"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setDeleteFolderId(folder.id);
+                                  if (isFolderNonEmpty(folder.id)) {
+                                    setDeleteFolderId(folder.id);
+                                  } else {
+                                    handleDeleteFolder(folder.id);
+                                  }
                                 }}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
@@ -836,14 +847,19 @@ export function NotesList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Folder</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this folder? The folder must be empty to be deleted. Notes inside will not be deleted.
+              Are you sure you want to delete this folder?
+              {deleteFolderId && isFolderNonEmpty(deleteFolderId) && (
+                <span className="block mt-2 font-bold text-destructive">
+                  ALL NOTES AND SUBFOLDERS INSIDE WILL BE DELETED.
+                </span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDeleteFolderId(null)}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteFolder}>
+            <AlertDialogAction onClick={() => handleDeleteFolder()}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

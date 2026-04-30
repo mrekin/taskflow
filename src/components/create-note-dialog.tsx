@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { useAppStore } from '@/store/app-store';
 import type { Note } from '@/lib/types';
 import {
@@ -87,6 +88,10 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
       resetForm();
       onOpenChange(false);
       setCurrentView('note-editor');
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to create note';
+      toast.error(message);
     } finally {
       setIsCreating(false);
     }

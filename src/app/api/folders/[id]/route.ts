@@ -141,18 +141,10 @@ export async function DELETE(
 
     const existing = await db.noteFolder.findFirst({
       where: { id, ownerId: userId },
-      include: { _count: { select: { children: true, notes: true } } },
     });
 
     if (!existing) {
       return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
-    }
-
-    if ((existing._count?.children ?? 0) > 0 || (existing._count?.notes ?? 0) > 0) {
-      return NextResponse.json(
-        { error: "Cannot delete non-empty folder. Move or delete its contents first." },
-        { status: 400 }
-      );
     }
 
     await db.noteFolder.delete({ where: { id } });

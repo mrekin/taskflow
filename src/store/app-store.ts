@@ -359,11 +359,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to create note');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to create note' }));
+        throw new Error(err.error || 'Failed to create note');
+      }
       const newNote: Note = await res.json();
       set((state) => ({ notes: [...state.notes, newNote] }));
     } catch (error) {
       console.error('Failed to create note:', error);
+      throw error;
     }
   },
 
@@ -420,11 +424,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to create folder');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to create folder' }));
+        throw new Error(err.error || 'Failed to create folder');
+      }
       const newFolder: NoteFolder = await res.json();
       set((state) => ({ folders: [...state.folders, newFolder] }));
     } catch (error) {
       console.error('Failed to create folder:', error);
+      throw error;
     }
   },
 
@@ -452,13 +460,25 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteFolder: async (id) => {
     try {
       const res = await fetch(api(`/api/folders/${id}`), { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete folder');
-      set((state) => ({
-        folders: state.folders.filter((f) => f.id !== id),
-        selectedFolderId: state.selectedFolderId === id ? null : state.selectedFolderId,
-      }));
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to delete folder' }));
+        throw new Error(err.error || 'Failed to delete folder');
+      }
+      const collectIds = (folderId: string, folders: NoteFolder[]): string[] => {
+        const children = folders.filter((f) => f.parentId === folderId);
+        return [folderId, ...children.flatMap((c) => collectIds(c.id, folders))];
+      };
+      set((state) => {
+        const removedIds = new Set(collectIds(id, state.folders));
+        return {
+          folders: state.folders.filter((f) => !removedIds.has(f.id)),
+          notes: state.notes.filter((n) => !removedIds.has(n.folderId ?? '')),
+          selectedFolderId: state.selectedFolderId && removedIds.has(state.selectedFolderId) ? null : state.selectedFolderId,
+        };
+      });
     } catch (error) {
       console.error('Failed to delete folder:', error);
+      throw error;
     }
   },
 

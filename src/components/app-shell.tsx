@@ -96,7 +96,7 @@ function BreadcrumbContent() {
 }
 
 export function AppShell() {
-  const { currentView } = useAppStore();
+  const { currentView, selectedNoteId } = useAppStore();
 
   const renderContent = () => {
     switch (currentView) {
@@ -111,7 +111,7 @@ export function AppShell() {
       case 'notes':
         return <NotesList />;
       case 'note-editor':
-        return <NoteEditor />;
+        return <NoteEditor noteId={selectedNoteId!} />;
       case 'settings':
         return <SettingsView />;
       default:
