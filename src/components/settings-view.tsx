@@ -24,7 +24,7 @@ import {
   Settings,
   Save,
   FileText,
-  Webhook,
+
   List,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
@@ -73,6 +73,7 @@ export function SettingsView() {
   const [notesTree, setNotesTree] = useState(
     () => getLocalStorageItem('taskflow-notes-tree', 'false') === 'true'
   );
+  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || 'unknown';
 
   const handleSidebarPositionChange = (position: SidebarPosition) => {
     setSidebarPosition(position);
@@ -93,7 +94,7 @@ export function SettingsView() {
   const handleExportData = () => {
     const data = {
       exportedAt: new Date().toISOString(),
-      version: '0.1.0',
+      version: appVersion,
       data: {
         message: 'Export functionality placeholder - will be implemented in a future version',
       },
@@ -372,7 +373,7 @@ export function SettingsView() {
               <Separator />
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Version</span>
-                <span className="text-sm font-medium font-mono">0.1.0</span>
+                <span className="text-sm font-medium font-mono">{appVersion}</span>
               </div>
               <Separator />
               <div>

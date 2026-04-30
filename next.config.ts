@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 const basePath = process.env.NEXT_BASE_PATH || "";
+const pkg = JSON.parse(readFileSync(join(import.meta.dirname, "package.json"), "utf-8"));
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -13,6 +16,7 @@ const nextConfig: NextConfig = {
   assetPrefix: basePath || undefined,
   env: {
     NEXT_BASE_PATH: basePath,
+    NEXT_PUBLIC_APP_VERSION: pkg.version,
   },
   async rewrites() {
     if (!basePath) return [];

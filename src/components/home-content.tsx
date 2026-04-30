@@ -1036,6 +1036,13 @@ function HomeContent() {
 
         {/* Sidebar footer */}
         <div className="p-3 border-t shrink-0 space-y-1">
+          <Button
+            variant={currentView === 'settings' ? 'secondary' : 'ghost'}
+            className="w-full justify-start h-8 text-xs"
+            onClick={() => setCurrentView('settings')}
+          >
+            <Settings className="size-3.5 mr-2" /> Settings
+          </Button>
           <div
             className="flex items-center gap-2 px-3 py-2 cursor-pointer rounded-md hover:bg-accent"
             onClick={() => session?.user ? signOut() : signIn('oidc')}
@@ -1070,13 +1077,6 @@ function HomeContent() {
               <Moon className="size-3.5 block dark:hidden" />
             </Button>
           </div>
-          <Button
-            variant={currentView === 'settings' ? 'secondary' : 'ghost'}
-            className="w-full justify-start h-8 text-xs"
-            onClick={() => setCurrentView('settings')}
-          >
-            <Settings className="size-3.5 mr-2" /> Settings
-          </Button>
         </div>
       </aside>
 
