@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '@/store/app-store';
 import type { Note } from '@/lib/types';
 import {
@@ -27,14 +27,38 @@ interface CreateNoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultProjectId?: string;
+  defaultFolderId?: string | null;
 }
 
-export function CreateNoteDialog({ open, onOpenChange, defaultProjectId }: CreateNoteDialogProps) {
-  const { projects, createNote, selectNote, setCurrentView, selectedProjectId } = useAppStore();
+export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, defaultFolderId }: CreateNoteDialogProps) {
+  const { projects, folders, createNote, selectNote, setCurrentView, selectedProjectId } = useAppStore();
+
   const [title, setTitle] = useState('');
-  const [projectId, setProjectId] = useState<string>(defaultProjectId ?? selectedProjectId ?? 'none');
+  const [projectId, setProjectId] = useState<string>('none');
+  const [folderId, setFolderId] = useState<string>('none');
   const [content, setContent] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  // Sync state when dialog opens (component stays mounted between opens)
+  useEffect(() => {
+    if (open) {
+      const resolvedProject = defaultProjectId ?? selectedProjectId ?? 'none';
+      setProjectId(resolvedProject);
+      setFolderId(defaultFolderId ?? 'none');
+      setTitle('');
+      setContent('');
+    }
+  }, [open, defaultProjectId, defaultFolderId, selectedProjectId]);
+
+  // Hide project selector only when explicitly provided by parent
+  const hideProjectSelect = !!defaultProjectId;
+
+  const resetForm = () => {
+    setTitle('');
+    setProjectId(defaultProjectId ?? selectedProjectId ?? 'none');
+    setFolderId(defaultFolderId ?? 'none');
+    setContent('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +70,7 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId }: Creat
         title: title.trim(),
         content: content,
         projectId: projectId === 'none' ? null : projectId,
+        folderId: folderId === 'none' ? null : folderId,
       };
 
       await createNote(data);
@@ -59,9 +84,7 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId }: Creat
         selectNote(newNote.id);
       }
 
-      setTitle('');
-      setProjectId(defaultProjectId ?? selectedProjectId ?? 'none');
-      setContent('');
+      resetForm();
       onOpenChange(false);
       setCurrentView('note-editor');
     } finally {
@@ -71,9 +94,7 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId }: Creat
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
-      setTitle('');
-      setProjectId(defaultProjectId ?? selectedProjectId ?? 'none');
-      setContent('');
+      resetForm();
     }
     onOpenChange(newOpen);
   };
@@ -101,7 +122,7 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId }: Creat
               />
             </div>
 
-            {!defaultProjectId && (
+            {!hideProjectSelect && (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="note-project">Project</Label>
                 <Select value={projectId} onValueChange={setProjectId}>
@@ -113,6 +134,25 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId }: Creat
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {(folders.length > 0 || folderId !== 'none') && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="note-folder">Folder</Label>
+                <Select value={folderId} onValueChange={setFolderId}>
+                  <SelectTrigger id="note-folder">
+                    <SelectValue placeholder="Select a folder" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No folder</SelectItem>
+                    {folders.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

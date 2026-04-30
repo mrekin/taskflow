@@ -218,6 +218,7 @@ export type UserWhereInput = {
   ownedProjects?: Prisma.ProjectListRelationFilter
   ownedTasks?: Prisma.TaskListRelationFilter
   ownedNotes?: Prisma.NoteListRelationFilter
+  ownedFolders?: Prisma.NoteFolderListRelationFilter
   assignedTasks?: Prisma.TaskListRelationFilter
   comments?: Prisma.CommentListRelationFilter
   tags?: Prisma.TagListRelationFilter
@@ -238,6 +239,7 @@ export type UserOrderByWithRelationInput = {
   ownedProjects?: Prisma.ProjectOrderByRelationAggregateInput
   ownedTasks?: Prisma.TaskOrderByRelationAggregateInput
   ownedNotes?: Prisma.NoteOrderByRelationAggregateInput
+  ownedFolders?: Prisma.NoteFolderOrderByRelationAggregateInput
   assignedTasks?: Prisma.TaskOrderByRelationAggregateInput
   comments?: Prisma.CommentOrderByRelationAggregateInput
   tags?: Prisma.TagOrderByRelationAggregateInput
@@ -261,6 +263,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   ownedProjects?: Prisma.ProjectListRelationFilter
   ownedTasks?: Prisma.TaskListRelationFilter
   ownedNotes?: Prisma.NoteListRelationFilter
+  ownedFolders?: Prisma.NoteFolderListRelationFilter
   assignedTasks?: Prisma.TaskListRelationFilter
   comments?: Prisma.CommentListRelationFilter
   tags?: Prisma.TagListRelationFilter
@@ -311,6 +314,7 @@ export type UserCreateInput = {
   ownedProjects?: Prisma.ProjectCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
@@ -331,6 +335,7 @@ export type UserUncheckedCreateInput = {
   ownedProjects?: Prisma.ProjectUncheckedCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteUncheckedCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
@@ -351,6 +356,7 @@ export type UserUpdateInput = {
   ownedProjects?: Prisma.ProjectUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
@@ -371,6 +377,7 @@ export type UserUncheckedUpdateInput = {
   ownedProjects?: Prisma.ProjectUncheckedUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUncheckedUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUncheckedUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUncheckedUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
@@ -543,6 +550,20 @@ export type UserUpdateOneRequiredWithoutOwnedNotesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutOwnedNotesInput, Prisma.UserUpdateWithoutOwnedNotesInput>, Prisma.UserUncheckedUpdateWithoutOwnedNotesInput>
 }
 
+export type UserCreateNestedOneWithoutOwnedFoldersInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutOwnedFoldersInput, Prisma.UserUncheckedCreateWithoutOwnedFoldersInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutOwnedFoldersInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutOwnedFoldersNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutOwnedFoldersInput, Prisma.UserUncheckedCreateWithoutOwnedFoldersInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutOwnedFoldersInput
+  upsert?: Prisma.UserUpsertWithoutOwnedFoldersInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutOwnedFoldersInput, Prisma.UserUpdateWithoutOwnedFoldersInput>, Prisma.UserUncheckedUpdateWithoutOwnedFoldersInput>
+}
+
 export type UserCreateNestedOneWithoutCommentsInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutCommentsInput, Prisma.UserUncheckedCreateWithoutCommentsInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutCommentsInput
@@ -598,6 +619,7 @@ export type UserCreateWithoutOwnedAreasInput = {
   ownedProjects?: Prisma.ProjectCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
@@ -617,6 +639,7 @@ export type UserUncheckedCreateWithoutOwnedAreasInput = {
   ownedProjects?: Prisma.ProjectUncheckedCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteUncheckedCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
@@ -652,6 +675,7 @@ export type UserUpdateWithoutOwnedAreasInput = {
   ownedProjects?: Prisma.ProjectUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
@@ -671,6 +695,7 @@ export type UserUncheckedUpdateWithoutOwnedAreasInput = {
   ownedProjects?: Prisma.ProjectUncheckedUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUncheckedUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUncheckedUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUncheckedUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
@@ -690,6 +715,7 @@ export type UserCreateWithoutOwnedProjectsInput = {
   ownedAreas?: Prisma.AreaCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
@@ -709,6 +735,7 @@ export type UserUncheckedCreateWithoutOwnedProjectsInput = {
   ownedAreas?: Prisma.AreaUncheckedCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteUncheckedCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
@@ -744,6 +771,7 @@ export type UserUpdateWithoutOwnedProjectsInput = {
   ownedAreas?: Prisma.AreaUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
@@ -763,6 +791,7 @@ export type UserUncheckedUpdateWithoutOwnedProjectsInput = {
   ownedAreas?: Prisma.AreaUncheckedUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUncheckedUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUncheckedUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUncheckedUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
@@ -782,6 +811,7 @@ export type UserCreateWithoutOwnedTasksInput = {
   ownedAreas?: Prisma.AreaCreateNestedManyWithoutOwnerInput
   ownedProjects?: Prisma.ProjectCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
@@ -801,6 +831,7 @@ export type UserUncheckedCreateWithoutOwnedTasksInput = {
   ownedAreas?: Prisma.AreaUncheckedCreateNestedManyWithoutOwnerInput
   ownedProjects?: Prisma.ProjectUncheckedCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteUncheckedCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
@@ -826,6 +857,7 @@ export type UserCreateWithoutAssignedTasksInput = {
   ownedProjects?: Prisma.ProjectCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderCreateNestedManyWithoutOwnerInput
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
@@ -845,6 +877,7 @@ export type UserUncheckedCreateWithoutAssignedTasksInput = {
   ownedProjects?: Prisma.ProjectUncheckedCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteUncheckedCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutOwnerInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
@@ -879,6 +912,7 @@ export type UserUpdateWithoutOwnedTasksInput = {
   ownedAreas?: Prisma.AreaUpdateManyWithoutOwnerNestedInput
   ownedProjects?: Prisma.ProjectUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
@@ -898,6 +932,7 @@ export type UserUncheckedUpdateWithoutOwnedTasksInput = {
   ownedAreas?: Prisma.AreaUncheckedUpdateManyWithoutOwnerNestedInput
   ownedProjects?: Prisma.ProjectUncheckedUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUncheckedUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUncheckedUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
@@ -929,6 +964,7 @@ export type UserUpdateWithoutAssignedTasksInput = {
   ownedProjects?: Prisma.ProjectUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUpdateManyWithoutOwnerNestedInput
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
@@ -948,6 +984,7 @@ export type UserUncheckedUpdateWithoutAssignedTasksInput = {
   ownedProjects?: Prisma.ProjectUncheckedUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUncheckedUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUncheckedUpdateManyWithoutOwnerNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
@@ -966,6 +1003,7 @@ export type UserCreateWithoutOwnedNotesInput = {
   ownedAreas?: Prisma.AreaCreateNestedManyWithoutOwnerInput
   ownedProjects?: Prisma.ProjectCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
@@ -985,6 +1023,7 @@ export type UserUncheckedCreateWithoutOwnedNotesInput = {
   ownedAreas?: Prisma.AreaUncheckedCreateNestedManyWithoutOwnerInput
   ownedProjects?: Prisma.ProjectUncheckedCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
@@ -1020,6 +1059,7 @@ export type UserUpdateWithoutOwnedNotesInput = {
   ownedAreas?: Prisma.AreaUpdateManyWithoutOwnerNestedInput
   ownedProjects?: Prisma.ProjectUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
@@ -1039,6 +1079,103 @@ export type UserUncheckedUpdateWithoutOwnedNotesInput = {
   ownedAreas?: Prisma.AreaUncheckedUpdateManyWithoutOwnerNestedInput
   ownedProjects?: Prisma.ProjectUncheckedUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUncheckedUpdateManyWithoutOwnerNestedInput
+  assignedTasks?: Prisma.TaskUncheckedUpdateManyWithoutAssigneeNestedInput
+  comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
+  tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
+  webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
+}
+
+export type UserCreateWithoutOwnedFoldersInput = {
+  id?: string
+  email: string
+  name?: string | null
+  image?: string | null
+  oidcId?: string | null
+  oidcProvider?: string | null
+  metadata?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  ownedAreas?: Prisma.AreaCreateNestedManyWithoutOwnerInput
+  ownedProjects?: Prisma.ProjectCreateNestedManyWithoutOwnerInput
+  ownedTasks?: Prisma.TaskCreateNestedManyWithoutOwnerInput
+  ownedNotes?: Prisma.NoteCreateNestedManyWithoutOwnerInput
+  assignedTasks?: Prisma.TaskCreateNestedManyWithoutAssigneeInput
+  comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
+  tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
+  webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
+}
+
+export type UserUncheckedCreateWithoutOwnedFoldersInput = {
+  id?: string
+  email: string
+  name?: string | null
+  image?: string | null
+  oidcId?: string | null
+  oidcProvider?: string | null
+  metadata?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  ownedAreas?: Prisma.AreaUncheckedCreateNestedManyWithoutOwnerInput
+  ownedProjects?: Prisma.ProjectUncheckedCreateNestedManyWithoutOwnerInput
+  ownedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutOwnerInput
+  ownedNotes?: Prisma.NoteUncheckedCreateNestedManyWithoutOwnerInput
+  assignedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutAssigneeInput
+  comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
+  tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
+  webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
+}
+
+export type UserCreateOrConnectWithoutOwnedFoldersInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutOwnedFoldersInput, Prisma.UserUncheckedCreateWithoutOwnedFoldersInput>
+}
+
+export type UserUpsertWithoutOwnedFoldersInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutOwnedFoldersInput, Prisma.UserUncheckedUpdateWithoutOwnedFoldersInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutOwnedFoldersInput, Prisma.UserUncheckedCreateWithoutOwnedFoldersInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutOwnedFoldersInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutOwnedFoldersInput, Prisma.UserUncheckedUpdateWithoutOwnedFoldersInput>
+}
+
+export type UserUpdateWithoutOwnedFoldersInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ownedAreas?: Prisma.AreaUpdateManyWithoutOwnerNestedInput
+  ownedProjects?: Prisma.ProjectUpdateManyWithoutOwnerNestedInput
+  ownedTasks?: Prisma.TaskUpdateManyWithoutOwnerNestedInput
+  ownedNotes?: Prisma.NoteUpdateManyWithoutOwnerNestedInput
+  assignedTasks?: Prisma.TaskUpdateManyWithoutAssigneeNestedInput
+  comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
+  tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
+  webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
+}
+
+export type UserUncheckedUpdateWithoutOwnedFoldersInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ownedAreas?: Prisma.AreaUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedProjects?: Prisma.ProjectUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedTasks?: Prisma.TaskUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedNotes?: Prisma.NoteUncheckedUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUncheckedUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
@@ -1059,6 +1196,7 @@ export type UserCreateWithoutCommentsInput = {
   ownedProjects?: Prisma.ProjectCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskCreateNestedManyWithoutAssigneeInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
@@ -1078,6 +1216,7 @@ export type UserUncheckedCreateWithoutCommentsInput = {
   ownedProjects?: Prisma.ProjectUncheckedCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteUncheckedCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutAssigneeInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
@@ -1113,6 +1252,7 @@ export type UserUpdateWithoutCommentsInput = {
   ownedProjects?: Prisma.ProjectUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUpdateManyWithoutAssigneeNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
@@ -1132,6 +1272,7 @@ export type UserUncheckedUpdateWithoutCommentsInput = {
   ownedProjects?: Prisma.ProjectUncheckedUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUncheckedUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUncheckedUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUncheckedUpdateManyWithoutAssigneeNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
@@ -1151,6 +1292,7 @@ export type UserCreateWithoutTagsInput = {
   ownedProjects?: Prisma.ProjectCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
@@ -1170,6 +1312,7 @@ export type UserUncheckedCreateWithoutTagsInput = {
   ownedProjects?: Prisma.ProjectUncheckedCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteUncheckedCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
@@ -1205,6 +1348,7 @@ export type UserUpdateWithoutTagsInput = {
   ownedProjects?: Prisma.ProjectUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
@@ -1224,6 +1368,7 @@ export type UserUncheckedUpdateWithoutTagsInput = {
   ownedProjects?: Prisma.ProjectUncheckedUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUncheckedUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUncheckedUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUncheckedUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
@@ -1243,6 +1388,7 @@ export type UserCreateWithoutWebhooksInput = {
   ownedProjects?: Prisma.ProjectCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
@@ -1262,6 +1408,7 @@ export type UserUncheckedCreateWithoutWebhooksInput = {
   ownedProjects?: Prisma.ProjectUncheckedCreateNestedManyWithoutOwnerInput
   ownedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutOwnerInput
   ownedNotes?: Prisma.NoteUncheckedCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutOwnerInput
   assignedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
@@ -1297,6 +1444,7 @@ export type UserUpdateWithoutWebhooksInput = {
   ownedProjects?: Prisma.ProjectUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
@@ -1316,6 +1464,7 @@ export type UserUncheckedUpdateWithoutWebhooksInput = {
   ownedProjects?: Prisma.ProjectUncheckedUpdateManyWithoutOwnerNestedInput
   ownedTasks?: Prisma.TaskUncheckedUpdateManyWithoutOwnerNestedInput
   ownedNotes?: Prisma.NoteUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUncheckedUpdateManyWithoutOwnerNestedInput
   assignedTasks?: Prisma.TaskUncheckedUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
@@ -1331,6 +1480,7 @@ export type UserCountOutputType = {
   ownedProjects: number
   ownedTasks: number
   ownedNotes: number
+  ownedFolders: number
   assignedTasks: number
   comments: number
   tags: number
@@ -1342,6 +1492,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   ownedProjects?: boolean | UserCountOutputTypeCountOwnedProjectsArgs
   ownedTasks?: boolean | UserCountOutputTypeCountOwnedTasksArgs
   ownedNotes?: boolean | UserCountOutputTypeCountOwnedNotesArgs
+  ownedFolders?: boolean | UserCountOutputTypeCountOwnedFoldersArgs
   assignedTasks?: boolean | UserCountOutputTypeCountAssignedTasksArgs
   comments?: boolean | UserCountOutputTypeCountCommentsArgs
   tags?: boolean | UserCountOutputTypeCountTagsArgs
@@ -1389,6 +1540,13 @@ export type UserCountOutputTypeCountOwnedNotesArgs<ExtArgs extends runtime.Types
 /**
  * UserCountOutputType without action
  */
+export type UserCountOutputTypeCountOwnedFoldersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.NoteFolderWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
 export type UserCountOutputTypeCountAssignedTasksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.TaskWhereInput
 }
@@ -1429,6 +1587,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   ownedProjects?: boolean | Prisma.User$ownedProjectsArgs<ExtArgs>
   ownedTasks?: boolean | Prisma.User$ownedTasksArgs<ExtArgs>
   ownedNotes?: boolean | Prisma.User$ownedNotesArgs<ExtArgs>
+  ownedFolders?: boolean | Prisma.User$ownedFoldersArgs<ExtArgs>
   assignedTasks?: boolean | Prisma.User$assignedTasksArgs<ExtArgs>
   comments?: boolean | Prisma.User$commentsArgs<ExtArgs>
   tags?: boolean | Prisma.User$tagsArgs<ExtArgs>
@@ -1478,6 +1637,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   ownedProjects?: boolean | Prisma.User$ownedProjectsArgs<ExtArgs>
   ownedTasks?: boolean | Prisma.User$ownedTasksArgs<ExtArgs>
   ownedNotes?: boolean | Prisma.User$ownedNotesArgs<ExtArgs>
+  ownedFolders?: boolean | Prisma.User$ownedFoldersArgs<ExtArgs>
   assignedTasks?: boolean | Prisma.User$assignedTasksArgs<ExtArgs>
   comments?: boolean | Prisma.User$commentsArgs<ExtArgs>
   tags?: boolean | Prisma.User$tagsArgs<ExtArgs>
@@ -1494,6 +1654,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     ownedProjects: Prisma.$ProjectPayload<ExtArgs>[]
     ownedTasks: Prisma.$TaskPayload<ExtArgs>[]
     ownedNotes: Prisma.$NotePayload<ExtArgs>[]
+    ownedFolders: Prisma.$NoteFolderPayload<ExtArgs>[]
     assignedTasks: Prisma.$TaskPayload<ExtArgs>[]
     comments: Prisma.$CommentPayload<ExtArgs>[]
     tags: Prisma.$TagPayload<ExtArgs>[]
@@ -1907,6 +2068,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   ownedProjects<T extends Prisma.User$ownedProjectsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$ownedProjectsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ProjectPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   ownedTasks<T extends Prisma.User$ownedTasksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$ownedTasksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   ownedNotes<T extends Prisma.User$ownedNotesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$ownedNotesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  ownedFolders<T extends Prisma.User$ownedFoldersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$ownedFoldersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NoteFolderPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   assignedTasks<T extends Prisma.User$assignedTasksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$assignedTasksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   comments<T extends Prisma.User$commentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$commentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CommentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   tags<T extends Prisma.User$tagsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$tagsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TagPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -2433,6 +2595,30 @@ export type User$ownedNotesArgs<ExtArgs extends runtime.Types.Extensions.Interna
   take?: number
   skip?: number
   distinct?: Prisma.NoteScalarFieldEnum | Prisma.NoteScalarFieldEnum[]
+}
+
+/**
+ * User.ownedFolders
+ */
+export type User$ownedFoldersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the NoteFolder
+   */
+  select?: Prisma.NoteFolderSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the NoteFolder
+   */
+  omit?: Prisma.NoteFolderOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.NoteFolderInclude<ExtArgs> | null
+  where?: Prisma.NoteFolderWhereInput
+  orderBy?: Prisma.NoteFolderOrderByWithRelationInput | Prisma.NoteFolderOrderByWithRelationInput[]
+  cursor?: Prisma.NoteFolderWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.NoteFolderScalarFieldEnum | Prisma.NoteFolderScalarFieldEnum[]
 }
 
 /**

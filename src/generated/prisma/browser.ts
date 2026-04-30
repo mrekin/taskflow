@@ -43,6 +43,11 @@ export type Task = Prisma.TaskModel
  */
 export type Note = Prisma.NoteModel
 /**
+ * Model NoteFolder
+ * 
+ */
+export type NoteFolder = Prisma.NoteFolderModel
+/**
  * Model Comment
  * 
  */

@@ -44,21 +44,58 @@ if ! touch "$DB_DIR/.write_test" 2>/dev/null; then
 fi
 rm -f "$DB_DIR/.write_test"
 
+# Compute current schema hash to detect changes
+SCHEMA_HASH_FILE="${DB_PATH}.schema_hash"
+CURRENT_HASH=$(cat /app/prisma/schema.prisma | md5sum | cut -d' ' -f1)
+PREV_HASH=""
+if [ -f "$SCHEMA_HASH_FILE" ]; then
+  PREV_HASH=$(cat "$SCHEMA_HASH_FILE")
+fi
+
 # Check if database file exists
 if [ -f "$DB_PATH" ]; then
   echo "Database file found: $DB_PATH"
-  echo "Running schema migration (safe - adds missing columns, preserves data)..."
+
+  # Only backup and migrate if schema has changed
+  if [ "$CURRENT_HASH" != "$PREV_HASH" ]; then
+    echo "Schema change detected."
+
+    # Create backup before migration (iterative, timestamped)
+    BACKUP_TS=$(date +%Y%m%d_%H%M%S)
+    BACKUP_FILE="${DB_PATH}.bak.${BACKUP_TS}"
+    cp "$DB_PATH" "$BACKUP_FILE"
+    echo "Backup created: ${BACKUP_FILE}"
+
+    # Keep only last 10 backups to avoid disk bloat
+    BACKUP_COUNT=$(ls -1 "${DB_PATH}".bak.* 2>/dev/null | wc -l)
+    if [ "$BACKUP_COUNT" -gt 10 ]; then
+      echo "Cleaning old backups (keeping last 10)..."
+      ls -1t "${DB_PATH}".bak.* | tail -n +11 | xargs rm -f
+    fi
+
+    echo "Running schema migration (safe - adds missing columns, preserves data)..."
+    NEEDS_MIGRATION=1
+  else
+    echo "Schema unchanged since last migration. Skipping."
+    NEEDS_MIGRATION=0
+  fi
 else
   echo "No database found at: $DB_PATH"
   echo "Creating new database with current schema..."
+  NEEDS_MIGRATION=1
 fi
 
-# Run prisma db push to create/migrate the schema
-npx prisma db push 2>&1 || {
-  echo ""
-  echo "⚠ WARNING: Schema sync encountered an issue."
-  echo "Starting the app anyway — some features may not work correctly."
-}
+if [ "$NEEDS_MIGRATION" = "1" ]; then
+  # Run prisma db push to create/migrate the schema
+  npx prisma db push 2>&1 || {
+    echo ""
+    echo "⚠ WARNING: Schema sync encountered an issue."
+    echo "Starting the app anyway — some features may not work correctly."
+  }
+
+  # Save schema hash after successful migration
+  echo "$CURRENT_HASH" > "$SCHEMA_HASH_FILE"
+fi
 
 echo ""
 echo "=== Starting TaskFlow ==="

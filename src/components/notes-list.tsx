@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAppStore } from '@/store/app-store';
-import type { Note } from '@/lib/types';
+import type { Note, NoteFolder } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { CreateNoteDialog } from '@/components/create-note-dialog';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { TagBadges } from '@/components/tag-badges';
@@ -36,11 +60,18 @@ import {
   Download,
   Upload,
   FileDown,
+  Folder,
+  FolderPlus,
+  ChevronRight,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  Home,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
-type SortOption = 'updatedAt' | 'title' | 'project';
+type SortOption = 'updatedAt' | 'title' | 'project' | 'folder';
 
 export function NotesList() {
   const {
@@ -56,6 +87,12 @@ export function NotesList() {
     tagFilter,
     setTagFilter,
     createNote,
+    folders,
+    fetchFolders,
+    createFolder,
+    updateFolder,
+    deleteFolder,
+    selectedFolderId,
   } = useAppStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -63,17 +100,99 @@ export function NotesList() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
 
+  // Folder navigation state
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [folderBreadcrumbs, setFolderBreadcrumbs] = useState<NoteFolder[]>([]);
+
+  // Folder dialog state
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [renameFolderId, setRenameFolderId] = useState<string | null>(null);
+  const [renameFolderName, setRenameFolderName] = useState('');
+  const [deleteFolderId, setDeleteFolderId] = useState<string | null>(null);
+
   useEffect(() => {
     fetchNotes(selectedProjectId ?? undefined);
-  }, [fetchNotes, selectedProjectId]);
+    fetchFolders(selectedProjectId ?? undefined);
+  }, [fetchNotes, fetchFolders, selectedProjectId]);
+
+  // Reset folder navigation when project changes
+  useEffect(() => {
+    setCurrentFolderId(null);
+    setFolderBreadcrumbs([]);
+  }, [selectedProjectId]);
+
+  // Sync with sidebar folder selection
+  useEffect(() => {
+    if (selectedFolderId) {
+      // Build breadcrumb chain for the selected folder
+      const chain: NoteFolder[] = [];
+      let current = folders.find((f) => f.id === selectedFolderId);
+      while (current) {
+        chain.unshift(current);
+        current = current.parentId
+          ? folders.find((f) => f.id === current!.parentId)
+          : undefined;
+      }
+      setCurrentFolderId(selectedFolderId);
+      setFolderBreadcrumbs(chain);
+    }
+  }, [selectedFolderId, folders]);
 
   const filteredProject = useMemo(() => {
     if (!selectedProjectId) return null;
     return projects.find((p) => p.id === selectedProjectId) ?? null;
   }, [projects, selectedProjectId]);
 
+  // Folders visible at the current level
+  const visibleFolders = useMemo(() => {
+    let result = folders.filter((f) => f.parentId === currentFolderId);
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((f) => f.name.toLowerCase().includes(query));
+    }
+
+    return result;
+  }, [folders, currentFolderId, searchQuery]);
+
+  // Build the ancestor chain for breadcrumb navigation
+  const buildBreadcrumbs = useCallback(
+    (folderId: string): NoteFolder[] => {
+      const chain: NoteFolder[] = [];
+      let current = folders.find((f) => f.id === folderId);
+      while (current) {
+        chain.unshift(current);
+        if (!current.parentId) break;
+        current = folders.find((f) => f.id === current!.parentId);
+      }
+      return chain;
+    },
+    [folders]
+  );
+
+  const handleFolderClick = (folder: NoteFolder) => {
+    setCurrentFolderId(folder.id);
+    setFolderBreadcrumbs(buildBreadcrumbs(folder.id));
+    useAppStore.getState().selectFolder(folder.id);
+  };
+
+  const handleBreadcrumbClick = (folderId: string | null) => {
+    setCurrentFolderId(folderId);
+    if (folderId) {
+      setFolderBreadcrumbs(buildBreadcrumbs(folderId));
+      useAppStore.getState().selectFolder(folderId);
+    } else {
+      setFolderBreadcrumbs([]);
+      useAppStore.getState().selectFolder(null);
+    }
+  };
+
   const filteredAndSortedNotes = useMemo(() => {
     let result = [...notes];
+
+    // Filter by current folder
+    result = result.filter((note) => note.folderId === currentFolderId);
 
     // Filter by search query
     if (searchQuery.trim()) {
@@ -104,13 +223,18 @@ export function NotesList() {
           const bProject = b.project?.name ?? 'zzz';
           return aProject.localeCompare(bProject);
         }
+        case 'folder': {
+          const aFolder = a.folder?.name ?? 'zzz';
+          const bFolder = b.folder?.name ?? 'zzz';
+          return aFolder.localeCompare(bFolder);
+        }
         default:
           return 0;
       }
     });
 
     return result;
-  }, [notes, searchQuery, sortBy, tagFilter]);
+  }, [notes, searchQuery, sortBy, tagFilter, currentFolderId]);
 
   const handleNoteClick = (note: Note) => {
     selectNote(note.id);
@@ -119,6 +243,52 @@ export function NotesList() {
 
   const handleClearFilter = () => {
     selectProject(null);
+  };
+
+  // Folder CRUD handlers
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+    try {
+      await createFolder({
+        name: newFolderName.trim(),
+        parentId: currentFolderId,
+      });
+      setNewFolderName('');
+      setCreateFolderOpen(false);
+      toast.success(`Folder "${newFolderName.trim()}" created`);
+    } catch {
+      toast.error('Failed to create folder');
+    }
+  };
+
+  const handleRenameFolder = async () => {
+    if (!renameFolderId || !renameFolderName.trim()) return;
+    try {
+      await updateFolder(renameFolderId, { name: renameFolderName.trim() });
+      setRenameFolderId(null);
+      setRenameFolderName('');
+      toast.success('Folder renamed');
+    } catch {
+      toast.error('Failed to rename folder');
+    }
+  };
+
+  const handleDeleteFolder = async () => {
+    if (!deleteFolderId) return;
+    try {
+      await deleteFolder(deleteFolderId);
+      setDeleteFolderId(null);
+      toast.success('Folder deleted');
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to delete folder';
+      toast.error(message);
+    }
+  };
+
+  const openRenameDialog = (folder: NoteFolder) => {
+    setRenameFolderId(folder.id);
+    setRenameFolderName(folder.name);
   };
 
   function downloadFile(filename: string, content: string) {
@@ -170,7 +340,12 @@ export function NotesList() {
       for (const file of Array.from(files)) {
         const content = await file.text();
         const title = file.name.replace(/\.(md|txt|markdown)$/, '');
-        await createNote({ title, content, projectId: selectedProjectId || null });
+        await createNote({
+          title,
+          content,
+          projectId: selectedProjectId || null,
+          folderId: currentFolderId,
+        });
         imported++;
       }
       fetchNotes(selectedProjectId ?? undefined);
@@ -179,13 +354,21 @@ export function NotesList() {
     input.click();
   };
 
-  if (isLoading && notes.length === 0) {
+  const getFolderItemCount = (folder: NoteFolder): number => {
+    const directChildren = folders.filter((f) => f.parentId === folder.id).length;
+    const directNotes = notes.filter((n) => n.folderId === folder.id).length;
+    return directChildren + directNotes;
+  };
+
+  if (isLoading && notes.length === 0 && folders.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-pulse text-muted-foreground">Loading notes...</div>
       </div>
     );
   }
+
+  const hasNoContent = visibleFolders.length === 0 && filteredAndSortedNotes.length === 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -223,6 +406,14 @@ export function NotesList() {
             <Button variant="outline" size="sm" onClick={handleExportAll}>
               <FileDown className="h-4 w-4 mr-1.5" />
               Export
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCreateFolderOpen(true)}
+            >
+              <FolderPlus className="h-4 w-4 mr-1.5" />
+              New Folder
             </Button>
             <Button onClick={() => setCreateDialogOpen(true)} size="sm">
               <Plus className="h-4 w-4 mr-1.5" />
@@ -330,14 +521,44 @@ export function NotesList() {
               <SelectItem value="updatedAt">Last Updated</SelectItem>
               <SelectItem value="title">Title</SelectItem>
               <SelectItem value="project">Project</SelectItem>
+              <SelectItem value="folder">Folder</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        {/* Breadcrumbs */}
+        {(currentFolderId || folderBreadcrumbs.length > 0) && (
+          <div className="flex items-center gap-1 text-sm">
+            <button
+              onClick={() => handleBreadcrumbClick(null)}
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Home className="h-3.5 w-3.5" />
+              <span>All Notes</span>
+            </button>
+            {folderBreadcrumbs.map((folder) => (
+              <span key={folder.id} className="flex items-center gap-1">
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                <button
+                  onClick={() => handleBreadcrumbClick(folder.id)}
+                  className={cn(
+                    'transition-colors',
+                    folder.id === currentFolderId
+                      ? 'text-foreground font-medium'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {folder.name}
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Notes Grid */}
+      {/* Folders & Notes Grid */}
       <div className="flex-1 overflow-y-auto py-4 custom-scrollbar">
-        {filteredAndSortedNotes.length === 0 ? (
+        {hasNoContent ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             <FileText className="h-16 w-16 mb-4 opacity-20" />
             <p className="text-lg font-medium">
@@ -351,18 +572,92 @@ export function NotesList() {
                 : 'Click the "New Note" button to get started'}
             </p>
             {!searchQuery && (
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => setCreateDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                Create Note
-              </Button>
+              <div className="flex items-center gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setCreateFolderOpen(true)}
+                >
+                  <FolderPlus className="h-4 w-4 mr-1.5" />
+                  Create Folder
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setCreateDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Create Note
+                </Button>
+              </div>
             )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Folder cards */}
+            {visibleFolders.map((folder) => {
+              const itemCount = getFolderItemCount(folder);
+              return (
+                <Card
+                  key={folder.id}
+                  className="cursor-pointer hover:shadow-md transition-all duration-200 hover:border-primary/30 group overflow-hidden"
+                  onClick={() => handleFolderClick(folder)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Folder className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                              {folder.name}
+                            </h3>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {itemCount} item{itemCount !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openRenameDialog(folder);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteFolderId(folder.id);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+
+            {/* Note cards */}
             {filteredAndSortedNotes.map((note) => (
               <Card
                 key={note.id}
@@ -438,7 +733,122 @@ export function NotesList() {
       <CreateNoteDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
+        defaultProjectId={selectedProjectId ?? undefined}
+        defaultFolderId={currentFolderId}
       />
+
+      {/* Create Folder Dialog */}
+      <Dialog open={createFolderOpen} onOpenChange={(open) => {
+        setCreateFolderOpen(open);
+        if (!open) setNewFolderName('');
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Folder</DialogTitle>
+            <DialogDescription>
+              Create a new folder to organize your notes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <Input
+              placeholder="Folder name..."
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreateFolder();
+              }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter className="mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setCreateFolderOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateFolder}
+              disabled={!newFolderName.trim()}
+            >
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Folder Dialog */}
+      <Dialog
+        open={renameFolderId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRenameFolderId(null);
+            setRenameFolderName('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rename Folder</DialogTitle>
+            <DialogDescription>
+              Enter a new name for this folder.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <Input
+              placeholder="Folder name..."
+              value={renameFolderName}
+              onChange={(e) => setRenameFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRenameFolder();
+              }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter className="mt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRenameFolderId(null);
+                setRenameFolderName('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRenameFolder}
+              disabled={!renameFolderName.trim()}
+            >
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Folder Confirmation */}
+      <AlertDialog
+        open={deleteFolderId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteFolderId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Folder</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this folder? The folder must be empty to be deleted. Notes inside will not be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteFolderId(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteFolder}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

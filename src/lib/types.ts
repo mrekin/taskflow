@@ -35,7 +35,8 @@ export interface Project {
   area?: Area;
   tasks?: Task[];
   notes?: Note[];
-  _count?: { tasks: number; topLevelTasks: number; notes: number };
+  folders?: NoteFolder[];
+  _count?: { tasks: number; topLevelTasks: number; notes: number; folders: number };
 }
 
 export interface Task {
@@ -115,6 +116,7 @@ export interface Note {
   title: string;
   content: string;
   projectId: string | null;
+  folderId: string | null;
   metadata: Record<string, unknown>;
   tagIds: string[];
   shortIdNum: number;
@@ -124,4 +126,23 @@ export interface Note {
   createdAt: string;
   updatedAt: string;
   project?: Project;
+  folder?: NoteFolder;
+}
+
+export interface NoteFolder {
+  id: string;
+  name: string;
+  projectId: string | null;
+  parentId: string | null;
+  metadata: Record<string, unknown>;
+  shortIdNum: number;
+  shortId: string;
+  ownerId: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  parent?: NoteFolder;
+  children?: NoteFolder[];
+  notes?: Note[];
+  _count?: { children: number; notes: number };
 }

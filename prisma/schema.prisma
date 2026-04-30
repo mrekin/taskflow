@@ -25,6 +25,7 @@ model User {
   ownedProjects Project[]
   ownedTasks    Task[]
   ownedNotes    Note[]
+  ownedFolders  NoteFolder[]
   assignedTasks Task[]    @relation("TaskAssignee")
   comments      Comment[]
   tags          Tag[]
@@ -69,6 +70,7 @@ model Project {
   owner  User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   tasks  Task[]
   notes  Note[]
+  folders NoteFolder[]
 }
 
 model Task {
@@ -102,6 +104,7 @@ model Note {
   title       String
   content     String   @default("")
   projectId   String?
+  folderId    String?
   metadata    String   @default("{}")
   tagIds      String   @default("[]")
   shortIdNum  Int      @default(0)
@@ -110,8 +113,28 @@ model Note {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  project Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  folder  NoteFolder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  owner   User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+}
+
+model NoteFolder {
+  id          String   @id @default(cuid())
+  name        String
+  projectId   String?
+  parentId    String?
+  metadata    String   @default("{}")
+  shortIdNum  Int      @default(0)
+  ownerId     String
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent    NoteFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children  NoteFolder[] @relation("FolderHierarchy")
+  notes     Note[]
+  project   Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner     User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 }
 
 model Comment {

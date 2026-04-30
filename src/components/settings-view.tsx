@@ -25,6 +25,7 @@ import {
   Save,
   FileText,
   Webhook,
+  List,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { WebhooksSection } from '@/components/webhooks-section';
@@ -69,6 +70,9 @@ export function SettingsView() {
   const [noteAutoSave, setNoteAutoSave] = useState(
     () => getLocalStorageItem('taskflow-note-autosave', 'true') === 'true'
   );
+  const [notesTree, setNotesTree] = useState(
+    () => getLocalStorageItem('taskflow-notes-tree', 'false') === 'true'
+  );
 
   const handleSidebarPositionChange = (position: SidebarPosition) => {
     setSidebarPosition(position);
@@ -78,6 +82,12 @@ export function SettingsView() {
   const handleNoteAutoSaveChange = (enabled: boolean) => {
     setNoteAutoSave(enabled);
     localStorage.setItem('taskflow-note-autosave', String(enabled));
+  };
+
+  const handleNotesTreeChange = (enabled: boolean) => {
+    setNotesTree(enabled);
+    localStorage.setItem('taskflow-notes-tree', String(enabled));
+    window.dispatchEvent(new CustomEvent('notes-tree-toggle', { detail: enabled }));
   };
 
   const handleExportData = () => {
@@ -281,6 +291,27 @@ export function SettingsView() {
                 id="note-autosave"
                 checked={noteAutoSave}
                 onCheckedChange={handleNoteAutoSaveChange}
+              />
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <List className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Label htmlFor="notes-tree">Show notes tree in sidebar</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {notesTree
+                    ? 'Notes and folders are shown in a tree view in the sidebar'
+                    : 'Notes tree is hidden from the sidebar'}
+                </p>
+              </div>
+              <Switch
+                id="notes-tree"
+                checked={notesTree}
+                onCheckedChange={handleNotesTreeChange}
               />
             </div>
           </CardContent>

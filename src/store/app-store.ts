@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Area, Project, Task, Note, Comment, Tag, Webhook, WebhookDelivery } from '@/lib/types';
+import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery } from '@/lib/types';
 
 const basePath = process.env.NEXT_BASE_PATH || '';
 const api = (path: string) => `${basePath}${path}`;
@@ -13,12 +13,14 @@ interface AppState {
   selectedProjectId: string | null;
   selectedTaskId: string | null;
   selectedNoteId: string | null;
+  selectedFolderId: string | null;
 
   // Data
   areas: Area[];
   projects: Project[];
   tasks: Task[];
   notes: Note[];
+  folders: NoteFolder[];
   tags: Tag[];
   comments: Comment[];
   webhooks: Webhook[];
@@ -35,6 +37,7 @@ interface AppState {
   selectProject: (id: string | null) => void;
   selectTask: (id: string | null) => void;
   selectNote: (id: string | null) => void;
+  selectFolder: (id: string | null) => void;
   toggleSidebar: () => void;
   setTaskStatusFilter: (filter: string) => void;
   setTagFilter: (tagIds: string[]) => void;
@@ -67,6 +70,12 @@ interface AppState {
   updateNote: (id: string, data: Partial<Note>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
 
+  // Actions - CRUD Folders
+  fetchFolders: (projectId?: string) => Promise<void>;
+  createFolder: (data: Partial<NoteFolder>) => Promise<void>;
+  updateFolder: (id: string, data: Partial<NoteFolder>) => Promise<void>;
+  deleteFolder: (id: string) => Promise<void>;
+
   // Actions - CRUD Comments
   createComment: (data: { content: string; taskId: string }) => Promise<void>;
   updateComment: (id: string, data: { content: string }) => Promise<void>;
@@ -93,12 +102,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedProjectId: null,
   selectedTaskId: null,
   selectedNoteId: null,
+  selectedFolderId: null,
 
   // Data initial state
   areas: [],
   projects: [],
   tasks: [],
   notes: [],
+  folders: [],
   tags: [],
   comments: [],
   webhooks: [],
@@ -115,6 +126,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectProject: (id) => set({ selectedProjectId: id }),
   selectTask: (id) => set({ selectedTaskId: id }),
   selectNote: (id) => set({ selectedNoteId: id }),
+  selectFolder: (id) => set({ selectedFolderId: id }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setTaskStatusFilter: (filter) => set({ taskStatusFilter: filter }),
   setTagFilter: (tagIds) => set({ tagFilter: tagIds }),
@@ -382,6 +394,71 @@ export const useAppStore = create<AppState>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to delete note:', error);
+    }
+  },
+
+  // CRUD Folders
+  fetchFolders: async (projectId?: string) => {
+    set({ isLoading: true });
+    try {
+      const url = projectId ? api(`/api/folders?projectId=${projectId}`) : api('/api/folders');
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch folders');
+      const folders: NoteFolder[] = await res.json();
+      set({ folders });
+    } catch (error) {
+      console.error('Failed to fetch folders:', error);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  createFolder: async (data) => {
+    try {
+      const res = await fetch(api('/api/folders'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to create folder');
+      const newFolder: NoteFolder = await res.json();
+      set((state) => ({ folders: [...state.folders, newFolder] }));
+    } catch (error) {
+      console.error('Failed to create folder:', error);
+    }
+  },
+
+  updateFolder: async (id, data) => {
+    try {
+      const res = await fetch(api(`/api/folders/${id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to update folder' }));
+        throw new Error(err.error || 'Failed to update folder');
+      }
+      const updatedFolder: NoteFolder = await res.json();
+      set((state) => ({
+        folders: state.folders.map((f) => (f.id === id ? updatedFolder : f)),
+      }));
+    } catch (error) {
+      console.error('Failed to update folder:', error);
+      throw error;
+    }
+  },
+
+  deleteFolder: async (id) => {
+    try {
+      const res = await fetch(api(`/api/folders/${id}`), { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete folder');
+      set((state) => ({
+        folders: state.folders.filter((f) => f.id !== id),
+        selectedFolderId: state.selectedFolderId === id ? null : state.selectedFolderId,
+      }));
+    } catch (error) {
+      console.error('Failed to delete folder:', error);
     }
   },
 

@@ -296,6 +296,7 @@ export type ProjectWhereInput = {
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   tasks?: Prisma.TaskListRelationFilter
   notes?: Prisma.NoteListRelationFilter
+  folders?: Prisma.NoteFolderListRelationFilter
 }
 
 export type ProjectOrderByWithRelationInput = {
@@ -317,6 +318,7 @@ export type ProjectOrderByWithRelationInput = {
   owner?: Prisma.UserOrderByWithRelationInput
   tasks?: Prisma.TaskOrderByRelationAggregateInput
   notes?: Prisma.NoteOrderByRelationAggregateInput
+  folders?: Prisma.NoteFolderOrderByRelationAggregateInput
 }
 
 export type ProjectWhereUniqueInput = Prisma.AtLeast<{
@@ -341,6 +343,7 @@ export type ProjectWhereUniqueInput = Prisma.AtLeast<{
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   tasks?: Prisma.TaskListRelationFilter
   notes?: Prisma.NoteListRelationFilter
+  folders?: Prisma.NoteFolderListRelationFilter
 }, "id">
 
 export type ProjectOrderByWithAggregationInput = {
@@ -402,6 +405,7 @@ export type ProjectCreateInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedProjectsInput
   tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
   notes?: Prisma.NoteCreateNestedManyWithoutProjectInput
+  folders?: Prisma.NoteFolderCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUncheckedCreateInput = {
@@ -421,6 +425,7 @@ export type ProjectUncheckedCreateInput = {
   updatedAt?: Date | string
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
   notes?: Prisma.NoteUncheckedCreateNestedManyWithoutProjectInput
+  folders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUpdateInput = {
@@ -440,6 +445,7 @@ export type ProjectUpdateInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedProjectsNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
   notes?: Prisma.NoteUpdateManyWithoutProjectNestedInput
+  folders?: Prisma.NoteFolderUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateInput = {
@@ -459,6 +465,7 @@ export type ProjectUncheckedUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
   notes?: Prisma.NoteUncheckedUpdateManyWithoutProjectNestedInput
+  folders?: Prisma.NoteFolderUncheckedUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectCreateManyInput = {
@@ -702,6 +709,22 @@ export type ProjectUpdateOneWithoutNotesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.ProjectUpdateToOneWithWhereWithoutNotesInput, Prisma.ProjectUpdateWithoutNotesInput>, Prisma.ProjectUncheckedUpdateWithoutNotesInput>
 }
 
+export type ProjectCreateNestedOneWithoutFoldersInput = {
+  create?: Prisma.XOR<Prisma.ProjectCreateWithoutFoldersInput, Prisma.ProjectUncheckedCreateWithoutFoldersInput>
+  connectOrCreate?: Prisma.ProjectCreateOrConnectWithoutFoldersInput
+  connect?: Prisma.ProjectWhereUniqueInput
+}
+
+export type ProjectUpdateOneWithoutFoldersNestedInput = {
+  create?: Prisma.XOR<Prisma.ProjectCreateWithoutFoldersInput, Prisma.ProjectUncheckedCreateWithoutFoldersInput>
+  connectOrCreate?: Prisma.ProjectCreateOrConnectWithoutFoldersInput
+  upsert?: Prisma.ProjectUpsertWithoutFoldersInput
+  disconnect?: Prisma.ProjectWhereInput | boolean
+  delete?: Prisma.ProjectWhereInput | boolean
+  connect?: Prisma.ProjectWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ProjectUpdateToOneWithWhereWithoutFoldersInput, Prisma.ProjectUpdateWithoutFoldersInput>, Prisma.ProjectUncheckedUpdateWithoutFoldersInput>
+}
+
 export type ProjectCreateWithoutOwnerInput = {
   id?: string
   name: string
@@ -718,6 +741,7 @@ export type ProjectCreateWithoutOwnerInput = {
   area?: Prisma.AreaCreateNestedOneWithoutProjectsInput
   tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
   notes?: Prisma.NoteCreateNestedManyWithoutProjectInput
+  folders?: Prisma.NoteFolderCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUncheckedCreateWithoutOwnerInput = {
@@ -736,6 +760,7 @@ export type ProjectUncheckedCreateWithoutOwnerInput = {
   updatedAt?: Date | string
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
   notes?: Prisma.NoteUncheckedCreateNestedManyWithoutProjectInput
+  folders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectCreateOrConnectWithoutOwnerInput = {
@@ -799,6 +824,7 @@ export type ProjectCreateWithoutAreaInput = {
   owner: Prisma.UserCreateNestedOneWithoutOwnedProjectsInput
   tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
   notes?: Prisma.NoteCreateNestedManyWithoutProjectInput
+  folders?: Prisma.NoteFolderCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUncheckedCreateWithoutAreaInput = {
@@ -817,6 +843,7 @@ export type ProjectUncheckedCreateWithoutAreaInput = {
   updatedAt?: Date | string
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
   notes?: Prisma.NoteUncheckedCreateNestedManyWithoutProjectInput
+  folders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectCreateOrConnectWithoutAreaInput = {
@@ -860,6 +887,7 @@ export type ProjectCreateWithoutTasksInput = {
   area?: Prisma.AreaCreateNestedOneWithoutProjectsInput
   owner: Prisma.UserCreateNestedOneWithoutOwnedProjectsInput
   notes?: Prisma.NoteCreateNestedManyWithoutProjectInput
+  folders?: Prisma.NoteFolderCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUncheckedCreateWithoutTasksInput = {
@@ -878,6 +906,7 @@ export type ProjectUncheckedCreateWithoutTasksInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   notes?: Prisma.NoteUncheckedCreateNestedManyWithoutProjectInput
+  folders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectCreateOrConnectWithoutTasksInput = {
@@ -912,6 +941,7 @@ export type ProjectUpdateWithoutTasksInput = {
   area?: Prisma.AreaUpdateOneWithoutProjectsNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedProjectsNestedInput
   notes?: Prisma.NoteUpdateManyWithoutProjectNestedInput
+  folders?: Prisma.NoteFolderUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateWithoutTasksInput = {
@@ -930,6 +960,7 @@ export type ProjectUncheckedUpdateWithoutTasksInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   notes?: Prisma.NoteUncheckedUpdateManyWithoutProjectNestedInput
+  folders?: Prisma.NoteFolderUncheckedUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectCreateWithoutNotesInput = {
@@ -948,6 +979,7 @@ export type ProjectCreateWithoutNotesInput = {
   area?: Prisma.AreaCreateNestedOneWithoutProjectsInput
   owner: Prisma.UserCreateNestedOneWithoutOwnedProjectsInput
   tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
+  folders?: Prisma.NoteFolderCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectUncheckedCreateWithoutNotesInput = {
@@ -966,6 +998,7 @@ export type ProjectUncheckedCreateWithoutNotesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
+  folders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutProjectInput
 }
 
 export type ProjectCreateOrConnectWithoutNotesInput = {
@@ -1000,6 +1033,7 @@ export type ProjectUpdateWithoutNotesInput = {
   area?: Prisma.AreaUpdateOneWithoutProjectsNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedProjectsNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
+  folders?: Prisma.NoteFolderUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateWithoutNotesInput = {
@@ -1018,6 +1052,99 @@ export type ProjectUncheckedUpdateWithoutNotesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
+  folders?: Prisma.NoteFolderUncheckedUpdateManyWithoutProjectNestedInput
+}
+
+export type ProjectCreateWithoutFoldersInput = {
+  id?: string
+  name: string
+  description?: string | null
+  color?: string
+  icon?: string | null
+  status?: string
+  metadata?: string
+  tagIds?: string
+  shortIdNum?: number
+  sortOrder?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  area?: Prisma.AreaCreateNestedOneWithoutProjectsInput
+  owner: Prisma.UserCreateNestedOneWithoutOwnedProjectsInput
+  tasks?: Prisma.TaskCreateNestedManyWithoutProjectInput
+  notes?: Prisma.NoteCreateNestedManyWithoutProjectInput
+}
+
+export type ProjectUncheckedCreateWithoutFoldersInput = {
+  id?: string
+  name: string
+  description?: string | null
+  color?: string
+  icon?: string | null
+  status?: string
+  metadata?: string
+  tagIds?: string
+  shortIdNum?: number
+  areaId?: string | null
+  ownerId: string
+  sortOrder?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  tasks?: Prisma.TaskUncheckedCreateNestedManyWithoutProjectInput
+  notes?: Prisma.NoteUncheckedCreateNestedManyWithoutProjectInput
+}
+
+export type ProjectCreateOrConnectWithoutFoldersInput = {
+  where: Prisma.ProjectWhereUniqueInput
+  create: Prisma.XOR<Prisma.ProjectCreateWithoutFoldersInput, Prisma.ProjectUncheckedCreateWithoutFoldersInput>
+}
+
+export type ProjectUpsertWithoutFoldersInput = {
+  update: Prisma.XOR<Prisma.ProjectUpdateWithoutFoldersInput, Prisma.ProjectUncheckedUpdateWithoutFoldersInput>
+  create: Prisma.XOR<Prisma.ProjectCreateWithoutFoldersInput, Prisma.ProjectUncheckedCreateWithoutFoldersInput>
+  where?: Prisma.ProjectWhereInput
+}
+
+export type ProjectUpdateToOneWithWhereWithoutFoldersInput = {
+  where?: Prisma.ProjectWhereInput
+  data: Prisma.XOR<Prisma.ProjectUpdateWithoutFoldersInput, Prisma.ProjectUncheckedUpdateWithoutFoldersInput>
+}
+
+export type ProjectUpdateWithoutFoldersInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  color?: Prisma.StringFieldUpdateOperationsInput | string
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  metadata?: Prisma.StringFieldUpdateOperationsInput | string
+  tagIds?: Prisma.StringFieldUpdateOperationsInput | string
+  shortIdNum?: Prisma.IntFieldUpdateOperationsInput | number
+  sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  area?: Prisma.AreaUpdateOneWithoutProjectsNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutOwnedProjectsNestedInput
+  tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
+  notes?: Prisma.NoteUpdateManyWithoutProjectNestedInput
+}
+
+export type ProjectUncheckedUpdateWithoutFoldersInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  color?: Prisma.StringFieldUpdateOperationsInput | string
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  metadata?: Prisma.StringFieldUpdateOperationsInput | string
+  tagIds?: Prisma.StringFieldUpdateOperationsInput | string
+  shortIdNum?: Prisma.IntFieldUpdateOperationsInput | number
+  areaId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ownerId?: Prisma.StringFieldUpdateOperationsInput | string
+  sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
+  notes?: Prisma.NoteUncheckedUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectCreateManyOwnerInput = {
@@ -1052,6 +1179,7 @@ export type ProjectUpdateWithoutOwnerInput = {
   area?: Prisma.AreaUpdateOneWithoutProjectsNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
   notes?: Prisma.NoteUpdateManyWithoutProjectNestedInput
+  folders?: Prisma.NoteFolderUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateWithoutOwnerInput = {
@@ -1070,6 +1198,7 @@ export type ProjectUncheckedUpdateWithoutOwnerInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
   notes?: Prisma.NoteUncheckedUpdateManyWithoutProjectNestedInput
+  folders?: Prisma.NoteFolderUncheckedUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateManyWithoutOwnerInput = {
@@ -1120,6 +1249,7 @@ export type ProjectUpdateWithoutAreaInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedProjectsNestedInput
   tasks?: Prisma.TaskUpdateManyWithoutProjectNestedInput
   notes?: Prisma.NoteUpdateManyWithoutProjectNestedInput
+  folders?: Prisma.NoteFolderUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateWithoutAreaInput = {
@@ -1138,6 +1268,7 @@ export type ProjectUncheckedUpdateWithoutAreaInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   tasks?: Prisma.TaskUncheckedUpdateManyWithoutProjectNestedInput
   notes?: Prisma.NoteUncheckedUpdateManyWithoutProjectNestedInput
+  folders?: Prisma.NoteFolderUncheckedUpdateManyWithoutProjectNestedInput
 }
 
 export type ProjectUncheckedUpdateManyWithoutAreaInput = {
@@ -1164,11 +1295,13 @@ export type ProjectUncheckedUpdateManyWithoutAreaInput = {
 export type ProjectCountOutputType = {
   tasks: number
   notes: number
+  folders: number
 }
 
 export type ProjectCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   tasks?: boolean | ProjectCountOutputTypeCountTasksArgs
   notes?: boolean | ProjectCountOutputTypeCountNotesArgs
+  folders?: boolean | ProjectCountOutputTypeCountFoldersArgs
 }
 
 /**
@@ -1195,6 +1328,13 @@ export type ProjectCountOutputTypeCountNotesArgs<ExtArgs extends runtime.Types.E
   where?: Prisma.NoteWhereInput
 }
 
+/**
+ * ProjectCountOutputType without action
+ */
+export type ProjectCountOutputTypeCountFoldersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.NoteFolderWhereInput
+}
+
 
 export type ProjectSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1215,6 +1355,7 @@ export type ProjectSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   tasks?: boolean | Prisma.Project$tasksArgs<ExtArgs>
   notes?: boolean | Prisma.Project$notesArgs<ExtArgs>
+  folders?: boolean | Prisma.Project$foldersArgs<ExtArgs>
   _count?: boolean | Prisma.ProjectCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["project"]>
 
@@ -1279,6 +1420,7 @@ export type ProjectInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   tasks?: boolean | Prisma.Project$tasksArgs<ExtArgs>
   notes?: boolean | Prisma.Project$notesArgs<ExtArgs>
+  folders?: boolean | Prisma.Project$foldersArgs<ExtArgs>
   _count?: boolean | Prisma.ProjectCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ProjectIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1297,6 +1439,7 @@ export type $ProjectPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     owner: Prisma.$UserPayload<ExtArgs>
     tasks: Prisma.$TaskPayload<ExtArgs>[]
     notes: Prisma.$NotePayload<ExtArgs>[]
+    folders: Prisma.$NoteFolderPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1711,6 +1854,7 @@ export interface Prisma__ProjectClient<T, Null = never, ExtArgs extends runtime.
   owner<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   tasks<T extends Prisma.Project$tasksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Project$tasksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   notes<T extends Prisma.Project$notesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Project$notesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  folders<T extends Prisma.Project$foldersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Project$foldersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NoteFolderPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2217,6 +2361,30 @@ export type Project$notesArgs<ExtArgs extends runtime.Types.Extensions.InternalA
   take?: number
   skip?: number
   distinct?: Prisma.NoteScalarFieldEnum | Prisma.NoteScalarFieldEnum[]
+}
+
+/**
+ * Project.folders
+ */
+export type Project$foldersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the NoteFolder
+   */
+  select?: Prisma.NoteFolderSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the NoteFolder
+   */
+  omit?: Prisma.NoteFolderOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.NoteFolderInclude<ExtArgs> | null
+  where?: Prisma.NoteFolderWhereInput
+  orderBy?: Prisma.NoteFolderOrderByWithRelationInput | Prisma.NoteFolderOrderByWithRelationInput[]
+  cursor?: Prisma.NoteFolderWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.NoteFolderScalarFieldEnum | Prisma.NoteFolderScalarFieldEnum[]
 }
 
 /**

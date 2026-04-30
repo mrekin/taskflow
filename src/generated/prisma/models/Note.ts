@@ -41,6 +41,7 @@ export type NoteMinAggregateOutputType = {
   title: string | null
   content: string | null
   projectId: string | null
+  folderId: string | null
   metadata: string | null
   tagIds: string | null
   shortIdNum: number | null
@@ -55,6 +56,7 @@ export type NoteMaxAggregateOutputType = {
   title: string | null
   content: string | null
   projectId: string | null
+  folderId: string | null
   metadata: string | null
   tagIds: string | null
   shortIdNum: number | null
@@ -69,6 +71,7 @@ export type NoteCountAggregateOutputType = {
   title: number
   content: number
   projectId: number
+  folderId: number
   metadata: number
   tagIds: number
   shortIdNum: number
@@ -95,6 +98,7 @@ export type NoteMinAggregateInputType = {
   title?: true
   content?: true
   projectId?: true
+  folderId?: true
   metadata?: true
   tagIds?: true
   shortIdNum?: true
@@ -109,6 +113,7 @@ export type NoteMaxAggregateInputType = {
   title?: true
   content?: true
   projectId?: true
+  folderId?: true
   metadata?: true
   tagIds?: true
   shortIdNum?: true
@@ -123,6 +128,7 @@ export type NoteCountAggregateInputType = {
   title?: true
   content?: true
   projectId?: true
+  folderId?: true
   metadata?: true
   tagIds?: true
   shortIdNum?: true
@@ -224,6 +230,7 @@ export type NoteGroupByOutputType = {
   title: string
   content: string
   projectId: string | null
+  folderId: string | null
   metadata: string
   tagIds: string
   shortIdNum: number
@@ -261,6 +268,7 @@ export type NoteWhereInput = {
   title?: Prisma.StringFilter<"Note"> | string
   content?: Prisma.StringFilter<"Note"> | string
   projectId?: Prisma.StringNullableFilter<"Note"> | string | null
+  folderId?: Prisma.StringNullableFilter<"Note"> | string | null
   metadata?: Prisma.StringFilter<"Note"> | string
   tagIds?: Prisma.StringFilter<"Note"> | string
   shortIdNum?: Prisma.IntFilter<"Note"> | number
@@ -269,6 +277,7 @@ export type NoteWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Note"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Note"> | Date | string
   project?: Prisma.XOR<Prisma.ProjectNullableScalarRelationFilter, Prisma.ProjectWhereInput> | null
+  folder?: Prisma.XOR<Prisma.NoteFolderNullableScalarRelationFilter, Prisma.NoteFolderWhereInput> | null
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
 }
 
@@ -277,6 +286,7 @@ export type NoteOrderByWithRelationInput = {
   title?: Prisma.SortOrder
   content?: Prisma.SortOrder
   projectId?: Prisma.SortOrderInput | Prisma.SortOrder
+  folderId?: Prisma.SortOrderInput | Prisma.SortOrder
   metadata?: Prisma.SortOrder
   tagIds?: Prisma.SortOrder
   shortIdNum?: Prisma.SortOrder
@@ -285,6 +295,7 @@ export type NoteOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   project?: Prisma.ProjectOrderByWithRelationInput
+  folder?: Prisma.NoteFolderOrderByWithRelationInput
   owner?: Prisma.UserOrderByWithRelationInput
 }
 
@@ -296,6 +307,7 @@ export type NoteWhereUniqueInput = Prisma.AtLeast<{
   title?: Prisma.StringFilter<"Note"> | string
   content?: Prisma.StringFilter<"Note"> | string
   projectId?: Prisma.StringNullableFilter<"Note"> | string | null
+  folderId?: Prisma.StringNullableFilter<"Note"> | string | null
   metadata?: Prisma.StringFilter<"Note"> | string
   tagIds?: Prisma.StringFilter<"Note"> | string
   shortIdNum?: Prisma.IntFilter<"Note"> | number
@@ -304,6 +316,7 @@ export type NoteWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"Note"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Note"> | Date | string
   project?: Prisma.XOR<Prisma.ProjectNullableScalarRelationFilter, Prisma.ProjectWhereInput> | null
+  folder?: Prisma.XOR<Prisma.NoteFolderNullableScalarRelationFilter, Prisma.NoteFolderWhereInput> | null
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
 }, "id">
 
@@ -312,6 +325,7 @@ export type NoteOrderByWithAggregationInput = {
   title?: Prisma.SortOrder
   content?: Prisma.SortOrder
   projectId?: Prisma.SortOrderInput | Prisma.SortOrder
+  folderId?: Prisma.SortOrderInput | Prisma.SortOrder
   metadata?: Prisma.SortOrder
   tagIds?: Prisma.SortOrder
   shortIdNum?: Prisma.SortOrder
@@ -334,6 +348,7 @@ export type NoteScalarWhereWithAggregatesInput = {
   title?: Prisma.StringWithAggregatesFilter<"Note"> | string
   content?: Prisma.StringWithAggregatesFilter<"Note"> | string
   projectId?: Prisma.StringNullableWithAggregatesFilter<"Note"> | string | null
+  folderId?: Prisma.StringNullableWithAggregatesFilter<"Note"> | string | null
   metadata?: Prisma.StringWithAggregatesFilter<"Note"> | string
   tagIds?: Prisma.StringWithAggregatesFilter<"Note"> | string
   shortIdNum?: Prisma.IntWithAggregatesFilter<"Note"> | number
@@ -354,6 +369,7 @@ export type NoteCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   project?: Prisma.ProjectCreateNestedOneWithoutNotesInput
+  folder?: Prisma.NoteFolderCreateNestedOneWithoutNotesInput
   owner: Prisma.UserCreateNestedOneWithoutOwnedNotesInput
 }
 
@@ -362,6 +378,7 @@ export type NoteUncheckedCreateInput = {
   title: string
   content?: string
   projectId?: string | null
+  folderId?: string | null
   metadata?: string
   tagIds?: string
   shortIdNum?: number
@@ -382,6 +399,7 @@ export type NoteUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   project?: Prisma.ProjectUpdateOneWithoutNotesNestedInput
+  folder?: Prisma.NoteFolderUpdateOneWithoutNotesNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedNotesNestedInput
 }
 
@@ -390,6 +408,7 @@ export type NoteUncheckedUpdateInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   projectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.StringFieldUpdateOperationsInput | string
   tagIds?: Prisma.StringFieldUpdateOperationsInput | string
   shortIdNum?: Prisma.IntFieldUpdateOperationsInput | number
@@ -404,6 +423,7 @@ export type NoteCreateManyInput = {
   title: string
   content?: string
   projectId?: string | null
+  folderId?: string | null
   metadata?: string
   tagIds?: string
   shortIdNum?: number
@@ -430,6 +450,7 @@ export type NoteUncheckedUpdateManyInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   projectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.StringFieldUpdateOperationsInput | string
   tagIds?: Prisma.StringFieldUpdateOperationsInput | string
   shortIdNum?: Prisma.IntFieldUpdateOperationsInput | number
@@ -454,6 +475,7 @@ export type NoteCountOrderByAggregateInput = {
   title?: Prisma.SortOrder
   content?: Prisma.SortOrder
   projectId?: Prisma.SortOrder
+  folderId?: Prisma.SortOrder
   metadata?: Prisma.SortOrder
   tagIds?: Prisma.SortOrder
   shortIdNum?: Prisma.SortOrder
@@ -473,6 +495,7 @@ export type NoteMaxOrderByAggregateInput = {
   title?: Prisma.SortOrder
   content?: Prisma.SortOrder
   projectId?: Prisma.SortOrder
+  folderId?: Prisma.SortOrder
   metadata?: Prisma.SortOrder
   tagIds?: Prisma.SortOrder
   shortIdNum?: Prisma.SortOrder
@@ -487,6 +510,7 @@ export type NoteMinOrderByAggregateInput = {
   title?: Prisma.SortOrder
   content?: Prisma.SortOrder
   projectId?: Prisma.SortOrder
+  folderId?: Prisma.SortOrder
   metadata?: Prisma.SortOrder
   tagIds?: Prisma.SortOrder
   shortIdNum?: Prisma.SortOrder
@@ -585,6 +609,48 @@ export type NoteUncheckedUpdateManyWithoutProjectNestedInput = {
   deleteMany?: Prisma.NoteScalarWhereInput | Prisma.NoteScalarWhereInput[]
 }
 
+export type NoteCreateNestedManyWithoutFolderInput = {
+  create?: Prisma.XOR<Prisma.NoteCreateWithoutFolderInput, Prisma.NoteUncheckedCreateWithoutFolderInput> | Prisma.NoteCreateWithoutFolderInput[] | Prisma.NoteUncheckedCreateWithoutFolderInput[]
+  connectOrCreate?: Prisma.NoteCreateOrConnectWithoutFolderInput | Prisma.NoteCreateOrConnectWithoutFolderInput[]
+  createMany?: Prisma.NoteCreateManyFolderInputEnvelope
+  connect?: Prisma.NoteWhereUniqueInput | Prisma.NoteWhereUniqueInput[]
+}
+
+export type NoteUncheckedCreateNestedManyWithoutFolderInput = {
+  create?: Prisma.XOR<Prisma.NoteCreateWithoutFolderInput, Prisma.NoteUncheckedCreateWithoutFolderInput> | Prisma.NoteCreateWithoutFolderInput[] | Prisma.NoteUncheckedCreateWithoutFolderInput[]
+  connectOrCreate?: Prisma.NoteCreateOrConnectWithoutFolderInput | Prisma.NoteCreateOrConnectWithoutFolderInput[]
+  createMany?: Prisma.NoteCreateManyFolderInputEnvelope
+  connect?: Prisma.NoteWhereUniqueInput | Prisma.NoteWhereUniqueInput[]
+}
+
+export type NoteUpdateManyWithoutFolderNestedInput = {
+  create?: Prisma.XOR<Prisma.NoteCreateWithoutFolderInput, Prisma.NoteUncheckedCreateWithoutFolderInput> | Prisma.NoteCreateWithoutFolderInput[] | Prisma.NoteUncheckedCreateWithoutFolderInput[]
+  connectOrCreate?: Prisma.NoteCreateOrConnectWithoutFolderInput | Prisma.NoteCreateOrConnectWithoutFolderInput[]
+  upsert?: Prisma.NoteUpsertWithWhereUniqueWithoutFolderInput | Prisma.NoteUpsertWithWhereUniqueWithoutFolderInput[]
+  createMany?: Prisma.NoteCreateManyFolderInputEnvelope
+  set?: Prisma.NoteWhereUniqueInput | Prisma.NoteWhereUniqueInput[]
+  disconnect?: Prisma.NoteWhereUniqueInput | Prisma.NoteWhereUniqueInput[]
+  delete?: Prisma.NoteWhereUniqueInput | Prisma.NoteWhereUniqueInput[]
+  connect?: Prisma.NoteWhereUniqueInput | Prisma.NoteWhereUniqueInput[]
+  update?: Prisma.NoteUpdateWithWhereUniqueWithoutFolderInput | Prisma.NoteUpdateWithWhereUniqueWithoutFolderInput[]
+  updateMany?: Prisma.NoteUpdateManyWithWhereWithoutFolderInput | Prisma.NoteUpdateManyWithWhereWithoutFolderInput[]
+  deleteMany?: Prisma.NoteScalarWhereInput | Prisma.NoteScalarWhereInput[]
+}
+
+export type NoteUncheckedUpdateManyWithoutFolderNestedInput = {
+  create?: Prisma.XOR<Prisma.NoteCreateWithoutFolderInput, Prisma.NoteUncheckedCreateWithoutFolderInput> | Prisma.NoteCreateWithoutFolderInput[] | Prisma.NoteUncheckedCreateWithoutFolderInput[]
+  connectOrCreate?: Prisma.NoteCreateOrConnectWithoutFolderInput | Prisma.NoteCreateOrConnectWithoutFolderInput[]
+  upsert?: Prisma.NoteUpsertWithWhereUniqueWithoutFolderInput | Prisma.NoteUpsertWithWhereUniqueWithoutFolderInput[]
+  createMany?: Prisma.NoteCreateManyFolderInputEnvelope
+  set?: Prisma.NoteWhereUniqueInput | Prisma.NoteWhereUniqueInput[]
+  disconnect?: Prisma.NoteWhereUniqueInput | Prisma.NoteWhereUniqueInput[]
+  delete?: Prisma.NoteWhereUniqueInput | Prisma.NoteWhereUniqueInput[]
+  connect?: Prisma.NoteWhereUniqueInput | Prisma.NoteWhereUniqueInput[]
+  update?: Prisma.NoteUpdateWithWhereUniqueWithoutFolderInput | Prisma.NoteUpdateWithWhereUniqueWithoutFolderInput[]
+  updateMany?: Prisma.NoteUpdateManyWithWhereWithoutFolderInput | Prisma.NoteUpdateManyWithWhereWithoutFolderInput[]
+  deleteMany?: Prisma.NoteScalarWhereInput | Prisma.NoteScalarWhereInput[]
+}
+
 export type NoteCreateWithoutOwnerInput = {
   id?: string
   title: string
@@ -596,6 +662,7 @@ export type NoteCreateWithoutOwnerInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   project?: Prisma.ProjectCreateNestedOneWithoutNotesInput
+  folder?: Prisma.NoteFolderCreateNestedOneWithoutNotesInput
 }
 
 export type NoteUncheckedCreateWithoutOwnerInput = {
@@ -603,6 +670,7 @@ export type NoteUncheckedCreateWithoutOwnerInput = {
   title: string
   content?: string
   projectId?: string | null
+  folderId?: string | null
   metadata?: string
   tagIds?: string
   shortIdNum?: number
@@ -644,6 +712,7 @@ export type NoteScalarWhereInput = {
   title?: Prisma.StringFilter<"Note"> | string
   content?: Prisma.StringFilter<"Note"> | string
   projectId?: Prisma.StringNullableFilter<"Note"> | string | null
+  folderId?: Prisma.StringNullableFilter<"Note"> | string | null
   metadata?: Prisma.StringFilter<"Note"> | string
   tagIds?: Prisma.StringFilter<"Note"> | string
   shortIdNum?: Prisma.IntFilter<"Note"> | number
@@ -663,6 +732,7 @@ export type NoteCreateWithoutProjectInput = {
   sortOrder?: number
   createdAt?: Date | string
   updatedAt?: Date | string
+  folder?: Prisma.NoteFolderCreateNestedOneWithoutNotesInput
   owner: Prisma.UserCreateNestedOneWithoutOwnedNotesInput
 }
 
@@ -670,6 +740,7 @@ export type NoteUncheckedCreateWithoutProjectInput = {
   id?: string
   title: string
   content?: string
+  folderId?: string | null
   metadata?: string
   tagIds?: string
   shortIdNum?: number
@@ -704,11 +775,65 @@ export type NoteUpdateManyWithWhereWithoutProjectInput = {
   data: Prisma.XOR<Prisma.NoteUpdateManyMutationInput, Prisma.NoteUncheckedUpdateManyWithoutProjectInput>
 }
 
+export type NoteCreateWithoutFolderInput = {
+  id?: string
+  title: string
+  content?: string
+  metadata?: string
+  tagIds?: string
+  shortIdNum?: number
+  sortOrder?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  project?: Prisma.ProjectCreateNestedOneWithoutNotesInput
+  owner: Prisma.UserCreateNestedOneWithoutOwnedNotesInput
+}
+
+export type NoteUncheckedCreateWithoutFolderInput = {
+  id?: string
+  title: string
+  content?: string
+  projectId?: string | null
+  metadata?: string
+  tagIds?: string
+  shortIdNum?: number
+  ownerId: string
+  sortOrder?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type NoteCreateOrConnectWithoutFolderInput = {
+  where: Prisma.NoteWhereUniqueInput
+  create: Prisma.XOR<Prisma.NoteCreateWithoutFolderInput, Prisma.NoteUncheckedCreateWithoutFolderInput>
+}
+
+export type NoteCreateManyFolderInputEnvelope = {
+  data: Prisma.NoteCreateManyFolderInput | Prisma.NoteCreateManyFolderInput[]
+}
+
+export type NoteUpsertWithWhereUniqueWithoutFolderInput = {
+  where: Prisma.NoteWhereUniqueInput
+  update: Prisma.XOR<Prisma.NoteUpdateWithoutFolderInput, Prisma.NoteUncheckedUpdateWithoutFolderInput>
+  create: Prisma.XOR<Prisma.NoteCreateWithoutFolderInput, Prisma.NoteUncheckedCreateWithoutFolderInput>
+}
+
+export type NoteUpdateWithWhereUniqueWithoutFolderInput = {
+  where: Prisma.NoteWhereUniqueInput
+  data: Prisma.XOR<Prisma.NoteUpdateWithoutFolderInput, Prisma.NoteUncheckedUpdateWithoutFolderInput>
+}
+
+export type NoteUpdateManyWithWhereWithoutFolderInput = {
+  where: Prisma.NoteScalarWhereInput
+  data: Prisma.XOR<Prisma.NoteUpdateManyMutationInput, Prisma.NoteUncheckedUpdateManyWithoutFolderInput>
+}
+
 export type NoteCreateManyOwnerInput = {
   id?: string
   title: string
   content?: string
   projectId?: string | null
+  folderId?: string | null
   metadata?: string
   tagIds?: string
   shortIdNum?: number
@@ -728,6 +853,7 @@ export type NoteUpdateWithoutOwnerInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   project?: Prisma.ProjectUpdateOneWithoutNotesNestedInput
+  folder?: Prisma.NoteFolderUpdateOneWithoutNotesNestedInput
 }
 
 export type NoteUncheckedUpdateWithoutOwnerInput = {
@@ -735,6 +861,7 @@ export type NoteUncheckedUpdateWithoutOwnerInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   projectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.StringFieldUpdateOperationsInput | string
   tagIds?: Prisma.StringFieldUpdateOperationsInput | string
   shortIdNum?: Prisma.IntFieldUpdateOperationsInput | number
@@ -748,6 +875,7 @@ export type NoteUncheckedUpdateManyWithoutOwnerInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
   projectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.StringFieldUpdateOperationsInput | string
   tagIds?: Prisma.StringFieldUpdateOperationsInput | string
   shortIdNum?: Prisma.IntFieldUpdateOperationsInput | number
@@ -760,6 +888,7 @@ export type NoteCreateManyProjectInput = {
   id?: string
   title: string
   content?: string
+  folderId?: string | null
   metadata?: string
   tagIds?: string
   shortIdNum?: number
@@ -779,6 +908,7 @@ export type NoteUpdateWithoutProjectInput = {
   sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  folder?: Prisma.NoteFolderUpdateOneWithoutNotesNestedInput
   owner?: Prisma.UserUpdateOneRequiredWithoutOwnedNotesNestedInput
 }
 
@@ -786,6 +916,7 @@ export type NoteUncheckedUpdateWithoutProjectInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
+  folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.StringFieldUpdateOperationsInput | string
   tagIds?: Prisma.StringFieldUpdateOperationsInput | string
   shortIdNum?: Prisma.IntFieldUpdateOperationsInput | number
@@ -799,6 +930,63 @@ export type NoteUncheckedUpdateManyWithoutProjectInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   content?: Prisma.StringFieldUpdateOperationsInput | string
+  folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.StringFieldUpdateOperationsInput | string
+  tagIds?: Prisma.StringFieldUpdateOperationsInput | string
+  shortIdNum?: Prisma.IntFieldUpdateOperationsInput | number
+  ownerId?: Prisma.StringFieldUpdateOperationsInput | string
+  sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type NoteCreateManyFolderInput = {
+  id?: string
+  title: string
+  content?: string
+  projectId?: string | null
+  metadata?: string
+  tagIds?: string
+  shortIdNum?: number
+  ownerId: string
+  sortOrder?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type NoteUpdateWithoutFolderInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  content?: Prisma.StringFieldUpdateOperationsInput | string
+  metadata?: Prisma.StringFieldUpdateOperationsInput | string
+  tagIds?: Prisma.StringFieldUpdateOperationsInput | string
+  shortIdNum?: Prisma.IntFieldUpdateOperationsInput | number
+  sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  project?: Prisma.ProjectUpdateOneWithoutNotesNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutOwnedNotesNestedInput
+}
+
+export type NoteUncheckedUpdateWithoutFolderInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  content?: Prisma.StringFieldUpdateOperationsInput | string
+  projectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.StringFieldUpdateOperationsInput | string
+  tagIds?: Prisma.StringFieldUpdateOperationsInput | string
+  shortIdNum?: Prisma.IntFieldUpdateOperationsInput | number
+  ownerId?: Prisma.StringFieldUpdateOperationsInput | string
+  sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type NoteUncheckedUpdateManyWithoutFolderInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  content?: Prisma.StringFieldUpdateOperationsInput | string
+  projectId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   metadata?: Prisma.StringFieldUpdateOperationsInput | string
   tagIds?: Prisma.StringFieldUpdateOperationsInput | string
   shortIdNum?: Prisma.IntFieldUpdateOperationsInput | number
@@ -815,6 +1003,7 @@ export type NoteSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   title?: boolean
   content?: boolean
   projectId?: boolean
+  folderId?: boolean
   metadata?: boolean
   tagIds?: boolean
   shortIdNum?: boolean
@@ -823,6 +1012,7 @@ export type NoteSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   createdAt?: boolean
   updatedAt?: boolean
   project?: boolean | Prisma.Note$projectArgs<ExtArgs>
+  folder?: boolean | Prisma.Note$folderArgs<ExtArgs>
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["note"]>
 
@@ -831,6 +1021,7 @@ export type NoteSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   title?: boolean
   content?: boolean
   projectId?: boolean
+  folderId?: boolean
   metadata?: boolean
   tagIds?: boolean
   shortIdNum?: boolean
@@ -839,6 +1030,7 @@ export type NoteSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   createdAt?: boolean
   updatedAt?: boolean
   project?: boolean | Prisma.Note$projectArgs<ExtArgs>
+  folder?: boolean | Prisma.Note$folderArgs<ExtArgs>
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["note"]>
 
@@ -847,6 +1039,7 @@ export type NoteSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   title?: boolean
   content?: boolean
   projectId?: boolean
+  folderId?: boolean
   metadata?: boolean
   tagIds?: boolean
   shortIdNum?: boolean
@@ -855,6 +1048,7 @@ export type NoteSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   createdAt?: boolean
   updatedAt?: boolean
   project?: boolean | Prisma.Note$projectArgs<ExtArgs>
+  folder?: boolean | Prisma.Note$folderArgs<ExtArgs>
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["note"]>
 
@@ -863,6 +1057,7 @@ export type NoteSelectScalar = {
   title?: boolean
   content?: boolean
   projectId?: boolean
+  folderId?: boolean
   metadata?: boolean
   tagIds?: boolean
   shortIdNum?: boolean
@@ -872,17 +1067,20 @@ export type NoteSelectScalar = {
   updatedAt?: boolean
 }
 
-export type NoteOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "content" | "projectId" | "metadata" | "tagIds" | "shortIdNum" | "ownerId" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["note"]>
+export type NoteOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "content" | "projectId" | "folderId" | "metadata" | "tagIds" | "shortIdNum" | "ownerId" | "sortOrder" | "createdAt" | "updatedAt", ExtArgs["result"]["note"]>
 export type NoteInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   project?: boolean | Prisma.Note$projectArgs<ExtArgs>
+  folder?: boolean | Prisma.Note$folderArgs<ExtArgs>
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
 export type NoteIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   project?: boolean | Prisma.Note$projectArgs<ExtArgs>
+  folder?: boolean | Prisma.Note$folderArgs<ExtArgs>
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
 export type NoteIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   project?: boolean | Prisma.Note$projectArgs<ExtArgs>
+  folder?: boolean | Prisma.Note$folderArgs<ExtArgs>
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
 
@@ -890,6 +1088,7 @@ export type $NotePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   name: "Note"
   objects: {
     project: Prisma.$ProjectPayload<ExtArgs> | null
+    folder: Prisma.$NoteFolderPayload<ExtArgs> | null
     owner: Prisma.$UserPayload<ExtArgs>
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -897,6 +1096,7 @@ export type $NotePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     title: string
     content: string
     projectId: string | null
+    folderId: string | null
     metadata: string
     tagIds: string
     shortIdNum: number
@@ -1299,6 +1499,7 @@ readonly fields: NoteFieldRefs;
 export interface Prisma__NoteClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   project<T extends Prisma.Note$projectArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Note$projectArgs<ExtArgs>>): Prisma.Prisma__ProjectClient<runtime.Types.Result.GetResult<Prisma.$ProjectPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  folder<T extends Prisma.Note$folderArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Note$folderArgs<ExtArgs>>): Prisma.Prisma__NoteFolderClient<runtime.Types.Result.GetResult<Prisma.$NoteFolderPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   owner<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -1333,6 +1534,7 @@ export interface NoteFieldRefs {
   readonly title: Prisma.FieldRef<"Note", 'String'>
   readonly content: Prisma.FieldRef<"Note", 'String'>
   readonly projectId: Prisma.FieldRef<"Note", 'String'>
+  readonly folderId: Prisma.FieldRef<"Note", 'String'>
   readonly metadata: Prisma.FieldRef<"Note", 'String'>
   readonly tagIds: Prisma.FieldRef<"Note", 'String'>
   readonly shortIdNum: Prisma.FieldRef<"Note", 'Int'>
@@ -1755,6 +1957,25 @@ export type Note$projectArgs<ExtArgs extends runtime.Types.Extensions.InternalAr
    */
   include?: Prisma.ProjectInclude<ExtArgs> | null
   where?: Prisma.ProjectWhereInput
+}
+
+/**
+ * Note.folder
+ */
+export type Note$folderArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the NoteFolder
+   */
+  select?: Prisma.NoteFolderSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the NoteFolder
+   */
+  omit?: Prisma.NoteFolderOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.NoteFolderInclude<ExtArgs> | null
+  where?: Prisma.NoteFolderWhereInput
 }
 
 /**

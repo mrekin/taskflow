@@ -389,6 +389,7 @@ export const ModelName = {
   Project: 'Project',
   Task: 'Task',
   Note: 'Note',
+  NoteFolder: 'NoteFolder',
   Comment: 'Comment',
   Tag: 'Tag',
   Webhook: 'Webhook',
@@ -408,7 +409,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "area" | "project" | "task" | "note" | "comment" | "tag" | "webhook" | "webhookDelivery"
+    modelProps: "user" | "area" | "project" | "task" | "note" | "noteFolder" | "comment" | "tag" | "webhook" | "webhookDelivery"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -779,6 +780,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.NoteCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.NoteCountAggregateOutputType> | number
+        }
+      }
+    }
+    NoteFolder: {
+      payload: Prisma.$NoteFolderPayload<ExtArgs>
+      fields: Prisma.NoteFolderFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.NoteFolderFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteFolderPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.NoteFolderFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteFolderPayload>
+        }
+        findFirst: {
+          args: Prisma.NoteFolderFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteFolderPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.NoteFolderFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteFolderPayload>
+        }
+        findMany: {
+          args: Prisma.NoteFolderFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteFolderPayload>[]
+        }
+        create: {
+          args: Prisma.NoteFolderCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteFolderPayload>
+        }
+        createMany: {
+          args: Prisma.NoteFolderCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.NoteFolderCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteFolderPayload>[]
+        }
+        delete: {
+          args: Prisma.NoteFolderDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteFolderPayload>
+        }
+        update: {
+          args: Prisma.NoteFolderUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteFolderPayload>
+        }
+        deleteMany: {
+          args: Prisma.NoteFolderDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.NoteFolderUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.NoteFolderUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteFolderPayload>[]
+        }
+        upsert: {
+          args: Prisma.NoteFolderUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$NoteFolderPayload>
+        }
+        aggregate: {
+          args: Prisma.NoteFolderAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateNoteFolder>
+        }
+        groupBy: {
+          args: Prisma.NoteFolderGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.NoteFolderGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.NoteFolderCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.NoteFolderCountAggregateOutputType> | number
         }
       }
     }
@@ -1194,6 +1269,7 @@ export const NoteScalarFieldEnum = {
   title: 'title',
   content: 'content',
   projectId: 'projectId',
+  folderId: 'folderId',
   metadata: 'metadata',
   tagIds: 'tagIds',
   shortIdNum: 'shortIdNum',
@@ -1204,6 +1280,22 @@ export const NoteScalarFieldEnum = {
 } as const
 
 export type NoteScalarFieldEnum = (typeof NoteScalarFieldEnum)[keyof typeof NoteScalarFieldEnum]
+
+
+export const NoteFolderScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  projectId: 'projectId',
+  parentId: 'parentId',
+  metadata: 'metadata',
+  shortIdNum: 'shortIdNum',
+  ownerId: 'ownerId',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type NoteFolderScalarFieldEnum = (typeof NoteFolderScalarFieldEnum)[keyof typeof NoteFolderScalarFieldEnum]
 
 
 export const CommentScalarFieldEnum = {
@@ -1434,6 +1526,7 @@ export type GlobalOmitConfig = {
   project?: Prisma.ProjectOmit
   task?: Prisma.TaskOmit
   note?: Prisma.NoteOmit
+  noteFolder?: Prisma.NoteFolderOmit
   comment?: Prisma.CommentOmit
   tag?: Prisma.TagOmit
   webhook?: Prisma.WebhookOmit

@@ -17,6 +17,7 @@ export async function GET(
       where: { id, ownerId: userId },
       include: {
         project: { select: { id: true, name: true, color: true } },
+        folder: { select: { id: true, name: true, parentId: true } },
       },
     });
 
@@ -43,7 +44,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { title, content, projectId, metadata, tagIds } = body;
+    const { title, content, projectId, folderId, metadata, tagIds } = body;
 
     const existing = await db.note.findFirst({ where: { id, ownerId: userId } });
     if (!existing) {
@@ -54,8 +55,28 @@ export async function PUT(
     if (title !== undefined) updateData.title = title.trim();
     if (content !== undefined) updateData.content = content;
     if (projectId !== undefined) updateData.projectId = projectId;
+    if (folderId !== undefined) updateData.folderId = folderId;
     if (metadata !== undefined) updateData.metadata = JSON.stringify(metadata);
     if (tagIds !== undefined) updateData.tagIds = JSON.stringify(tagIds);
+
+    // Check duplicate note title in same folder/project scope
+    if (title !== undefined || folderId !== undefined || projectId !== undefined) {
+      const checkTitle = title !== undefined ? title.trim() : existing.title;
+      const checkProjectId = projectId !== undefined ? projectId : existing.projectId;
+      const checkFolderId = folderId !== undefined ? folderId : existing.folderId;
+      const duplicateNote = await db.note.findFirst({
+        where: {
+          title: checkTitle,
+          projectId: checkProjectId ?? null,
+          folderId: checkFolderId ?? null,
+          ownerId: userId,
+          id: { not: id },
+        },
+      });
+      if (duplicateNote) {
+        return NextResponse.json({ error: "A note with this title already exists in this location" }, { status: 409 });
+      }
+    }
 
     const note = await db.note.update({
       where: { id },

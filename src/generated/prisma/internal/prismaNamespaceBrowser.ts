@@ -56,6 +56,7 @@ export const ModelName = {
   Project: 'Project',
   Task: 'Task',
   Note: 'Note',
+  NoteFolder: 'NoteFolder',
   Comment: 'Comment',
   Tag: 'Tag',
   Webhook: 'Webhook',
@@ -155,6 +156,7 @@ export const NoteScalarFieldEnum = {
   title: 'title',
   content: 'content',
   projectId: 'projectId',
+  folderId: 'folderId',
   metadata: 'metadata',
   tagIds: 'tagIds',
   shortIdNum: 'shortIdNum',
@@ -165,6 +167,22 @@ export const NoteScalarFieldEnum = {
 } as const
 
 export type NoteScalarFieldEnum = (typeof NoteScalarFieldEnum)[keyof typeof NoteScalarFieldEnum]
+
+
+export const NoteFolderScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  projectId: 'projectId',
+  parentId: 'parentId',
+  metadata: 'metadata',
+  shortIdNum: 'shortIdNum',
+  ownerId: 'ownerId',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type NoteFolderScalarFieldEnum = (typeof NoteFolderScalarFieldEnum)[keyof typeof NoteFolderScalarFieldEnum]
 
 
 export const CommentScalarFieldEnum = {

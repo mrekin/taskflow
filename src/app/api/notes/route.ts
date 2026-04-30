@@ -11,15 +11,18 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId") ?? undefined;
+    const folderId = searchParams.get("folderId") ?? undefined;
 
     const notes = await db.note.findMany({
       where: {
         ownerId: userId,
         ...(projectId ? { projectId } : {}),
+        ...(folderId ? { folderId } : {}),
       },
       orderBy: { updatedAt: "desc" },
       include: {
         project: { select: { id: true, name: true, color: true } },
+        folder: { select: { id: true, name: true, parentId: true } },
       },
     });
 
@@ -40,10 +43,25 @@ export async function POST(request: NextRequest) {
     const { userId } = authResult;
 
     const body = await request.json();
-    const { title, content, projectId, metadata, tagIds } = body;
+    const { title, content, projectId, folderId, metadata, tagIds } = body;
 
     if (!title || typeof title !== "string" || title.trim() === "") {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    }
+
+    // Check duplicate note title in same folder/project scope
+    const noteProjectId = projectId ?? null;
+    const noteFolderId = folderId ?? null;
+    const duplicateNote = await db.note.findFirst({
+      where: {
+        title: title.trim(),
+        projectId: noteProjectId,
+        folderId: noteFolderId,
+        ownerId: userId,
+      },
+    });
+    if (duplicateNote) {
+      return NextResponse.json({ error: "A note with this title already exists in this location" }, { status: 409 });
     }
 
     const maxSortNote = await db.note.findFirst({
@@ -59,6 +77,7 @@ export async function POST(request: NextRequest) {
         title: title.trim(),
         content: content ?? "",
         projectId: projectId ?? null,
+        folderId: folderId ?? null,
         metadata: metadata ? JSON.stringify(metadata) : "{}",
         tagIds: tagIds ? JSON.stringify(tagIds) : "[]",
         shortIdNum,

@@ -8,7 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Entity type prefix for mentions and links
  */
-export type EntityType = 'task' | 'project' | 'note' | 'area';
+export type EntityType = 'task' | 'project' | 'note' | 'area' | 'folder';
 
 /**
  * Short ID prefix map - maps entity type to display prefix
@@ -18,6 +18,7 @@ export const SHORT_ID_PREFIX: Record<EntityType, string> = {
   project: 'P',
   note: 'N',
   area: 'A',
+  folder: 'F',
 };
 
 /**
@@ -48,7 +49,7 @@ export function getEntityLink(type: EntityType, shortId: string): string {
  * Check if a string looks like a shortId (e.g., "T-7", "P-3", "N-12", "A-2")
  */
 export function isShortId(value: string): boolean {
-  return /^[TPNA]-\d+$/i.test(value);
+  return /^[TPNAF]-\d+$/i.test(value);
 }
 
 /**
@@ -71,6 +72,7 @@ export function parseEntityReference(text: string): { type: EntityType; shortIdN
     P: 'project',
     N: 'note',
     A: 'area',
+    F: 'folder',
   };
   const type = prefixMap[match[1].toUpperCase()];
   if (!type) return null;
