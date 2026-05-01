@@ -484,7 +484,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
         {/* Preview / View mode - content-centric */}
         {editorMode === 'preview' && (
           <div className="h-full overflow-y-auto custom-scrollbar">
-            <div className="max-w-3xl mx-auto px-6 py-6">
+            <div className="w-full md:w-[90%] mx-auto px-4 md:px-6 py-6">
               {/* Title area */}
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
