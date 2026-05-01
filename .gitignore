@@ -49,7 +49,7 @@ src/generated/
 *.log
 dev.log
 dev.out.log
-test
+/test
 prompt
 
 server.log
