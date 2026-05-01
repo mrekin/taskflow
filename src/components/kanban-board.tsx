@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -15,10 +15,11 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus } from 'lucide-react';
+import { Plus, Search, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { TaskCard } from '@/components/task-card';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { TaskDetailDialog } from '@/components/task-detail-dialog';
@@ -123,11 +124,34 @@ function KanbanColumn({ status, tasks, onAddTask, isActive, showSubtasks }: Kanb
 }
 
 export function KanbanBoard() {
-  const { tasks, selectedProjectId, tagFilter, updateTask, userPreferences } = useAppStore();
+  const { tasks, selectedProjectId, tagFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery } = useAppStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [defaultStatus, setDefaultStatus] = useState<string>('todo');
+  const [searchInput, setSearchInput] = useState(taskSearchQuery);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setTaskSearchQuery(value);
+      fetchTasks(selectedProjectId ?? undefined, value || undefined);
+    }, 500);
+  }, [selectedProjectId, setTaskSearchQuery, fetchTasks]);
+
+  const clearSearch = useCallback(() => {
+    setSearchInput('');
+    setTaskSearchQuery('');
+    fetchTasks(selectedProjectId ?? undefined, undefined);
+  }, [selectedProjectId, setTaskSearchQuery, fetchTasks]);
 
   // Filter tasks by selected project
   const filteredTasks = useMemo(() => {
@@ -241,7 +265,26 @@ export function KanbanBoard() {
   };
 
   return (
-    <div className="h-full">
+    <div className="h-full space-y-4">
+      <div className="flex items-center gap-2 justify-end">
+        <div className="relative w-56">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search tasks..."
+            className="h-7 text-xs pl-7 pr-7"
+          />
+          {searchInput && (
+            <button
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 size-4 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground"
+              onClick={clearSearch}
+            >
+              <X className="size-3" />
+            </button>
+          )}
+        </div>
+      </div>
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}

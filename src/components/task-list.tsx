@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowUpDown,
@@ -11,6 +11,8 @@ import {
   Download,
   CheckSquare,
   XSquare,
+  Search,
+  X,
 } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 
@@ -18,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { TaskDetailDialog } from '@/components/task-detail-dialog';
 import { TagBadges } from '@/components/tag-badges';
@@ -77,12 +80,49 @@ function SortButton({
 }
 
 export function TaskList() {
-  const { tasks, selectedProjectId, selectTask, deleteTask, projects, taskStatusFilter, setTaskStatusFilter, tagFilter, userPreferences } = useAppStore();
+  const {
+    tasks, selectedProjectId, selectTask, deleteTask, projects,
+    taskStatusFilter, setTaskStatusFilter, tagFilter, userPreferences,
+    fetchTasks, taskSearchQuery, setTaskSearchQuery,
+  } = useAppStore();
   const [sortField, setSortField] = useState<SortField>('priority');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [searchInput, setSearchInput] = useState(taskSearchQuery);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setTaskSearchQuery(value);
+      fetchTasks(selectedProjectId ?? undefined, value || undefined);
+    }, 500);
+  }, [selectedProjectId, setTaskSearchQuery, fetchTasks]);
+
+  const clearSearch = useCallback(() => {
+    setSearchInput('');
+    setTaskSearchQuery('');
+    fetchTasks(selectedProjectId ?? undefined, undefined);
+  }, [selectedProjectId, setTaskSearchQuery, fetchTasks]);
+
+  const projectTasksCount = useMemo(() => {
+    const base = tasks.filter(
+      (t) => !t.parentId && (!selectedProjectId || t.projectId === selectedProjectId)
+    );
+    return {
+      all: base.length,
+      active: base.filter((t) => t.status !== 'done' && t.status !== 'cancelled').length,
+    };
+  }, [tasks, selectedProjectId]);
 
   // Filter tasks
   const filteredTasks = useMemo(() => {
@@ -93,7 +133,9 @@ export function TaskList() {
     // Only show top-level tasks
     filtered = filtered.filter((t) => !t.parentId);
 
-    if (taskStatusFilter !== 'all') {
+    if (taskStatusFilter === 'active') {
+      filtered = filtered.filter((t) => t.status !== 'done' && t.status !== 'cancelled');
+    } else if (taskStatusFilter !== 'all') {
       filtered = filtered.filter((t) => t.status === taskStatusFilter);
     }
 
@@ -291,7 +333,15 @@ export function TaskList() {
           className="h-7 text-xs"
           onClick={() => setTaskStatusFilter('all')}
         >
-          All ({tasks.filter((t) => !t.parentId && (!selectedProjectId || t.projectId === selectedProjectId)).length})
+          All ({projectTasksCount.all})
+        </Button>
+        <Button
+          variant={taskStatusFilter === 'active' ? 'default' : 'outline'}
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => setTaskStatusFilter('active')}
+        >
+          Active ({projectTasksCount.active})
         </Button>
         {TASK_STATUSES.map((status) => {
           const count = tasks.filter(
@@ -317,6 +367,23 @@ export function TaskList() {
           );
         })}
         <div className="flex-1" />
+        <div className="relative w-56">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search tasks..."
+            className="h-7 text-xs pl-7 pr-7"
+          />
+          {searchInput && (
+            <button
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 size-4 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground"
+              onClick={clearSearch}
+            >
+              <X className="size-3" />
+            </button>
+          )}
+        </div>
         <Button size="sm" onClick={() => setCreateDialogOpen(true)} className="h-7 text-xs">
           <Plus className="size-3 mr-1" /> Add Task
         </Button>

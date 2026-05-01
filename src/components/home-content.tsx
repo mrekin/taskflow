@@ -232,6 +232,8 @@ function HomeContent() {
     tagFilter,
     userPreferences,
     preferencesLoaded,
+    totalTaskCount,
+    totalTaskStatusCounts,
     setCurrentView,
     selectArea,
     selectProject,
@@ -406,12 +408,7 @@ function HomeContent() {
   };
 
   // Task status counts for sidebar
-  const taskStatusCounts = {
-    todo: tasks.filter((t) => t.status === 'todo' && !t.parentId).length,
-    in_progress: tasks.filter((t) => t.status === 'in_progress' && !t.parentId).length,
-    done: tasks.filter((t) => t.status === 'done' && !t.parentId).length,
-    cancelled: tasks.filter((t) => t.status === 'cancelled' && !t.parentId).length,
-  };
+  const taskStatusCounts = totalTaskStatusCounts;
 
   // Notes tree helpers
   const getNotesTree = () => {
@@ -776,7 +773,7 @@ function HomeContent() {
             >
               <List className="size-4 mr-2" /> Tasks
               <Badge variant="outline" className="ml-auto text-[10px] h-5">
-                {tasks.filter((t) => !t.parentId).length}
+                {totalTaskCount}
               </Badge>
             </Button>
             <Button

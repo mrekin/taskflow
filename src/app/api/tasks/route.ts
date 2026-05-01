@@ -14,14 +14,67 @@ export async function GET(request: NextRequest) {
     const projectId = searchParams.get("projectId") ?? undefined;
     const status = searchParams.get("status") ?? undefined;
     const parentId = searchParams.get("parentId") ?? undefined;
+    const search = searchParams.get("search") ?? undefined;
+
+    const baseWhere: Record<string, unknown> = {
+      ownerId: userId,
+      ...(projectId ? { projectId } : {}),
+      ...(status ? { status } : {}),
+    };
+
+    let where: Record<string, unknown>;
+
+    if (search) {
+      const shortIdMatch = search.match(/^T-(\d+)$/i);
+      const shortIdNum = shortIdMatch ? parseInt(shortIdMatch[1], 10) : null;
+
+      const dateMatch = search.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      const dateStart = dateMatch
+        ? new Date(`${dateMatch[1]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[3].padStart(2, "0")}T00:00:00.000Z`)
+        : null;
+      const dateEnd = dateStart ? new Date(dateStart.getTime() + 86400000) : null;
+
+      const taskConditions: Record<string, unknown>[] = [
+        { title: { contains: search } },
+        { description: { contains: search } },
+        { comments: { some: { content: { contains: search } } } },
+      ];
+
+      if (shortIdNum !== null) {
+        taskConditions.push({ shortIdNum });
+      }
+
+      if (dateStart && dateEnd) {
+        taskConditions.push({ dueDate: { gte: dateStart, lt: dateEnd } });
+        taskConditions.push({ createdAt: { gte: dateStart, lt: dateEnd } });
+        taskConditions.push({ updatedAt: { gte: dateStart, lt: dateEnd } });
+      }
+
+      const subtaskConditions: Record<string, unknown>[] = [
+        { title: { contains: search } },
+        { description: { contains: search } },
+      ];
+
+      if (shortIdNum !== null) {
+        subtaskConditions.push({ shortIdNum });
+      }
+
+      taskConditions.push({ subtasks: { some: { OR: subtaskConditions } } });
+
+      where = {
+        ...baseWhere,
+        parentId: null,
+        OR: taskConditions,
+      };
+    } else {
+      where = {
+        ...baseWhere,
+        ...(parentId !== undefined ? { parentId: parentId || null } : {}),
+      };
+    }
 
     const tasks = await db.task.findMany({
-      where: {
-        ownerId: userId,
-        ...(projectId ? { projectId } : {}),
-        ...(status ? { status } : {}),
-        ...(parentId !== undefined ? { parentId: parentId || null } : {}),
-      },
+      where,
       orderBy: { sortOrder: "asc" },
       include: {
         _count: { select: { subtasks: true } },

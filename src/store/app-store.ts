@@ -31,6 +31,9 @@ interface AppState {
   isLoading: boolean;
   taskStatusFilter: string;
   tagFilter: string[];
+  taskSearchQuery: string;
+  totalTaskCount: number;
+  totalTaskStatusCounts: Record<string, number>;
 
   // User Preferences
   userPreferences: UserPreferences;
@@ -46,6 +49,7 @@ interface AppState {
   toggleSidebar: () => void;
   setTaskStatusFilter: (filter: string) => void;
   setTagFilter: (tagIds: string[]) => void;
+  setTaskSearchQuery: (query: string) => void;
 
   // Actions - User Preferences
   fetchUserPreferences: () => Promise<void>;
@@ -54,7 +58,7 @@ interface AppState {
   // Actions - Data Fetching
   fetchAreas: () => Promise<void>;
   fetchProjects: (areaId?: string) => Promise<void>;
-  fetchTasks: (projectId?: string) => Promise<void>;
+  fetchTasks: (projectId?: string, search?: string) => Promise<void>;
   fetchNotes: (projectId?: string) => Promise<void>;
   fetchTags: () => Promise<void>;
   fetchComments: (taskId: string) => Promise<void>;
@@ -128,6 +132,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: false,
   taskStatusFilter: 'all',
   tagFilter: [],
+  taskSearchQuery: '',
+  totalTaskCount: 0,
+  totalTaskStatusCounts: { todo: 0, in_progress: 0, done: 0, cancelled: 0 },
 
   // User Preferences initial state
   userPreferences: DEFAULT_PREFERENCES,
@@ -143,6 +150,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setTaskStatusFilter: (filter) => set({ taskStatusFilter: filter }),
   setTagFilter: (tagIds) => set({ tagFilter: tagIds }),
+  setTaskSearchQuery: (query) => set({ taskSearchQuery: query }),
 
   // Data Fetching
   fetchAreas: async () => {
@@ -174,14 +182,29 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchTasks: async (projectId?: string) => {
+  fetchTasks: async (projectId?: string, search?: string) => {
     set({ isLoading: true });
     try {
-      const url = projectId ? api(`/api/tasks?projectId=${projectId}`) : api('/api/tasks');
+      const actualSearch = search !== undefined ? search : get().taskSearchQuery;
+      const params = new URLSearchParams();
+      if (projectId) params.set('projectId', projectId);
+      if (actualSearch) params.set('search', actualSearch);
+      const url = params.toString() ? api(`/api/tasks?${params.toString()}`) : api('/api/tasks');
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch tasks');
       const tasks: Task[] = await res.json();
-      set({ tasks });
+      const updates: Partial<AppState> = { tasks };
+      if (!actualSearch) {
+        const topLevel = tasks.filter((t) => !t.parentId);
+        updates.totalTaskCount = topLevel.length;
+        updates.totalTaskStatusCounts = {
+          todo: topLevel.filter((t) => t.status === 'todo').length,
+          in_progress: topLevel.filter((t) => t.status === 'in_progress').length,
+          done: topLevel.filter((t) => t.status === 'done').length,
+          cancelled: topLevel.filter((t) => t.status === 'cancelled').length,
+        };
+      }
+      set(updates);
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
     } finally {
