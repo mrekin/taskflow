@@ -122,8 +122,9 @@ export async function fireWebhookEvent(ctx: WebhookContext): Promise<void> {
 /**
  * Dispatch a single webhook: make the HTTP request and log the delivery.
  */
-async function dispatchWebhook(webhook: WebhookRecord, ctx: WebhookContext): Promise<void> {
-  const url = replacePlaceholders(webhook.url, ctx);
+export async function dispatchWebhook(webhook: WebhookRecord, ctx: WebhookContext): Promise<{ success: boolean; statusCode: number | null; response: string | null; elapsed: number }> {
+  const rawUrl = replacePlaceholders(webhook.url, ctx);
+  const url = encodeURI(rawUrl);
   const method = webhook.method.toUpperCase();
   const headers: Record<string, string> = JSON.parse(webhook.headers || '{}');
   const startTime = Date.now();
@@ -215,6 +216,8 @@ async function dispatchWebhook(webhook: WebhookRecord, ctx: WebhookContext): Pro
   } catch (logError) {
     console.error('[Webhook] Failed to log delivery:', logError);
   }
+
+  return { success, statusCode, response: responseBody, elapsed: Date.now() - startTime };
 }
 
 /**

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Webhook as WebhookIcon,
@@ -18,7 +18,7 @@ import {
   XCircle,
   AlertCircle,
   Copy,
-  ExternalLink,
+  Pencil,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -103,6 +103,8 @@ export function WebhooksSection() {
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const urlInputRef = useRef<HTMLInputElement>(null);
+  const urlCursorRef = useRef<number | null>(null);
 
   useEffect(() => {
     fetchWebhooks();
@@ -227,10 +229,18 @@ export function WebhooksSection() {
   };
 
   const insertPlaceholder = (placeholder: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      url: prev.url + placeholder,
-    }));
+    const input = urlInputRef.current;
+    const pos = urlCursorRef.current ?? input?.selectionStart ?? formData.url.length;
+    const before = formData.url.slice(0, pos);
+    const after = formData.url.slice(pos);
+    const newUrl = before + placeholder + after;
+    const newPos = pos + placeholder.length;
+    setFormData((prev) => ({ ...prev, url: newUrl }));
+    urlCursorRef.current = newPos;
+    requestAnimationFrame(() => {
+      input?.setSelectionRange(newPos, newPos);
+      input?.focus();
+    });
   };
 
   const getScopeLabel = (webhook: Webhook) => {
@@ -369,7 +379,7 @@ export function WebhooksSection() {
                           onClick={() => handleEdit(webhook)}
                           title="Edit webhook"
                         >
-                          <ExternalLink className="size-3.5" />
+                          <Pencil className="size-3.5" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -483,8 +493,15 @@ export function WebhooksSection() {
                     </SelectContent>
                   </Select>
                   <Input
+                    ref={urlInputRef}
                     value={formData.url}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, url: e.target.value }))}
+                    onChange={(e) => {
+                      setFormData((prev) => ({ ...prev, url: e.target.value }));
+                      urlCursorRef.current = e.target.selectionStart;
+                    }}
+                    onSelect={(e) => {
+                      urlCursorRef.current = (e.target as HTMLInputElement).selectionStart;
+                    }}
                     placeholder="https://example.com/webhook?text=Task {entityId} status changed"
                     className="font-mono text-sm"
                   />
