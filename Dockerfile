@@ -16,8 +16,7 @@ COPY prisma ./prisma/
 COPY prisma.config.ts ./
 
 # Install dependencies with cache mount
-RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --frozen-lockfile
+RUN bun install --frozen-lockfile
 
 # Generate Prisma client
 RUN bun run db:generate
