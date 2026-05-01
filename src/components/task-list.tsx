@@ -82,7 +82,7 @@ function SortButton({
 export function TaskList() {
   const {
     tasks, selectedProjectId, selectTask, deleteTask, projects,
-    taskStatusFilter, setTaskStatusFilter, tagFilter, userPreferences,
+    taskStatusFilter, setTaskStatusFilter, tagFilter, projectFilter, userPreferences,
     fetchTasks, taskSearchQuery, setTaskSearchQuery,
   } = useAppStore();
   const [sortField, setSortField] = useState<SortField>('priority');
@@ -115,23 +115,25 @@ export function TaskList() {
   }, [selectedProjectId, setTaskSearchQuery, fetchTasks]);
 
   const projectTasksCount = useMemo(() => {
-    const base = tasks.filter(
-      (t) => !t.parentId && (!selectedProjectId || t.projectId === selectedProjectId)
-    );
+    const base = tasks.filter((t) => !t.parentId);
     return {
       all: base.length,
       active: base.filter((t) => t.status !== 'done' && t.status !== 'cancelled').length,
     };
-  }, [tasks, selectedProjectId]);
+  }, [tasks]);
 
   // Filter tasks
   const filteredTasks = useMemo(() => {
     let filtered = tasks;
-    if (selectedProjectId) {
-      filtered = filtered.filter((t) => t.projectId === selectedProjectId);
-    }
     // Only show top-level tasks
     filtered = filtered.filter((t) => !t.parentId);
+
+    // Filter by projects
+    if (projectFilter && projectFilter.length > 0) {
+      filtered = filtered.filter((t) =>
+        projectFilter.includes(t.projectId)
+      );
+    }
 
     if (taskStatusFilter === 'active') {
       filtered = filtered.filter((t) => t.status !== 'done' && t.status !== 'cancelled');
@@ -147,7 +149,7 @@ export function TaskList() {
     }
 
     return filtered;
-  }, [tasks, selectedProjectId, taskStatusFilter, tagFilter]);
+  }, [tasks, projectFilter, taskStatusFilter, tagFilter]);
 
   // Sort tasks
   const sortedTasks = useMemo(() => {

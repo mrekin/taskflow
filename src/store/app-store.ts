@@ -31,6 +31,7 @@ interface AppState {
   isLoading: boolean;
   taskStatusFilter: string;
   tagFilter: string[];
+  projectFilter: string[];
   taskSearchQuery: string;
   totalTaskCount: number;
   totalTaskStatusCounts: Record<string, number>;
@@ -49,6 +50,7 @@ interface AppState {
   toggleSidebar: () => void;
   setTaskStatusFilter: (filter: string) => void;
   setTagFilter: (tagIds: string[]) => void;
+  setProjectFilter: (projectIds: string[]) => void;
   setTaskSearchQuery: (query: string) => void;
 
   // Actions - User Preferences
@@ -132,6 +134,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: false,
   taskStatusFilter: 'all',
   tagFilter: [],
+  projectFilter: [],
   taskSearchQuery: '',
   totalTaskCount: 0,
   totalTaskStatusCounts: { todo: 0, in_progress: 0, done: 0, cancelled: 0 },
@@ -150,6 +153,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setTaskStatusFilter: (filter) => set({ taskStatusFilter: filter }),
   setTagFilter: (tagIds) => set({ tagFilter: tagIds }),
+  setProjectFilter: (projectIds) => set({ projectFilter: projectIds }),
   setTaskSearchQuery: (query) => set({ taskSearchQuery: query }),
 
   // Data Fetching

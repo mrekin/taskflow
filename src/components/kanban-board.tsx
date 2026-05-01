@@ -124,7 +124,7 @@ function KanbanColumn({ status, tasks, onAddTask, isActive, showSubtasks }: Kanb
 }
 
 export function KanbanBoard() {
-  const { tasks, selectedProjectId, tagFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery } = useAppStore();
+  const { tasks, selectedProjectId, tagFilter, projectFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery } = useAppStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -156,11 +156,15 @@ export function KanbanBoard() {
   // Filter tasks by selected project
   const filteredTasks = useMemo(() => {
     let filtered = tasks;
-    if (selectedProjectId) {
-      filtered = filtered.filter((t) => t.projectId === selectedProjectId);
-    }
     // Only show top-level tasks (no parent)
     filtered = filtered.filter((t) => !t.parentId);
+
+    // Filter by projects
+    if (projectFilter && projectFilter.length > 0) {
+      filtered = filtered.filter((t) =>
+        projectFilter.includes(t.projectId)
+      );
+    }
 
     // Filter by tags
     if (tagFilter && tagFilter.length > 0) {
@@ -170,7 +174,7 @@ export function KanbanBoard() {
     }
 
     return filtered;
-  }, [tasks, selectedProjectId, tagFilter]);
+  }, [tasks, projectFilter, tagFilter]);
 
   // Group tasks by status
   const tasksByStatus = useMemo(() => {

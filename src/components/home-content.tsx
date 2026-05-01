@@ -230,6 +230,7 @@ function HomeContent() {
     sidebarOpen,
     isLoading,
     tagFilter,
+    projectFilter,
     userPreferences,
     preferencesLoaded,
     totalTaskCount,
@@ -243,6 +244,7 @@ function HomeContent() {
     toggleSidebar,
     setTaskStatusFilter,
     setTagFilter,
+    setProjectFilter,
     fetchAreas,
     fetchProjects,
     fetchTasks,
@@ -892,6 +894,58 @@ function HomeContent() {
                           style={{ backgroundColor: tag.color }}
                         />
                         {tag.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Projects filter section */}
+            {projects.length > 0 && (
+              <>
+                <Separator className="my-2" />
+                <div className="flex items-center justify-between px-3 mb-1">
+                  <p className="text-xs font-medium text-muted-foreground">Filter by Projects</p>
+                  {projectFilter.length > 0 && (
+                    <button
+                      className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                      onClick={() => setProjectFilter([])}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1 px-3 max-h-28 overflow-y-auto custom-scrollbar">
+                  {projects.map((project) => {
+                    const isSelected = projectFilter.includes(project.id);
+                    return (
+                      <button
+                        key={project.id}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setProjectFilter(projectFilter.filter((id) => id !== project.id));
+                          } else {
+                            setProjectFilter([...projectFilter, project.id]);
+                          }
+                        }}
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium transition-all border',
+                          isSelected
+                            ? 'border-foreground/20 shadow-sm'
+                            : 'border-transparent opacity-50 hover:opacity-100'
+                        )}
+                        style={{
+                          backgroundColor: isSelected ? `${project.color}20` : `${project.color}10`,
+                          color: project.color,
+                        }}
+                      >
+                        <span
+                          className="size-1.5 rounded-full shrink-0"
+                          style={{ backgroundColor: project.color }}
+                        />
+                        {project.name}
                       </button>
                     );
                   })}

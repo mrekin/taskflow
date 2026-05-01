@@ -86,6 +86,7 @@ export function NotesList() {
     tags,
     tagFilter,
     setTagFilter,
+    projectFilter,
     createNote,
     folders,
     fetchFolders,
@@ -179,6 +180,13 @@ export function NotesList() {
       );
     }
 
+    // Filter by projects
+    if (projectFilter && projectFilter.length > 0) {
+      result = result.filter((note) =>
+        projectFilter.includes(note.projectId)
+      );
+    }
+
     // Sort
     result.sort((a, b) => {
       switch (sortBy) {
@@ -202,7 +210,7 @@ export function NotesList() {
     });
 
     return result;
-  }, [notes, searchQuery, sortBy, tagFilter, currentFolderId]);
+  }, [notes, searchQuery, sortBy, tagFilter, projectFilter, currentFolderId]);
 
   const handleNoteClick = (note: Note) => {
     selectNote(note.id);
