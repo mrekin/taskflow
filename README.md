@@ -10,7 +10,7 @@ Self-hosted task and notes management application with Kanban board, Markdown no
 - **Comments** — Threaded comments on tasks with inline editing
 - **Tags** — Cross-entity tagging with color coding
 - **Quick create** — Streamlined entity creation from a single text input
-- **Entity links & mentions** — Reference tasks, projects, and notes with short IDs (T-1, P-2, N-3) and `#mentions` in Markdown
+- **Entity links & mentions** — Reference tasks, projects, and notes with short IDs (T-5, P-2, N-3) and `#mentions` in Markdown
 - **Webhooks** — Automated notifications on task/project events with scope matching and placeholder substitution
 - **Bulk operations** — Select multiple tasks for delete or export
 - **Dark / Light theme** — System-aware theme switching
