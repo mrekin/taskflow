@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAppStore } from '@/store/app-store';
 import type { Note, NoteFolder } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -94,9 +94,56 @@ export function NotesList() {
     updateFolder,
     deleteFolder,
     selectedFolderId,
+    noteSearchQuery,
+    setNoteSearchQuery,
+    noteSearchResults,
+    folderSearchResults,
+    searchNotes,
+    clearNoteSearch,
   } = useAppStore();
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState(noteSearchQuery);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const currentFolderId = useMemo(() => {
+    return selectedFolderId ?? null;
+  }, [selectedFolderId]);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
+
+  const executeSearch = useCallback((value: string) => {
+    if (value.trim()) {
+      searchNotes(selectedProjectId ?? undefined, value, currentFolderId ?? undefined);
+    } else {
+      clearNoteSearch();
+    }
+  }, [selectedProjectId, currentFolderId, searchNotes, clearNoteSearch]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setNoteSearchQuery(value);
+      executeSearch(value);
+    }, 500);
+  }, [setNoteSearchQuery, executeSearch]);
+
+  const handleSearchSubmit = useCallback(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    setNoteSearchQuery(searchInput);
+    executeSearch(searchInput);
+  }, [searchInput, setNoteSearchQuery, executeSearch]);
+
+  const clearSearch = useCallback(() => {
+    setSearchInput('');
+    setNoteSearchQuery('');
+    clearNoteSearch();
+  }, [setNoteSearchQuery, clearNoteSearch]);
+
   const [sortBy, setSortBy] = useState<SortOption>('updatedAt');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
@@ -115,9 +162,11 @@ export function NotesList() {
     fetchFolders(selectedProjectId ?? undefined);
   }, [fetchNotes, fetchFolders, selectedProjectId]);
 
-  const currentFolderId = useMemo(() => {
-    return selectedFolderId ?? null;
-  }, [selectedFolderId]);
+  useEffect(() => {
+    if (noteSearchQuery.trim()) {
+      executeSearch(noteSearchQuery);
+    }
+  }, [currentFolderId, executeSearch, noteSearchQuery]);
 
   const folderBreadcrumbs = useMemo((): NoteFolder[] => {
     if (!selectedFolderId) return [];
@@ -137,17 +186,14 @@ export function NotesList() {
     return projects.find((p) => p.id === selectedProjectId) ?? null;
   }, [projects, selectedProjectId]);
 
-  // Folders visible at the current level
+  const isSearching = noteSearchQuery.trim().length > 0;
+
   const visibleFolders = useMemo(() => {
-    let result = folders.filter((f) => f.parentId === currentFolderId);
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter((f) => f.name.toLowerCase().includes(query));
+    if (isSearching) {
+      return folderSearchResults;
     }
-
-    return result;
-  }, [folders, currentFolderId, searchQuery]);
+    return folders.filter((f) => f.parentId === currentFolderId);
+  }, [folders, currentFolderId, isSearching, folderSearchResults]);
 
   const handleFolderClick = (folder: NoteFolder) => {
     useAppStore.getState().selectFolder(folder.id);
@@ -158,36 +204,24 @@ export function NotesList() {
   };
 
   const filteredAndSortedNotes = useMemo(() => {
-    let result = [...notes];
+    let result = isSearching ? [...noteSearchResults] : [...notes];
 
-    // Filter by current folder
-    result = result.filter((note) => note.folderId === currentFolderId);
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (note) =>
-          note.title.toLowerCase().includes(query) ||
-          note.content.toLowerCase().includes(query)
-      );
+    if (!isSearching) {
+      result = result.filter((note) => note.folderId === currentFolderId);
     }
 
-    // Filter by tag
     if (tagFilter && tagFilter.length > 0) {
       result = result.filter((note) =>
         tagFilter.some((tagId) => (note.tagIds || []).includes(tagId))
       );
     }
 
-    // Filter by projects
     if (projectFilter && projectFilter.length > 0) {
       result = result.filter((note) =>
         projectFilter.includes(note.projectId)
       );
     }
 
-    // Sort
     result.sort((a, b) => {
       switch (sortBy) {
         case 'id':
@@ -214,7 +248,7 @@ export function NotesList() {
     });
 
     return result;
-  }, [notes, searchQuery, sortBy, tagFilter, projectFilter, currentFolderId]);
+  }, [notes, noteSearchResults, isSearching, sortBy, tagFilter, projectFilter, currentFolderId]);
 
   const handleNoteClick = (note: Note) => {
     selectNote(note.id);
@@ -415,13 +449,16 @@ export function NotesList() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search notes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSearchSubmit();
+              }}
               className="pl-9"
             />
-            {searchQuery && (
+            {searchInput && (
               <button
-                onClick={() => setSearchQuery('')}
+                onClick={clearSearch}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
@@ -551,16 +588,16 @@ export function NotesList() {
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             <FileText className="h-16 w-16 mb-4 opacity-20" />
             <p className="text-lg font-medium">
-              {searchQuery
+              {noteSearchQuery
                 ? 'No notes match your search'
                 : 'No notes yet. Create your first note!'}
             </p>
             <p className="text-sm mt-1">
-              {searchQuery
+              {noteSearchQuery
                 ? 'Try adjusting your search terms'
                 : 'Click the "New Note" button to get started'}
             </p>
-            {!searchQuery && (
+            {!noteSearchQuery && (
               <div className="flex items-center gap-2 mt-4">
                 <Button
                   variant="outline"

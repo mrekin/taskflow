@@ -33,6 +33,9 @@ interface AppState {
   tagFilter: string[];
   projectFilter: string[];
   taskSearchQuery: string;
+  noteSearchQuery: string;
+  noteSearchResults: Note[];
+  folderSearchResults: NoteFolder[];
   totalTaskCount: number;
   totalTaskStatusCounts: Record<string, number>;
 
@@ -52,6 +55,9 @@ interface AppState {
   setTagFilter: (tagIds: string[]) => void;
   setProjectFilter: (projectIds: string[]) => void;
   setTaskSearchQuery: (query: string) => void;
+  setNoteSearchQuery: (query: string) => void;
+  searchNotes: (projectId?: string, search?: string, folderId?: string) => Promise<void>;
+  clearNoteSearch: () => void;
 
   // Actions - User Preferences
   fetchUserPreferences: () => Promise<void>;
@@ -136,6 +142,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   tagFilter: [],
   projectFilter: [],
   taskSearchQuery: '',
+  noteSearchQuery: '',
+  noteSearchResults: [],
+  folderSearchResults: [],
   totalTaskCount: 0,
   totalTaskStatusCounts: { todo: 0, in_progress: 0, done: 0, cancelled: 0 },
 
@@ -155,6 +164,28 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTagFilter: (tagIds) => set({ tagFilter: tagIds }),
   setProjectFilter: (projectIds) => set({ projectFilter: projectIds }),
   setTaskSearchQuery: (query) => set({ taskSearchQuery: query }),
+  setNoteSearchQuery: (query) => set({ noteSearchQuery: query }),
+  searchNotes: async (projectId?: string, search?: string, folderId?: string) => {
+    const actualSearch = search !== undefined ? search : get().noteSearchQuery;
+    if (!actualSearch) {
+      set({ noteSearchResults: [], folderSearchResults: [] });
+      return;
+    }
+    try {
+      const params = new URLSearchParams();
+      if (projectId) params.set('projectId', projectId);
+      if (actualSearch) params.set('search', actualSearch);
+      if (folderId) params.set('folderId', folderId);
+      const url = api(`/api/notes/search?${params.toString()}`);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to search notes');
+      const data = await res.json();
+      set({ noteSearchResults: data.notes, folderSearchResults: data.folders });
+    } catch (error) {
+      console.error('Failed to search notes:', error);
+    }
+  },
+  clearNoteSearch: () => set({ noteSearchQuery: '', noteSearchResults: [], folderSearchResults: [] }),
 
   // Data Fetching
   fetchAreas: async () => {

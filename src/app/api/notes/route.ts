@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
 
-// GET /api/notes - List notes with optional project filter
+// GET /api/notes - List notes with optional filters
 export async function GET(request: NextRequest) {
   try {
     const userId = await getCurrentUserId();
