@@ -34,7 +34,7 @@ import {
   PRIORITY_COLORS,
 } from '@/lib/constants';
 
-type SortField = 'title' | 'priority' | 'status' | 'dueDate' | 'project';
+type SortField = 'id' | 'title' | 'priority' | 'status' | 'dueDate' | 'project' | 'createdAt' | 'updatedAt';
 type SortDirection = 'asc' | 'desc';
 
 const PRIORITY_ORDER: Record<string, number> = {
@@ -177,6 +177,15 @@ export function TaskList() {
           comparison = projA.localeCompare(projB);
           break;
         }
+        case 'id':
+          comparison = (a.shortIdNum ?? 0) - (b.shortIdNum ?? 0);
+          break;
+        case 'createdAt':
+          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+        case 'updatedAt':
+          comparison = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+          break;
       }
       return sortDirection === 'asc' ? comparison : -comparison;
     });
@@ -393,7 +402,7 @@ export function TaskList() {
 
       {/* Table header */}
       <div className="border rounded-lg overflow-hidden">
-        <div className="grid grid-cols-[auto_1fr_100px_100px_120px_120px] gap-2 px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground">
+        <div className="grid grid-cols-[auto_1fr_90px_90px_110px_110px_90px_90px] gap-2 px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground">
           <div className="w-8 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
             <Checkbox
               checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
@@ -411,6 +420,8 @@ export function TaskList() {
           <SortButton field="status" currentSortField={sortField} onSort={handleSort}>Status</SortButton>
           <SortButton field="dueDate" currentSortField={sortField} onSort={handleSort}>Due Date</SortButton>
           <SortButton field="project" currentSortField={sortField} onSort={handleSort}>Project</SortButton>
+          <SortButton field="createdAt" currentSortField={sortField} onSort={handleSort}>Created</SortButton>
+          <SortButton field="updatedAt" currentSortField={sortField} onSort={handleSort}>Updated</SortButton>
         </div>
 
         {/* Task rows */}
@@ -438,7 +449,7 @@ export function TaskList() {
                       exit={{ opacity: 0, y: -5 }}
                       transition={{ duration: 0.15 }}
                       className={cn(
-                        'grid grid-cols-[auto_1fr_100px_100px_120px_120px] gap-2 px-4 py-3 border-b items-center',
+                        'grid grid-cols-[auto_1fr_90px_90px_110px_110px_90px_90px] gap-2 px-4 py-3 border-b items-center',
                         'hover:bg-muted/30 cursor-pointer transition-colors',
                         isSelected && 'bg-primary/5 border-l-2 border-l-primary',
                         subtasks.length === 0 && 'last:border-b-0',
@@ -504,6 +515,12 @@ export function TaskList() {
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
+                      <span className="text-xs text-muted-foreground">
+                        {format(parseISO(task.createdAt), 'MMM d')}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {format(parseISO(task.updatedAt), 'MMM d')}
+                      </span>
                     </motion.div>
 
                     {userPreferences.showSubtasks && subtasks.length > 0 && subtasks.map((subtask, idx) => (
@@ -515,7 +532,7 @@ export function TaskList() {
                         exit={{ opacity: 0, x: -8 }}
                         transition={{ duration: 0.12 }}
                         className={cn(
-                          'grid grid-cols-[auto_1fr_100px_100px_120px_120px] gap-2 pl-10 pr-4 py-2 border-b items-center',
+                          'grid grid-cols-[auto_1fr_90px_90px_110px_110px_90px_90px] gap-2 pl-10 pr-4 py-2 border-b items-center',
                           'hover:bg-muted/20 cursor-pointer transition-colors',
                           'bg-muted/10',
                           idx === subtasks.length - 1 && 'last:border-b-0',
@@ -557,6 +574,8 @@ export function TaskList() {
                         >
                           {STATUS_LABELS[subtask.status] || subtask.status}
                         </Badge>
+                        <span className="text-[10px] text-muted-foreground">—</span>
+                        <span className="text-[10px] text-muted-foreground">—</span>
                         <span className="text-[10px] text-muted-foreground">—</span>
                         <span className="text-[10px] text-muted-foreground">—</span>
                       </motion.div>

@@ -15,17 +15,27 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Search, X } from 'lucide-react';
+import { Plus, Search, X, ArrowUpDown } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { TaskCard } from '@/components/task-card';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { TaskDetailDialog } from '@/components/task-detail-dialog';
 import { useAppStore } from '@/store/app-store';
 import { TASK_STATUSES, STATUS_LABELS, STATUS_COLORS } from '@/lib/constants';
 import type { Task } from '@/lib/types';
+
+type KanbanSortField = 'sortOrder' | 'id' | 'createdAt' | 'updatedAt' | 'title';
+type KanbanSortDirection = 'asc' | 'desc';
 
 interface KanbanColumnProps {
   status: string;
@@ -131,6 +141,8 @@ export function KanbanBoard() {
   const [defaultStatus, setDefaultStatus] = useState<string>('todo');
   const [searchInput, setSearchInput] = useState(taskSearchQuery);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sortField, setSortField] = useState<KanbanSortField>('sortOrder');
+  const [sortDirection, setSortDirection] = useState<KanbanSortDirection>('asc');
 
   useEffect(() => {
     return () => {
@@ -188,8 +200,30 @@ export function KanbanBoard() {
       }
       grouped[task.status].push(task);
     }
+    for (const status of TASK_STATUSES) {
+      grouped[status].sort((a, b) => {
+        let comparison = 0;
+        switch (sortField) {
+          case 'id':
+            comparison = (a.shortIdNum ?? 0) - (b.shortIdNum ?? 0);
+            break;
+          case 'createdAt':
+            comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            break;
+          case 'updatedAt':
+            comparison = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+            break;
+          case 'title':
+            comparison = a.title.localeCompare(b.title);
+            break;
+          default:
+            comparison = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+        }
+        return sortDirection === 'asc' ? comparison : -comparison;
+      });
+    }
     return grouped;
-  }, [filteredTasks]);
+  }, [filteredTasks, sortField, sortDirection]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -271,6 +305,27 @@ export function KanbanBoard() {
   return (
     <div className="h-full space-y-4">
       <div className="flex items-center gap-2 justify-end">
+        <Select value={sortField} onValueChange={(v) => setSortField(v as KanbanSortField)}>
+          <SelectTrigger className="w-[150px] h-7 text-xs">
+            <ArrowUpDown className="size-3 mr-1 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sortOrder">Order</SelectItem>
+            <SelectItem value="id">ID</SelectItem>
+            <SelectItem value="createdAt">Created</SelectItem>
+            <SelectItem value="updatedAt">Updated</SelectItem>
+            <SelectItem value="title">Title</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs px-2"
+          onClick={() => setSortDirection((d) => d === 'asc' ? 'desc' : 'asc')}
+        >
+          {sortDirection === 'asc' ? '↑ Asc' : '↓ Desc'}
+        </Button>
         <div className="relative w-56">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
           <Input

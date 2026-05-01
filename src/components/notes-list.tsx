@@ -71,7 +71,7 @@ import {
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
-type SortOption = 'updatedAt' | 'title' | 'project' | 'folder';
+type SortOption = 'id' | 'createdAt' | 'updatedAt' | 'title' | 'project' | 'folder';
 
 export function NotesList() {
   const {
@@ -190,6 +190,10 @@ export function NotesList() {
     // Sort
     result.sort((a, b) => {
       switch (sortBy) {
+        case 'id':
+          return (a.shortIdNum ?? 0) - (b.shortIdNum ?? 0);
+        case 'createdAt':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         case 'updatedAt':
           return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
         case 'title':
@@ -496,12 +500,14 @@ export function NotesList() {
             </PopoverContent>
           </Popover>
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-[180px]">
               <ArrowUpDown className="h-4 w-4 mr-2 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="updatedAt">Last Updated</SelectItem>
+              <SelectItem value="createdAt">Created</SelectItem>
+              <SelectItem value="id">ID</SelectItem>
               <SelectItem value="title">Title</SelectItem>
               <SelectItem value="project">Project</SelectItem>
               <SelectItem value="folder">Folder</SelectItem>
