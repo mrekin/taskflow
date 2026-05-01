@@ -80,7 +80,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ gitea.actor }}
-          password: ${{ secrets.ACTIONS_TOKEN }}
+          password: ${{ secrets.ACTIONS_TOKEN2 }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
