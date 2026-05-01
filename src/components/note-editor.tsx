@@ -86,25 +86,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
     setCurrentView,
   } = useAppStore();
 
-  // Read auto-save setting from localStorage
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    return localStorage.getItem('taskflow-note-autosave') !== 'false';
-  });
-
-  // Listen for storage changes (when user toggles in Settings)
-  // storage event only fires cross-tab, so we also poll on focus
-  useEffect(() => {
-    const handler = () => {
-      setAutoSaveEnabled(localStorage.getItem('taskflow-note-autosave') !== 'false');
-    };
-    window.addEventListener('storage', handler);
-    window.addEventListener('focus', handler);
-    return () => {
-      window.removeEventListener('storage', handler);
-      window.removeEventListener('focus', handler);
-    };
-  }, []);
+  const autoSaveEnabled = useAppStore((s) => s.userPreferences.noteAutoSave);
 
   const note = notes.find((n) => n.id === noteId);
 

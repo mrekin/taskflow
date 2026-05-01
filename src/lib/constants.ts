@@ -43,3 +43,24 @@ export const DEFAULT_COLORS = [
 export function getRandomColor(): string {
   return DEFAULT_COLORS[Math.floor(Math.random() * DEFAULT_COLORS.length)];
 }
+
+export const DEFAULT_PAGE_OPTIONS = [
+  { value: 'quick-create', label: 'Quick Create' },
+  { value: 'tasks', label: 'Tasks' },
+  { value: 'kanban', label: 'Kanban' },
+  { value: 'notes', label: 'Notes' },
+] as const;
+
+export type DefaultPage = (typeof DEFAULT_PAGE_OPTIONS)[number]['value'];
+
+export interface UserPreferences {
+  noteAutoSave: boolean;
+  notesTree: boolean;
+  defaultPage: DefaultPage;
+}
+
+export const DEFAULT_PREFERENCES: UserPreferences = {
+  noteAutoSave: true,
+  notesTree: false,
+  defaultPage: 'quick-create',
+};

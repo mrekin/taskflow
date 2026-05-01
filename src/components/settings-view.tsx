@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 import { useTheme } from 'next-themes';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,20 +19,20 @@ import {
   Sun,
   Moon,
   Monitor,
-  PanelLeftClose,
-  PanelRightClose,
   Settings,
   Save,
   FileText,
-
   List,
+  Zap,
+  LayoutGrid,
+  StickyNote,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WebhooksSection } from '@/components/webhooks-section';
+import { useAppStore } from '@/store/app-store';
+import { DEFAULT_PAGE_OPTIONS, DEFAULT_PREFERENCES } from '@/lib/constants';
 
-type SidebarPosition = 'left' | 'right';
-
-// useSyncExternalStore to detect client-side rendering
 const emptySubscribe = () => () => {};
 function useIsMounted() {
   return useSyncExternalStore(
@@ -42,48 +42,23 @@ function useIsMounted() {
   );
 }
 
-// Safe localStorage read with SSR guard
-function getLocalStorageItem(key: string, fallback: string): string {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem(key) ?? fallback;
-  }
-  return fallback;
-}
+const iconMap: Record<string, React.ElementType> = {
+  'quick-create': Zap,
+  'tasks': List,
+  'kanban': LayoutGrid,
+  'notes': StickyNote,
+};
 
 export function SettingsView() {
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
+  const { userPreferences, updateUserPreference } = useAppStore();
   const mounted = useIsMounted();
 
+  const prefs = userPreferences;
   const email = session?.user?.email || '';
-
-  const [displayName, setDisplayName] = useState(session?.user?.name || '');
-  const [sidebarPosition, setSidebarPosition] = useState<SidebarPosition>(
-    () => getLocalStorageItem('taskflow-sidebar-position', 'left') as SidebarPosition
-  );
-  const [noteAutoSave, setNoteAutoSave] = useState(
-    () => getLocalStorageItem('taskflow-note-autosave', 'true') === 'true'
-  );
-  const [notesTree, setNotesTree] = useState(
-    () => getLocalStorageItem('taskflow-notes-tree', 'false') === 'true'
-  );
+  const displayName = session?.user?.name || '';
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || 'unknown';
-
-  const handleSidebarPositionChange = (position: SidebarPosition) => {
-    setSidebarPosition(position);
-    localStorage.setItem('taskflow-sidebar-position', position);
-  };
-
-  const handleNoteAutoSaveChange = (enabled: boolean) => {
-    setNoteAutoSave(enabled);
-    localStorage.setItem('taskflow-note-autosave', String(enabled));
-  };
-
-  const handleNotesTreeChange = (enabled: boolean) => {
-    setNotesTree(enabled);
-    localStorage.setItem('taskflow-notes-tree', String(enabled));
-    window.dispatchEvent(new CustomEvent('notes-tree-toggle', { detail: enabled }));
-  };
 
   const handleExportData = () => {
     const data = {
@@ -128,13 +103,11 @@ export function SettingsView() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b">
         <Settings className="h-6 w-6 text-primary" />
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
       </div>
 
-      {/* Settings Content */}
       <div className="flex-1 overflow-y-auto py-6 space-y-6 custom-scrollbar">
         {/* Profile Section */}
         <Card>
@@ -167,15 +140,6 @@ export function SettingsView() {
 
             <div className="grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="display-name">Display Name</Label>
-                <Input
-                  id="display-name"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your display name"
-                />
-              </div>
-              <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
@@ -198,64 +162,50 @@ export function SettingsView() {
             </CardTitle>
             <CardDescription>Customize the look and feel</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Theme */}
-            <div className="space-y-3">
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
               <Label>Theme</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  variant={mounted && theme === 'light' ? 'default' : 'outline'}
-                  className="flex flex-col gap-1.5 h-auto py-3"
-                  onClick={() => setTheme('light')}
-                >
-                  <Sun className="h-5 w-5" />
-                  <span className="text-xs">Light</span>
-                </Button>
-                <Button
-                  variant={mounted && theme === 'dark' ? 'default' : 'outline'}
-                  className="flex flex-col gap-1.5 h-auto py-3"
-                  onClick={() => setTheme('dark')}
-                >
-                  <Moon className="h-5 w-5" />
-                  <span className="text-xs">Dark</span>
-                </Button>
-                <Button
-                  variant={mounted && theme === 'system' ? 'default' : 'outline'}
-                  className="flex flex-col gap-1.5 h-auto py-3"
-                  onClick={() => setTheme('system')}
-                >
-                  <Monitor className="h-5 w-5" />
-                  <span className="text-xs">System</span>
-                </Button>
-              </div>
+              <Select value={mounted ? (theme ?? 'system') : undefined} onValueChange={setTheme}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">
+                    <Sun className="size-3.5" />
+                    Light
+                  </SelectItem>
+                  <SelectItem value="dark">
+                    <Moon className="size-3.5" />
+                    Dark
+                  </SelectItem>
+                  <SelectItem value="system">
+                    <Monitor className="size-3.5" />
+                    System
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <Separator />
 
-            {/* Sidebar Position */}
-            <div className="space-y-3">
-              <Label>Sidebar Position</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant={sidebarPosition === 'left' ? 'default' : 'outline'}
-                  className="flex items-center gap-2"
-                  onClick={() => handleSidebarPositionChange('left')}
-                >
-                  <PanelLeftClose className="h-4 w-4" />
-                  Left
-                </Button>
-                <Button
-                  variant={sidebarPosition === 'right' ? 'default' : 'outline'}
-                  className="flex items-center gap-2"
-                  onClick={() => handleSidebarPositionChange('right')}
-                >
-                  <PanelRightClose className="h-4 w-4" />
-                  Right
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Sidebar position preference is saved locally
-              </p>
+            <div className="flex items-center justify-between">
+              <Label>Default Page</Label>
+              <Select value={prefs.defaultPage} onValueChange={(v) => updateUserPreference('defaultPage', v as typeof prefs.defaultPage)}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEFAULT_PAGE_OPTIONS.map((opt) => {
+                    const Icon = iconMap[opt.value];
+                    return (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {Icon && <Icon className="size-3.5" />}
+                        {opt.label}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -277,15 +227,15 @@ export function SettingsView() {
                   <Label htmlFor="note-autosave">Auto-save</Label>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {noteAutoSave
+                  {prefs.noteAutoSave
                     ? 'Notes are saved automatically after a short delay'
                     : 'Notes must be saved manually using the Save button'}
                 </p>
               </div>
               <Switch
                 id="note-autosave"
-                checked={noteAutoSave}
-                onCheckedChange={handleNoteAutoSaveChange}
+                checked={prefs.noteAutoSave}
+                onCheckedChange={(v) => updateUserPreference('noteAutoSave', v)}
               />
             </div>
 
@@ -298,15 +248,18 @@ export function SettingsView() {
                   <Label htmlFor="notes-tree">Show notes tree in sidebar</Label>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {notesTree
+                  {prefs.notesTree
                     ? 'Notes and folders are shown in a tree view in the sidebar'
                     : 'Notes tree is hidden from the sidebar'}
                 </p>
               </div>
               <Switch
                 id="notes-tree"
-                checked={notesTree}
-                onCheckedChange={handleNotesTreeChange}
+                checked={prefs.notesTree}
+                onCheckedChange={(v) => {
+                  updateUserPreference('notesTree', v);
+                  window.dispatchEvent(new CustomEvent('notes-tree-toggle', { detail: v }));
+                }}
               />
             </div>
           </CardContent>

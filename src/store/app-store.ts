@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery } from '@/lib/types';
+import { DEFAULT_PREFERENCES, type UserPreferences } from '@/lib/constants';
 
 const basePath = process.env.NEXT_BASE_PATH || '';
 const api = (path: string) => `${basePath}${path}`;
@@ -31,6 +32,10 @@ interface AppState {
   taskStatusFilter: string;
   tagFilter: string[];
 
+  // User Preferences
+  userPreferences: UserPreferences;
+  preferencesLoaded: boolean;
+
   // Actions - Navigation
   setCurrentView: (view: ViewType) => void;
   selectArea: (id: string | null) => void;
@@ -41,6 +46,10 @@ interface AppState {
   toggleSidebar: () => void;
   setTaskStatusFilter: (filter: string) => void;
   setTagFilter: (tagIds: string[]) => void;
+
+  // Actions - User Preferences
+  fetchUserPreferences: () => Promise<void>;
+  updateUserPreference: <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => Promise<void>;
 
   // Actions - Data Fetching
   fetchAreas: () => Promise<void>;
@@ -119,6 +128,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: false,
   taskStatusFilter: 'all',
   tagFilter: [],
+
+  // User Preferences initial state
+  userPreferences: DEFAULT_PREFERENCES,
+  preferencesLoaded: false,
 
   // Navigation actions
   setCurrentView: (view) => set({ currentView: view }),
@@ -652,6 +665,38 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (error) {
       console.error('Failed to fetch deliveries:', error);
       return [];
+    }
+  },
+
+  // User Preferences
+  fetchUserPreferences: async () => {
+    try {
+      const res = await fetch(api('/api/user/preferences'));
+      if (!res.ok) throw new Error('Failed to fetch preferences');
+      const preferences: UserPreferences = await res.json();
+      set({ userPreferences: preferences, preferencesLoaded: true });
+    } catch (error) {
+      console.error('Failed to fetch preferences:', error);
+      set({ preferencesLoaded: true });
+    }
+  },
+
+  updateUserPreference: async (key, value) => {
+    const current = get().userPreferences;
+    const updated = { ...current, [key]: value };
+    set({ userPreferences: updated });
+    try {
+      const res = await fetch(api('/api/user/preferences'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      });
+      if (!res.ok) throw new Error('Failed to update preference');
+      const serverPreferences: UserPreferences = await res.json();
+      set({ userPreferences: serverPreferences });
+    } catch (error) {
+      console.error('Failed to update preference:', error);
+      set({ userPreferences: current });
     }
   },
 }));

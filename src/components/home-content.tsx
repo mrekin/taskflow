@@ -230,6 +230,8 @@ function HomeContent() {
     sidebarOpen,
     isLoading,
     tagFilter,
+    userPreferences,
+    preferencesLoaded,
     setCurrentView,
     selectArea,
     selectProject,
@@ -245,6 +247,7 @@ function HomeContent() {
     fetchNotes,
     fetchFolders,
     fetchTags,
+    fetchUserPreferences,
     updateProject,
     updateFolder,
     updateNote,
@@ -254,16 +257,11 @@ function HomeContent() {
   const { data: session } = useSession();
   const [showCreateArea, setShowCreateArea] = useState(false);
 
-  // Notes tree toggle and expanded folders state
-  const [notesTreeEnabled, setNotesTreeEnabled] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('taskflow-notes-tree') === 'true';
-  });
+  const notesTreeEnabled = userPreferences.notesTree;
 
-  // Listen for changes from Settings view (same tab)
   useEffect(() => {
     const handler = (e: Event) => {
-      setNotesTreeEnabled((e as CustomEvent).detail === true);
+      // handled via store re-render
     };
     window.addEventListener('notes-tree-toggle', handler);
     return () => window.removeEventListener('notes-tree-toggle', handler);
@@ -330,8 +328,9 @@ function HomeContent() {
       fetchNotes(),
       fetchFolders(),
       fetchTags(),
+      fetchUserPreferences(),
     ]).finally(() => setInitialLoadDone(true));
-  }, [fetchAreas, fetchProjects, fetchTasks, fetchNotes, fetchFolders, fetchTags]);
+  }, [fetchAreas, fetchProjects, fetchTasks, fetchNotes, fetchFolders, fetchTags, fetchUserPreferences]);
 
   // Handle deep links from URL query params
   const searchParams = useSearchParams();
@@ -343,7 +342,7 @@ function HomeContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (deepLinkHandledRef.current || !initialLoadDone) return;
+    if (deepLinkHandledRef.current || !initialLoadDone || !preferencesLoaded) return;
 
     const taskId = searchParams.get('task');
     const projectId = searchParams.get('project');
@@ -387,8 +386,11 @@ function HomeContent() {
         toast.error('Access denied', { description: 'This area does not exist or you do not have access to it.' });
       }
       deepLinkHandledRef.current = true;
+    } else {
+      setCurrentView(userPreferences.defaultPage);
+      deepLinkHandledRef.current = true;
     }
-  }, [searchParams, initialLoadDone, selectTask, selectNote, selectProject, selectArea, setCurrentView, fetchTasks, fetchNotes, tasks, notes, projects, areas]);
+  }, [searchParams, initialLoadDone, preferencesLoaded, selectTask, selectNote, selectProject, selectArea, setCurrentView, fetchTasks, fetchNotes, tasks, notes, projects, areas, userPreferences.defaultPage]);
 
   const handleAreaClick = (areaId: string) => {
     selectArea(areaId);
