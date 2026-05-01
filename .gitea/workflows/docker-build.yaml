@@ -37,6 +37,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Extract repository name (lowercase)
         id: repo
@@ -55,7 +57,7 @@ jobs:
             else
               TAGS="${{ steps.repo.outputs.image }}:test"
               if git diff --name-only ${{ gitea.event.before }} ${{ gitea.event.after }} | grep -q "package.json"; then
-                VERSION=$(cat package.json | grep '"version"' | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
+                VERSION=$(grep '"version"' package.json | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
                 TAGS="${TAGS}"$'\n'"${{ steps.repo.outputs.image }}:${VERSION}-dev"
               fi
               echo "tag<<EOF" >> "$GITHUB_OUTPUT"
