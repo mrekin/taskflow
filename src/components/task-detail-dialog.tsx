@@ -290,7 +290,6 @@ export function TaskDetailDialog() {
                           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Parent Task</p>
                           <p className="text-sm font-medium truncate">{parentTask.title}</p>
                         </div>
-                        <ChevronRight className="size-3.5 text-muted-foreground" />
                       </div>
                       <Separator />
                     </>
@@ -447,7 +446,8 @@ export function TaskDetailDialog() {
                     )}
                   </div>
 
-                  {/* Project */}
+                  {/* Project - only editable for top-level tasks */}
+                  {!task.parentId && (
                   <div className="space-y-2">
                     <Label className="text-muted-foreground text-xs uppercase tracking-wider">
                       Project
@@ -478,6 +478,7 @@ export function TaskDetailDialog() {
                       <span className="text-sm text-muted-foreground">No project</span>
                     )}
                   </div>
+                  )}
 
                   {/* Tags */}
                   <>

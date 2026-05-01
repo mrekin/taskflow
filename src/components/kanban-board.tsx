@@ -31,9 +31,10 @@ interface KanbanColumnProps {
   tasks: Task[];
   onAddTask: (status: string) => void;
   isActive: boolean;
+  showSubtasks: boolean;
 }
 
-function KanbanColumn({ status, tasks, onAddTask, isActive }: KanbanColumnProps) {
+function KanbanColumn({ status, tasks, onAddTask, isActive, showSubtasks }: KanbanColumnProps) {
   const color = STATUS_COLORS[status] || '#94a3b8';
   const label = STATUS_LABELS[status] || status;
 
@@ -87,7 +88,16 @@ function KanbanColumn({ status, tasks, onAddTask, isActive }: KanbanColumnProps)
         <div className="flex-1 p-2 space-y-2 max-h-[calc(100vh-260px)] overflow-y-auto custom-scrollbar">
           <AnimatePresence mode="popLayout">
             {tasks.map((task) => (
-              <TaskCard key={task.id} task={task} />
+              <div key={task.id}>
+                <TaskCard task={task} />
+                {showSubtasks && (task.subtasks ?? []).length > 0 && (
+                  <div className="mt-1 space-y-0.5 ml-2">
+                    {(task.subtasks ?? []).map((subtask) => (
+                      <TaskCard key={subtask.id} task={subtask} isSubtask />
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </AnimatePresence>
           {tasks.length === 0 && (
@@ -113,7 +123,7 @@ function KanbanColumn({ status, tasks, onAddTask, isActive }: KanbanColumnProps)
 }
 
 export function KanbanBoard() {
-  const { tasks, selectedProjectId, tagFilter, updateTask } = useAppStore();
+  const { tasks, selectedProjectId, tagFilter, updateTask, userPreferences } = useAppStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -248,6 +258,7 @@ export function KanbanBoard() {
               tasks={tasksByStatus[status] || []}
               onAddTask={handleAddTask}
               isActive={activeColumnId === status && activeTask !== null}
+              showSubtasks={userPreferences.showSubtasks}
             />
           ))}
         </div>

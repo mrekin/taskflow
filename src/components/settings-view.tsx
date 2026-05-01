@@ -26,6 +26,7 @@ import {
   Zap,
   LayoutGrid,
   StickyNote,
+  ListChecks,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -206,6 +207,37 @@ export function SettingsView() {
                   })}
                 </SelectContent>
               </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tasks Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ListChecks className="h-4 w-4 text-primary" />
+              Tasks
+            </CardTitle>
+            <CardDescription>Configure task display behavior</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <ListChecks className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Label htmlFor="show-subtasks">Show subtasks inline</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {prefs.showSubtasks
+                    ? 'Subtasks are shown nested under parent tasks in list and kanban views'
+                    : 'Subtasks are hidden from list and kanban views'}
+                </p>
+              </div>
+              <Switch
+                id="show-subtasks"
+                checked={prefs.showSubtasks}
+                onCheckedChange={(v) => updateUserPreference('showSubtasks', v)}
+              />
             </div>
           </CardContent>
         </Card>

@@ -19,12 +19,22 @@ import { TagBadges } from '@/components/tag-badges';
 interface TaskCardProps {
   task: Task;
   isDragOverlay?: boolean;
+  isSubtask?: boolean;
 }
 
-export function TaskCard({ task, isDragOverlay = false }: TaskCardProps) {
+export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: TaskCardProps) {
   const { selectTask, selectedTaskId, projects } = useAppStore();
   const tags = useAppStore((s) => s.tags);
   const [isHovered, setIsHovered] = useState(false);
+
+  const sortableResult = useSortable({
+    id: task.id,
+    disabled: isSubtask,
+    data: {
+      type: 'task',
+      task,
+    },
+  });
 
   const {
     attributes,
@@ -33,13 +43,7 @@ export function TaskCard({ task, isDragOverlay = false }: TaskCardProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({
-    id: task.id,
-    data: {
-      type: 'task',
-      task,
-    },
-  });
+  } = sortableResult;
 
   const style = transform
     ? {
@@ -50,11 +54,53 @@ export function TaskCard({ task, isDragOverlay = false }: TaskCardProps) {
 
   const isOverdue = task.dueDate && isPast(parseISO(task.dueDate)) && task.status !== 'done' && task.status !== 'cancelled';
   const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
-  // Use _count.subtasks from API (always available), fall back to subtasks array length
   const subtaskCount = task._count?.subtasks ?? task.subtasks?.length ?? 0;
-  // For completed count, prefer API-provided completedSubtasks, fall back to computing from subtasks array
   const completedSubtasks = task.completedSubtasks ?? task.subtasks?.filter((s) => s.status === 'done').length ?? 0;
   const isSelected = selectedTaskId === task.id;
+
+  if (isSubtask) {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -5 }}
+        transition={{ duration: 0.12 }}
+      >
+        <div
+          className={cn(
+            'flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-all duration-150',
+            'hover:bg-muted/50 ml-4 border-l-2',
+            isSelected && 'ring-1 ring-primary/40 bg-primary/5',
+          )}
+          style={{ borderLeftColor: STATUS_COLORS[task.status] || '#94a3b8' }}
+          onClick={() => selectTask(task.id)}
+        >
+          <span
+            className="shrink-0 w-2 h-2 rounded-full"
+            style={{ backgroundColor: PRIORITY_COLORS[task.priority] || '#94a3b8' }}
+          />
+          <span className={cn(
+            'text-xs leading-tight truncate flex-1',
+            task.status === 'done' && 'line-through text-muted-foreground',
+          )}>
+            {task.title}
+          </span>
+          <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" className="shrink-0 text-[9px]" />
+          <Badge
+            variant="outline"
+            className="text-[9px] px-1 py-0 h-4 font-normal shrink-0"
+            style={{
+              borderColor: STATUS_COLORS[task.status] + '60',
+              color: STATUS_COLORS[task.status],
+            }}
+          >
+            {task.status === 'done' ? '✓' : task.status === 'in_progress' ? '►' : '●'}
+          </Badge>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div

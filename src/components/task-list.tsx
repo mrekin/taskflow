@@ -77,7 +77,7 @@ function SortButton({
 }
 
 export function TaskList() {
-  const { tasks, selectedProjectId, selectTask, deleteTask, projects, taskStatusFilter, setTaskStatusFilter, tagFilter } = useAppStore();
+  const { tasks, selectedProjectId, selectTask, deleteTask, projects, taskStatusFilter, setTaskStatusFilter, tagFilter, userPreferences } = useAppStore();
   const [sortField, setSortField] = useState<SortField>('priority');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -358,86 +358,141 @@ export function TaskList() {
                   ? projects.find((p) => p.id === task.projectId)
                   : null;
                 const isSelected = selectedTaskIds.has(task.id);
+                const subtasks = task.subtasks ?? [];
 
                 return (
-                  <motion.div
-                    key={task.id}
-                    layout
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    transition={{ duration: 0.15 }}
-                    className={cn(
-                      'grid grid-cols-[auto_1fr_100px_100px_120px_120px] gap-2 px-4 py-3 border-b last:border-b-0 items-center',
-                      'hover:bg-muted/30 cursor-pointer transition-colors',
-                      isSelected && 'bg-primary/5 border-l-2 border-l-primary',
-                    )}
-                    onClick={() => selectTask(task.id)}
-                  >
-                    <div className="w-8" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={(checked) => toggleTaskSelection(task.id, !!checked)}
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                  <div key={task.id}>
+                    <motion.div
+                      layout
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      transition={{ duration: 0.15 }}
+                      className={cn(
+                        'grid grid-cols-[auto_1fr_100px_100px_120px_120px] gap-2 px-4 py-3 border-b items-center',
+                        'hover:bg-muted/30 cursor-pointer transition-colors',
+                        isSelected && 'bg-primary/5 border-l-2 border-l-primary',
+                        subtasks.length === 0 && 'last:border-b-0',
+                      )}
+                      onClick={() => selectTask(task.id)}
+                    >
+                      <div className="w-8" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(checked) => toggleTaskSelection(task.id, !!checked)}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm truncate">
+                            {task.title}
+                          </span>
+                          <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" />
+                        </div>
+                        {task.tagIds && task.tagIds.length > 0 && (
+                          <div className="mt-0.5">
+                            <TagBadges tagIds={task.tagIds} max={2} size="sm" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: PRIORITY_COLORS[task.priority] }}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          {PRIORITY_LABELS[task.priority]}
+                        </span>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 h-5 font-normal w-fit"
+                        style={{
+                          borderColor: STATUS_COLORS[task.status] + '60',
+                          color: STATUS_COLORS[task.status],
+                        }}
+                      >
+                        {STATUS_LABELS[task.status]}
+                      </Badge>
+                      {task.dueDate ? (
                         <span
                           className={cn(
-                            'text-sm truncate',
+                            'text-xs flex items-center gap-1',
+                            isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground',
                           )}
                         >
-                          {task.title}
+                          <Calendar className="size-3" />
+                          {format(parseISO(task.dueDate), 'MMM d')}
                         </span>
-                        <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" />
-                      </div>
-                      {task.tagIds && task.tagIds.length > 0 && (
-                        <div className="mt-0.5">
-                          <TagBadges tagIds={task.tagIds} max={2} size="sm" />
-                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="w-2 h-2 rounded-full shrink-0"
-                        style={{ backgroundColor: PRIORITY_COLORS[task.priority] }}
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        {PRIORITY_LABELS[task.priority]}
-                      </span>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] px-1.5 h-5 font-normal w-fit"
-                      style={{
-                        borderColor: STATUS_COLORS[task.status] + '60',
-                        color: STATUS_COLORS[task.status],
-                      }}
-                    >
-                      {STATUS_LABELS[task.status]}
-                    </Badge>
-                    {task.dueDate ? (
-                      <span
+                      {project ? (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                          <FolderOpen className="size-3 shrink-0" />
+                          {project.name}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </motion.div>
+
+                    {userPreferences.showSubtasks && subtasks.length > 0 && subtasks.map((subtask, idx) => (
+                      <motion.div
+                        key={subtask.id}
+                        layout
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -8 }}
+                        transition={{ duration: 0.12 }}
                         className={cn(
-                          'text-xs flex items-center gap-1',
-                          isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground',
+                          'grid grid-cols-[auto_1fr_100px_100px_120px_120px] gap-2 pl-10 pr-4 py-2 border-b items-center',
+                          'hover:bg-muted/20 cursor-pointer transition-colors',
+                          'bg-muted/10',
+                          idx === subtasks.length - 1 && 'last:border-b-0',
                         )}
+                        onClick={() => selectTask(subtask.id)}
                       >
-                        <Calendar className="size-3" />
-                        {format(parseISO(task.dueDate), 'MMM d')}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                    {project ? (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                        <FolderOpen className="size-3 shrink-0" />
-                        {project.name}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </motion.div>
+                        <div className="w-4" />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-1.5 h-1.5 rounded-full shrink-0"
+                              style={{ backgroundColor: PRIORITY_COLORS[subtask.priority] || '#94a3b8' }}
+                            />
+                            <span className={cn(
+                              'text-xs truncate',
+                              subtask.status === 'done' && 'line-through text-muted-foreground',
+                            )}>
+                              {subtask.title}
+                            </span>
+                            <EntityIdBadge id={subtask.id} shortId={subtask.shortId || 'T-?'} type="task" className="text-[9px]" />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: PRIORITY_COLORS[subtask.priority] || '#94a3b8' }}
+                          />
+                          <span className="text-[10px] text-muted-foreground">
+                            {PRIORITY_LABELS[subtask.priority] || subtask.priority}
+                          </span>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] px-1 h-4 font-normal w-fit"
+                          style={{
+                            borderColor: STATUS_COLORS[subtask.status] + '60',
+                            color: STATUS_COLORS[subtask.status],
+                          }}
+                        >
+                          {STATUS_LABELS[subtask.status] || subtask.status}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">—</span>
+                        <span className="text-[10px] text-muted-foreground">—</span>
+                      </motion.div>
+                    ))}
+                  </div>
                 );
               })
             ) : (

@@ -328,7 +328,28 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
       if (!res.ok) throw new Error('Failed to create task');
       const newTask: Task = await res.json();
-      set((state) => ({ tasks: [...state.tasks, newTask] }));
+      set((state) => {
+        const tasks = [...state.tasks, newTask];
+        if (newTask.parentId) {
+          const parentIdx = tasks.findIndex((t) => t.id === newTask.parentId);
+          if (parentIdx !== -1) {
+            const parent = { ...tasks[parentIdx] };
+            parent.subtasks = [...(parent.subtasks ?? []), {
+              id: newTask.id,
+              title: newTask.title,
+              status: newTask.status,
+              priority: newTask.priority,
+              parentId: newTask.parentId,
+              shortIdNum: newTask.shortIdNum,
+              shortId: newTask.shortId,
+            } as Task];
+            parent._count = { subtasks: (parent._count?.subtasks ?? 0) + 1 };
+            parent.completedSubtasks = (parent.completedSubtasks ?? 0) + (newTask.status === 'done' ? 1 : 0);
+            tasks[parentIdx] = parent;
+          }
+        }
+        return { tasks };
+      });
     } catch (error) {
       console.error('Failed to create task:', error);
     }
@@ -344,7 +365,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (!res.ok) throw new Error('Failed to update task');
       const updatedTask: Task = await res.json();
       set((state) => ({
-        tasks: state.tasks.map((t) => (t.id === id ? updatedTask : t)),
+        tasks: state.tasks.map((t) => {
+          if (t.id !== id) return t;
+          return {
+            ...updatedTask,
+            subtasks: updatedTask.subtasks ?? t.subtasks,
+            completedSubtasks: updatedTask.completedSubtasks ?? t.completedSubtasks,
+          };
+        }),
       }));
     } catch (error) {
       console.error('Failed to update task:', error);

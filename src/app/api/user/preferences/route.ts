@@ -24,6 +24,7 @@ export async function GET() {
   const preferences: UserPreferences = {
     noteAutoSave: metadata.noteAutoSave !== undefined ? Boolean(metadata.noteAutoSave) : DEFAULT_PREFERENCES.noteAutoSave,
     notesTree: metadata.notesTree !== undefined ? Boolean(metadata.notesTree) : DEFAULT_PREFERENCES.notesTree,
+    showSubtasks: metadata.showSubtasks !== undefined ? Boolean(metadata.showSubtasks) : DEFAULT_PREFERENCES.showSubtasks,
     defaultPage: (metadata.defaultPage as UserPreferences['defaultPage']) || DEFAULT_PREFERENCES.defaultPage,
   };
 
@@ -42,6 +43,7 @@ export async function PUT(request: Request) {
 
   const noteAutoSave = typeof body.noteAutoSave === 'boolean' ? body.noteAutoSave : undefined;
   const notesTree = typeof body.notesTree === 'boolean' ? body.notesTree : undefined;
+  const showSubtasks = typeof body.showSubtasks === 'boolean' ? body.showSubtasks : undefined;
   const defaultPage = validDefaultPages.includes(body.defaultPage) ? body.defaultPage : undefined;
 
   const user = await db.user.findUnique({ where: { id: userId }, select: { metadata: true } });
@@ -54,6 +56,7 @@ export async function PUT(request: Request) {
 
   if (noteAutoSave !== undefined) existing.noteAutoSave = noteAutoSave;
   if (notesTree !== undefined) existing.notesTree = notesTree;
+  if (showSubtasks !== undefined) existing.showSubtasks = showSubtasks;
   if (defaultPage !== undefined) existing.defaultPage = defaultPage;
 
   await db.user.update({
@@ -64,6 +67,7 @@ export async function PUT(request: Request) {
   const preferences: UserPreferences = {
     noteAutoSave: existing.noteAutoSave !== undefined ? Boolean(existing.noteAutoSave) : DEFAULT_PREFERENCES.noteAutoSave,
     notesTree: existing.notesTree !== undefined ? Boolean(existing.notesTree) : DEFAULT_PREFERENCES.notesTree,
+    showSubtasks: existing.showSubtasks !== undefined ? Boolean(existing.showSubtasks) : DEFAULT_PREFERENCES.showSubtasks,
     defaultPage: (existing.defaultPage as UserPreferences['defaultPage']) || DEFAULT_PREFERENCES.defaultPage,
   };
 

@@ -77,10 +77,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
     }
 
+    let resolvedProjectId = projectId ?? null;
+    if (parentId) {
+      const parent = await db.task.findFirst({
+        where: { id: parentId, ownerId: userId },
+        select: { projectId: true },
+      });
+      if (!parent) {
+        return NextResponse.json({ error: "Parent task not found" }, { status: 404 });
+      }
+      resolvedProjectId = parent.projectId;
+    }
+
     const maxSortTask = await db.task.findFirst({
       where: {
         ownerId: userId,
-        ...(projectId ? { projectId } : {}),
+        ...(resolvedProjectId ? { projectId: resolvedProjectId } : {}),
         ...(status ? { status } : {}),
       },
       orderBy: { sortOrder: "desc" },
@@ -96,7 +108,7 @@ export async function POST(request: NextRequest) {
         status: status ?? "todo",
         priority: priority ?? "medium",
         dueDate: dueDate ? new Date(dueDate) : null,
-        projectId: projectId ?? null,
+        projectId: resolvedProjectId,
         parentId: parentId ?? null,
         assigneeId: assigneeId ?? null,
         metadata: metadata ? JSON.stringify(metadata) : "{}",

@@ -56,11 +56,13 @@ export type DefaultPage = (typeof DEFAULT_PAGE_OPTIONS)[number]['value'];
 export interface UserPreferences {
   noteAutoSave: boolean;
   notesTree: boolean;
+  showSubtasks: boolean;
   defaultPage: DefaultPage;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
   noteAutoSave: true,
   notesTree: false,
+  showSubtasks: true,
   defaultPage: 'quick-create',
 };
