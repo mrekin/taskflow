@@ -40,7 +40,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ gitea.actor }}
-          password: ${{ secrets.ACTIONS_TOKEN2 }}
+          password: ${{ secrets.ACTIONS_TOKEN }}
 
       - name: Checkout repository
         uses: actions/checkout@v4
