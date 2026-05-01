@@ -4,12 +4,13 @@ import { useState, useMemo } from 'react';
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  pointerWithin,
   PointerSensor,
   useSensor,
   useSensors,
   useDroppable,
   type DragStartEvent,
+  type DragOverEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -29,13 +30,13 @@ interface KanbanColumnProps {
   status: string;
   tasks: Task[];
   onAddTask: (status: string) => void;
+  isActive: boolean;
 }
 
-function KanbanColumn({ status, tasks, onAddTask }: KanbanColumnProps) {
+function KanbanColumn({ status, tasks, onAddTask, isActive }: KanbanColumnProps) {
   const color = STATUS_COLORS[status] || '#94a3b8';
   const label = STATUS_LABELS[status] || status;
 
-  // Make the column itself a droppable zone
   const { setNodeRef, isOver } = useDroppable({
     id: status,
     data: {
@@ -48,14 +49,18 @@ function KanbanColumn({ status, tasks, onAddTask }: KanbanColumnProps) {
     <div
       ref={setNodeRef}
       className={cn(
-        'flex flex-col bg-muted/30 rounded-lg min-w-[280px] w-full sm:min-w-[300px] transition-colors',
-        isOver && 'bg-muted/50',
+        'flex flex-col rounded-lg min-w-[280px] w-full sm:min-w-[300px] transition-all duration-150',
+        isActive
+          ? 'bg-muted/60 ring-2 ring-primary/40'
+          : 'bg-muted/30',
       )}
     >
-      {/* Column header */}
       <div
-        className="rounded-t-lg px-4 py-3 flex items-center justify-between border-b-2"
-        style={{ borderColor: color }}
+        className={cn(
+          'rounded-t-lg px-4 py-3 flex items-center justify-between border-b-2 transition-all duration-150',
+          isActive && 'bg-primary/10',
+        )}
+        style={{ borderColor: isActive ? 'var(--color-primary)' : color }}
       >
         <div className="flex items-center gap-2">
           <span
@@ -110,6 +115,7 @@ function KanbanColumn({ status, tasks, onAddTask }: KanbanColumnProps) {
 export function KanbanBoard() {
   const { tasks, selectedProjectId, tagFilter, updateTask } = useAppStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [defaultStatus, setDefaultStatus] = useState<string>('todo');
 
@@ -160,12 +166,33 @@ export function KanbanBoard() {
     const task = tasks.find((t) => t.id === active.id);
     if (task) {
       setActiveTask(task);
+      setActiveColumnId(task.status);
+    }
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    if (!over) {
+      setActiveColumnId(null);
+      return;
+    }
+
+    const overId = over.id as string;
+
+    if (TASK_STATUSES.includes(overId as typeof TASK_STATUSES[number])) {
+      setActiveColumnId(overId);
+    } else {
+      const overTask = tasks.find((t) => t.id === overId);
+      if (overTask) {
+        setActiveColumnId(overTask.status);
+      }
     }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
+    setActiveColumnId(null);
 
     if (!over) return;
 
@@ -195,6 +222,7 @@ export function KanbanBoard() {
 
   const handleDragCancel = () => {
     setActiveTask(null);
+    setActiveColumnId(null);
   };
 
   const handleAddTask = (status: string) => {
@@ -206,8 +234,9 @@ export function KanbanBoard() {
     <div className="h-full">
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
@@ -218,6 +247,7 @@ export function KanbanBoard() {
               status={status}
               tasks={tasksByStatus[status] || []}
               onAddTask={handleAddTask}
+              isActive={activeColumnId === status && activeTask !== null}
             />
           ))}
         </div>
