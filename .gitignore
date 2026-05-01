@@ -63,3 +63,4 @@ download/
 mini-services/
 worklog.md
 taskflow-data/
+.playwright-mcp/

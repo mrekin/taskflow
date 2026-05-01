@@ -56,6 +56,7 @@ export function CreateTaskDialog({
   const [parentTaskId, setParentTaskId] = useState<string>(parentId || 'none');
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -180,7 +181,7 @@ export function CreateTaskDialog({
 
             <div className="flex flex-col gap-2">
               <Label>Due Date</Label>
-              <Popover>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
@@ -198,7 +199,10 @@ export function CreateTaskDialog({
                   <Calendar
                     mode="single"
                     selected={dueDate}
-                    onSelect={setDueDate}
+                    onSelect={(date) => {
+                      setDueDate(date);
+                      setCalendarOpen(false);
+                    }}
                   />
                 </PopoverContent>
               </Popover>
