@@ -64,3 +64,5 @@ mini-services/
 worklog.md
 taskflow-data/
 .playwright-mcp/
+tests/
+.kilo/

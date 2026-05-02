@@ -1,6 +1,8 @@
 'use client';
 
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Separator } from '@/components/ui/separator';
@@ -10,6 +12,7 @@ interface MarkdownRendererProps {
   content: string;
   className?: string;
   compact?: boolean;
+  stripFirstH1?: boolean;
 }
 
 // Entity reference pattern: #T-7, #P-3, #N-258, #A-2
@@ -74,23 +77,28 @@ function EntityReferenceLink({ type, num }: { type: string; num: number }) {
   );
 }
 
-export function MarkdownRenderer({ content, className = '', compact = false }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, className = '', compact = false, stripFirstH1 = false }: MarkdownRendererProps) {
   if (!content.trim()) {
     return <span className="text-muted-foreground text-xs">No content</span>;
   }
 
-  // Pre-process content to convert entity references into markdown links
-  // #T-7 → [#T-7](entity:T:7)
-  const processedContent = content.replace(
+  let processedContent = content.replace(
     ENTITY_REF_REGEX,
     (_match, type, num) => `[#${type}-${num}](entity:${type.toUpperCase()}:${num})`
   );
+
+  if (stripFirstH1 && !compact) {
+    processedContent = processedContent.replace(/^#\s+.+\n?/, '');
+  }
+
+  processedContent = processedContent.replace(/\n{3,}/g, '\n\n\u00A0\n\n');
 
   const proseSize = compact ? 'prose-xs' : 'prose-sm';
 
   return (
     <div className={`prose ${proseSize} dark:prose-invert max-w-none prose-headings:font-semibold prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent prose-code:before:content-none prose-code:after:content-none ${className}`}>
       <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkBreaks]}
         components={{
           code(props) {
             const { children, className, ...rest } = props;

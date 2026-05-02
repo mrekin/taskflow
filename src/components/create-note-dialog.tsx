@@ -106,8 +106,8 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={handleSubmit}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
           <DialogHeader>
             <DialogTitle>Create Note</DialogTitle>
             <DialogDescription>
@@ -115,7 +115,7 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-4 flex flex-col gap-4">
+          <div className="mt-4 flex flex-col gap-4 overflow-y-auto flex-1 min-h-0 pr-1">
             <div className="flex flex-col gap-2">
               <Label htmlFor="note-title">Title *</Label>
               <Input
@@ -124,6 +124,18 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 autoFocus
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="note-content">Content</Label>
+              <Textarea
+                id="note-content"
+                placeholder="Start writing... (Markdown supported)"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={5}
+                className="font-mono text-sm resize-none max-h-[200px] overflow-y-auto"
               />
             </div>
 
@@ -164,21 +176,9 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
                 </Select>
               </div>
             )}
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="note-content">Content</Label>
-              <Textarea
-                id="note-content"
-                placeholder="Start writing... (Markdown supported)"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={5}
-                className="font-mono text-sm resize-none"
-              />
-            </div>
           </div>
 
-          <DialogFooter className="mt-6">
+          <DialogFooter className="mt-4 pt-3 border-t sticky bottom-0 bg-background shrink-0">
             <Button
               type="button"
               variant="outline"

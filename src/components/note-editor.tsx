@@ -55,6 +55,7 @@ import {
   Clock,
   FolderOpen,
   AtSign,
+  ChevronRight,
 } from 'lucide-react';
 import {
   Popover,
@@ -78,11 +79,15 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
   const {
     notes,
     projects,
+    folders,
+    areas,
     tasks,
     tags,
     updateNote,
     deleteNote,
     selectNote,
+    selectProject,
+    selectArea,
     setCurrentView,
   } = useAppStore();
 
@@ -167,6 +172,20 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
     selectNote(null);
     setCurrentView('notes');
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        performSave();
+      }
+      if (e.key === 'Escape') {
+        handleBack();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [performSave, handleBack]);
 
   const handleDelete = async () => {
     if (!note) return;
@@ -485,23 +504,67 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
         {editorMode === 'preview' && (
           <div className="h-full overflow-y-auto custom-scrollbar">
             <div className="w-full md:w-[90%] mx-auto px-4 md:px-6 py-6">
+              {/* Breadcrumb: Area > Project > Folder > Note */}
+              <div className="flex flex-wrap items-center gap-1 mb-2 text-xs text-muted-foreground">
+                {(() => {
+                  const crumbs: { label: string; onClick?: () => void; icon?: React.ReactNode }[] = [];
+                  if (currentProject?.areaId) {
+                    const area = areas.find((a) => a.id === currentProject.areaId);
+                    if (area) {
+                      crumbs.push({
+                        label: area.name,
+                        icon: <span className="text-[10px]">{area.icon || '📁'}</span>,
+                        onClick: () => { selectArea(area.id); setCurrentView('areas'); },
+                      });
+                    }
+                  }
+                  if (currentProject) {
+                    crumbs.push({
+                      label: currentProject.name,
+                      icon: <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: currentProject.color }} />,
+                      onClick: () => { selectProject(currentProject.id); setCurrentView('projects'); },
+                    });
+                  }
+                  if (note.folderId) {
+                    const folder = folders.find((f) => f.id === note.folderId);
+                    if (folder) {
+                      crumbs.push({
+                        label: folder.name,
+                        icon: <FolderOpen className="h-3 w-3" />,
+                      });
+                    }
+                  }
+                  return crumbs.map((crumb, i) => (
+                    <span key={i} className="inline-flex items-center gap-1">
+                      {i > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/50" />}
+                      {crumb.onClick ? (
+                        <button
+                          type="button"
+                          onClick={crumb.onClick}
+                          className="inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
+                        >
+                          {crumb.icon}
+                          {crumb.label}
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1">
+                          {crumb.icon}
+                          {crumb.label}
+                        </span>
+                      )}
+                    </span>
+                  ));
+                })()}
+              </div>
+
               {/* Title area */}
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
                 <EntityIdBadge id={note.id} shortId={note.shortId || 'N-?'} type="note" />
               </div>
 
-              {/* Meta row: project, tags, date */}
+              {/* Meta row: tags, date */}
               <div className="flex flex-wrap items-center gap-2 mb-5 text-muted-foreground">
-                {currentProject && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-normal gap-1">
-                    <div
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ backgroundColor: currentProject.color }}
-                    />
-                    {currentProject.name}
-                  </Badge>
-                )}
                 {tagIds && tagIds.length > 0 && (
                   <TagBadges tagIds={tagIds} max={5} size="sm" />
                 )}
@@ -530,7 +593,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
                 </div>
               ) : (
                 <div className="prose-container">
-                  <MarkdownRenderer content={content} />
+                  <MarkdownRenderer content={content} stripFirstH1={true} />
                 </div>
               )}
             </div>
@@ -596,7 +659,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
                     <p className="text-sm">Preview will appear here...</p>
                   </div>
                 ) : (
-                  <MarkdownRenderer content={content} />
+                  <MarkdownRenderer content={content} stripFirstH1={true} />
                 )}
               </div>
             </div>
