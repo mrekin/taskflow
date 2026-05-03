@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Check, Link2 } from 'lucide-react';
+import { Check, Link2 } from 'lucide-react';
 import { cn, getEntityLink, copyToClipboard } from '@/lib/utils';
 import type { EntityType } from '@/lib/utils';
 
@@ -38,17 +38,20 @@ export function EntityIdBadge({ shortId, id, type, className }: EntityIdBadgePro
   };
 
   return (
-    <div className={cn('inline-flex items-center gap-0.5 rounded-md bg-muted/60 border border-border/50 text-[10px] font-mono text-muted-foreground', className)}>
-      <span className="px-1.5 py-0.5 select-all">
-        {shortId}
-      </span>
+    <div
+      className={cn('inline-flex items-center gap-0.5 rounded-md bg-muted/60 border border-border/50 text-[10px] font-mono text-muted-foreground', className)}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
       <button
         type="button"
         onClick={handleCopyId}
-        className="px-1 py-0.5 hover:text-foreground transition-colors border-l border-border/50"
+        className={cn(
+          'px-1.5 py-0.5 transition-colors',
+          copiedId ? 'text-emerald-500' : 'hover:text-foreground',
+        )}
         title="Copy ID"
       >
-        {copiedId ? <Check className="size-2.5 text-emerald-500" /> : <Copy className="size-2.5" />}
+        {copiedId ? <Check className="size-2.5 inline -mt-0.5 mr-0.5" /> : null}{shortId}
       </button>
       <button
         type="button"

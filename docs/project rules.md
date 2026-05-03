@@ -1,4 +1,4 @@
-* We use `docker compose up --build` command to build and test app.
+* We use `docker compose up --build` command to build and test app. For small fixed don't need to build/test.
 
 * URGENT! Build docker every time after development complete
 
