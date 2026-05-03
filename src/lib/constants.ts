@@ -1,3 +1,24 @@
+export interface StatusConfig {
+  id: string;
+  label: string;
+  color: string;
+  visible: boolean;
+}
+
+export const DEFAULT_STATUSES: StatusConfig[] = [
+  { id: 'todo', label: 'To Do', color: '#94a3b8', visible: true },
+  { id: 'in_progress', label: 'In Progress', color: '#3b82f6', visible: true },
+  { id: 'done', label: 'Done', color: '#22c55e', visible: true },
+  { id: 'cancelled', label: 'Cancelled', color: '#ef4444', visible: true },
+];
+
+export const INVALID_STATE_COLUMN: StatusConfig = {
+  id: '__invalid__',
+  label: 'Invalid state',
+  color: '#dc2626',
+  visible: true,
+};
+
 export const TASK_STATUSES = ['todo', 'in_progress', 'done', 'cancelled'] as const;
 export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
 export const PROJECT_STATUSES = ['active', 'archived', 'completed'] as const;
@@ -12,18 +33,18 @@ export const STATUS_LABELS: Record<string, string> = {
   completed: 'Completed',
 };
 
-export const PRIORITY_LABELS: Record<string, string> = {
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-  urgent: 'Urgent',
-};
-
 export const STATUS_COLORS: Record<string, string> = {
   todo: '#94a3b8',
   in_progress: '#3b82f6',
   done: '#22c55e',
   cancelled: '#ef4444',
+};
+
+export const PRIORITY_LABELS: Record<string, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  urgent: 'Urgent',
 };
 
 export const PRIORITY_COLORS: Record<string, string> = {
@@ -58,6 +79,7 @@ export interface UserPreferences {
   notesTree: boolean;
   showSubtasks: boolean;
   defaultPage: DefaultPage;
+  customStatuses: StatusConfig[] | null;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -65,4 +87,52 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   notesTree: false,
   showSubtasks: true,
   defaultPage: 'quick-create',
+  customStatuses: null,
 };
+
+export function resolveStatuses(
+  userColumns: StatusConfig[] | null | undefined,
+  serverColumns: StatusConfig[] | null | undefined,
+): StatusConfig[] {
+  if (userColumns && userColumns.length > 0) return userColumns;
+  if (serverColumns && serverColumns.length > 0) return serverColumns;
+  return DEFAULT_STATUSES;
+}
+
+export function slugifyLabel(label: string): string {
+  return label
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+export function parseStatusesEnv(envValue: string | undefined): StatusConfig[] | null {
+  if (!envValue || !envValue.trim()) return null;
+  try {
+    const parsed = JSON.parse(envValue);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((item: { label?: string; id?: string; color?: string; visible?: boolean }) => ({
+        id: item.id || slugifyLabel(item.label || ''),
+        label: item.label || '',
+        color: item.color || DEFAULT_COLORS[0],
+        visible: item.visible !== false,
+      })).filter((c: StatusConfig) => c.id && c.label);
+    }
+  } catch {}
+  const columns = envValue.split(',').map((part) => {
+    const segments = part.trim().split(':');
+    const label = segments[0]?.trim();
+    if (!label) return null;
+    const color = segments[1]?.trim() || DEFAULT_COLORS[0];
+    return { id: slugifyLabel(label), label, color, visible: true } as StatusConfig;
+  }).filter(Boolean) as StatusConfig[];
+  return columns.length > 0 ? columns : null;
+}
+
+export function getColumnLabelAndColor(columns: StatusConfig[], status: string): { label: string; color: string; isValid: boolean } {
+  const col = columns.find((c) => c.id === status);
+  if (col) return { label: col.label, color: col.color, isValid: true };
+  return { label: 'Invalid status', color: '#dc2626', isValid: false };
+}

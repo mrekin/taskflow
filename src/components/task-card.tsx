@@ -12,7 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import type { Task } from '@/lib/types';
-import { PRIORITY_LABELS, PRIORITY_COLORS, STATUS_COLORS } from '@/lib/constants';
+import { PRIORITY_LABELS, PRIORITY_COLORS, getColumnLabelAndColor } from '@/lib/constants';
 import { useAppStore } from '@/store/app-store';
 import { TagBadges } from '@/components/tag-badges';
 
@@ -23,9 +23,11 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: TaskCardProps) {
-  const { selectTask, selectedTaskId, projects } = useAppStore();
+  const { selectTask, selectedTaskId, projects, statuses } = useAppStore();
   const tags = useAppStore((s) => s.tags);
   const [isHovered, setIsHovered] = useState(false);
+
+  const { color: statusColor } = getColumnLabelAndColor(statuses, task.status);
 
   const sortableResult = useSortable({
     id: task.id,
@@ -73,7 +75,7 @@ export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: Tas
             'hover:bg-muted/50 ml-4 border-l-2',
             isSelected && 'ring-1 ring-primary/40 bg-primary/5',
           )}
-          style={{ borderLeftColor: STATUS_COLORS[task.status] || '#94a3b8' }}
+          style={{ borderLeftColor: statusColor }}
           onClick={() => selectTask(task.id)}
         >
           <span
@@ -91,8 +93,8 @@ export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: Tas
             variant="outline"
             className="text-[9px] px-1 py-0 h-4 font-normal shrink-0"
             style={{
-              borderColor: STATUS_COLORS[task.status] + '60',
-              color: STATUS_COLORS[task.status],
+              borderColor: statusColor + '60',
+              color: statusColor,
             }}
           >
             {task.status === 'done' ? '✓' : task.status === 'in_progress' ? '►' : '●'}
@@ -124,7 +126,7 @@ export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: Tas
           isSelected && 'ring-2 ring-primary/50',
           isDragOverlay && 'shadow-xl',
         )}
-        style={{ borderLeftColor: STATUS_COLORS[task.status] || '#94a3b8' }}
+        style={{ borderLeftColor: statusColor }}
         onClick={() => selectTask(task.id)}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}

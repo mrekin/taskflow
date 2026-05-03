@@ -27,7 +27,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAppStore } from '@/store/app-store';
-import { TASK_STATUSES, TASK_PRIORITIES, STATUS_LABELS, PRIORITY_LABELS } from '@/lib/constants';
+import { TASK_PRIORITIES, PRIORITY_LABELS, getColumnLabelAndColor, type StatusConfig } from '@/lib/constants';
 import { TagPicker } from '@/components/tag-picker';
 
 interface CreateTaskDialogProps {
@@ -45,7 +45,7 @@ export function CreateTaskDialog({
   defaultProjectId,
   parentId,
 }: CreateTaskDialogProps) {
-  const { createTask, projects, tasks, selectedProjectId } = useAppStore();
+  const { createTask, projects, tasks, selectedProjectId, statuses } = useAppStore();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -154,9 +154,9 @@ export function CreateTaskDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {TASK_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {STATUS_LABELS[s]}
+                    {statuses.map((col: StatusConfig) => (
+                      <SelectItem key={col.id} value={col.id}>
+                        {col.label}
                       </SelectItem>
                     ))}
                   </SelectContent>

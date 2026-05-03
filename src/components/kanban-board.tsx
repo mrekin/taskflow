@@ -15,7 +15,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Search, X, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, X, ArrowUpDown, AlertTriangle } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -31,29 +31,27 @@ import { TaskCard } from '@/components/task-card';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { TaskDetailDialog } from '@/components/task-detail-dialog';
 import { useAppStore } from '@/store/app-store';
-import { TASK_STATUSES, STATUS_LABELS, STATUS_COLORS } from '@/lib/constants';
+import { INVALID_STATE_COLUMN, type StatusConfig } from '@/lib/constants';
 import type { Task } from '@/lib/types';
 
 type KanbanSortField = 'sortOrder' | 'id' | 'createdAt' | 'updatedAt' | 'title';
 type KanbanSortDirection = 'asc' | 'desc';
 
 interface KanbanColumnProps {
-  status: string;
+  column: StatusConfig;
   tasks: Task[];
   onAddTask: (status: string) => void;
   isActive: boolean;
   showSubtasks: boolean;
+  isInvalid?: boolean;
 }
 
-function KanbanColumn({ status, tasks, onAddTask, isActive, showSubtasks }: KanbanColumnProps) {
-  const color = STATUS_COLORS[status] || '#94a3b8';
-  const label = STATUS_LABELS[status] || status;
-
+function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInvalid }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
-    id: status,
+    id: column.id,
     data: {
       type: 'column',
-      status,
+      status: column.id,
     },
   });
 
@@ -65,36 +63,43 @@ function KanbanColumn({ status, tasks, onAddTask, isActive, showSubtasks }: Kanb
         isActive
           ? 'bg-muted/60 ring-2 ring-primary/40'
           : 'bg-muted/30',
+        isInvalid && 'border border-red-500/30',
       )}
     >
       <div
         className={cn(
           'rounded-t-lg px-4 py-3 flex items-center justify-between border-b-2 transition-all duration-150',
           isActive && 'bg-primary/10',
+          isInvalid && 'bg-red-500/5',
         )}
-        style={{ borderColor: isActive ? 'var(--color-primary)' : color }}
+        style={{ borderColor: isActive ? 'var(--color-primary)' : column.color }}
       >
         <div className="flex items-center gap-2">
-          <span
-            className="w-3 h-3 rounded-full shrink-0"
-            style={{ backgroundColor: color }}
-          />
-          <h3 className="font-semibold text-sm">{label}</h3>
+          {isInvalid ? (
+            <AlertTriangle className="size-3.5 text-red-500 shrink-0" />
+          ) : (
+            <span
+              className="w-3 h-3 rounded-full shrink-0"
+              style={{ backgroundColor: column.color }}
+            />
+          )}
+          <h3 className="font-semibold text-sm">{column.label}</h3>
           <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">
             {tasks.length}
           </span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7"
-          onClick={() => onAddTask(status)}
-        >
-          <Plus className="size-4" />
-        </Button>
+        {!isInvalid && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            onClick={() => onAddTask(column.id)}
+          >
+            <Plus className="size-4" />
+          </Button>
+        )}
       </div>
 
-      {/* Cards area */}
       <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
         <div className="flex-1 p-2 space-y-2 max-h-[calc(100vh-260px)] overflow-y-auto custom-scrollbar">
           <AnimatePresence mode="popLayout">
@@ -113,28 +118,29 @@ function KanbanColumn({ status, tasks, onAddTask, isActive, showSubtasks }: Kanb
           </AnimatePresence>
           {tasks.length === 0 && (
             <div className="py-8 text-center text-muted-foreground text-sm">
-              No tasks
+              {isInvalid ? 'No invalid tasks' : 'No tasks'}
             </div>
           )}
         </div>
       </SortableContext>
 
-      {/* Add task button at bottom */}
-      <div className="p-2 pt-0">
-        <Button
-          variant="ghost"
-          className="w-full justify-start text-muted-foreground hover:text-foreground h-9"
-          onClick={() => onAddTask(status)}
-        >
-          <Plus className="size-4 mr-2" /> Add task
-        </Button>
-      </div>
+      {!isInvalid && (
+        <div className="p-2 pt-0">
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-muted-foreground hover:text-foreground h-9"
+            onClick={() => onAddTask(column.id)}
+          >
+            <Plus className="size-4 mr-2" /> Add task
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
 export function KanbanBoard() {
-  const { tasks, selectedProjectId, tagFilter, projectFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery } = useAppStore();
+  const { tasks, selectedProjectId, tagFilter, projectFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery, statuses } = useAppStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -143,6 +149,9 @@ export function KanbanBoard() {
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sortField, setSortField] = useState<KanbanSortField>('sortOrder');
   const [sortDirection, setSortDirection] = useState<KanbanSortDirection>('asc');
+
+  const visibleColumns = useMemo(() => statuses.filter((c) => c.visible), [statuses]);
+  const allColumnIds = useMemo(() => new Set(statuses.map((c) => c.id)), [statuses]);
 
   useEffect(() => {
     return () => {
@@ -165,20 +174,16 @@ export function KanbanBoard() {
     fetchTasks(selectedProjectId ?? undefined, undefined);
   }, [selectedProjectId, setTaskSearchQuery, fetchTasks]);
 
-  // Filter tasks by selected project
   const filteredTasks = useMemo(() => {
     let filtered = tasks;
-    // Only show top-level tasks (no parent)
     filtered = filtered.filter((t) => !t.parentId);
 
-    // Filter by projects
     if (projectFilter && projectFilter.length > 0) {
       filtered = filtered.filter((t) =>
         projectFilter.includes(t.projectId)
       );
     }
 
-    // Filter by tags
     if (tagFilter && tagFilter.length > 0) {
       filtered = filtered.filter((t) =>
         tagFilter.some((tagId) => (t.tagIds || []).includes(tagId))
@@ -188,20 +193,34 @@ export function KanbanBoard() {
     return filtered;
   }, [tasks, projectFilter, tagFilter]);
 
-  // Group tasks by status
   const tasksByStatus = useMemo(() => {
     const grouped: Record<string, Task[]> = {};
-    for (const status of TASK_STATUSES) {
-      grouped[status] = [];
+    for (const col of visibleColumns) {
+      grouped[col.id] = [];
     }
+    grouped[INVALID_STATE_COLUMN.id] = [];
+
     for (const task of filteredTasks) {
       if (!grouped[task.status]) {
         grouped[task.status] = [];
       }
       grouped[task.status].push(task);
     }
-    for (const status of TASK_STATUSES) {
-      grouped[status].sort((a, b) => {
+
+    const invalidTasks: Task[] = [];
+    for (const [status, statusTasks] of Object.entries(grouped)) {
+      if (status === INVALID_STATE_COLUMN.id) continue;
+      if (!allColumnIds.has(status)) {
+        invalidTasks.push(...statusTasks);
+        delete grouped[status];
+      }
+    }
+    if (invalidTasks.length > 0) {
+      grouped[INVALID_STATE_COLUMN.id] = invalidTasks;
+    }
+
+    for (const col of visibleColumns) {
+      grouped[col.id]?.sort((a, b) => {
         let comparison = 0;
         switch (sortField) {
           case 'id':
@@ -222,8 +241,11 @@ export function KanbanBoard() {
         return sortDirection === 'asc' ? comparison : -comparison;
       });
     }
+
     return grouped;
-  }, [filteredTasks, sortField, sortDirection]);
+  }, [filteredTasks, visibleColumns, allColumnIds, sortField, sortDirection]);
+
+  const hasInvalidTasks = (tasksByStatus[INVALID_STATE_COLUMN.id]?.length ?? 0) > 0;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -233,12 +255,23 @@ export function KanbanBoard() {
     }),
   );
 
+  const columnIds = useMemo(() => {
+    const ids = [...visibleColumns.map((c) => c.id)];
+    if (hasInvalidTasks) ids.push(INVALID_STATE_COLUMN.id);
+    return ids;
+  }, [visibleColumns, hasInvalidTasks]);
+
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const task = tasks.find((t) => t.id === active.id);
     if (task) {
       setActiveTask(task);
-      setActiveColumnId(task.status);
+      const taskStatus = task.status;
+      if (allColumnIds.has(taskStatus)) {
+        setActiveColumnId(taskStatus);
+      } else {
+        setActiveColumnId(INVALID_STATE_COLUMN.id);
+      }
     }
   };
 
@@ -251,12 +284,17 @@ export function KanbanBoard() {
 
     const overId = over.id as string;
 
-    if (TASK_STATUSES.includes(overId as typeof TASK_STATUSES[number])) {
+    if (columnIds.includes(overId)) {
       setActiveColumnId(overId);
     } else {
       const overTask = tasks.find((t) => t.id === overId);
       if (overTask) {
-        setActiveColumnId(overTask.status);
+        const taskStatus = overTask.status;
+        if (allColumnIds.has(taskStatus)) {
+          setActiveColumnId(taskStatus);
+        } else {
+          setActiveColumnId(INVALID_STATE_COLUMN.id);
+        }
       }
     }
   };
@@ -271,21 +309,26 @@ export function KanbanBoard() {
     const activeTaskId = active.id as string;
     const overId = over.id as string;
 
-    // Find the target status - could be a column or another task
     let targetStatus: string | null = null;
 
-    // Check if dropped on a column (column id is the status string)
-    if (TASK_STATUSES.includes(overId as typeof TASK_STATUSES[number])) {
+    if (overId === INVALID_STATE_COLUMN.id) {
+      return;
+    }
+
+    if (columnIds.includes(overId) && overId !== INVALID_STATE_COLUMN.id) {
       targetStatus = overId;
     } else {
-      // Dropped on another task - use that task's status
       const overTask = tasks.find((t) => t.id === overId);
       if (overTask) {
-        targetStatus = overTask.status;
+        const overStatus = overTask.status;
+        if (allColumnIds.has(overStatus)) {
+          targetStatus = overStatus;
+        } else {
+          return;
+        }
       }
     }
 
-    // Update the task's status if it changed
     const currentTask = tasks.find((t) => t.id === activeTaskId);
     if (currentTask && targetStatus && currentTask.status !== targetStatus) {
       updateTask(activeTaskId, { status: targetStatus });
@@ -353,16 +396,26 @@ export function KanbanBoard() {
         onDragCancel={handleDragCancel}
       >
         <div className="flex gap-4 overflow-x-auto pb-4 h-full custom-scrollbar-horizontal">
-          {TASK_STATUSES.map((status) => (
+          {visibleColumns.map((col) => (
             <KanbanColumn
-              key={status}
-              status={status}
-              tasks={tasksByStatus[status] || []}
+              key={col.id}
+              column={col}
+              tasks={tasksByStatus[col.id] || []}
               onAddTask={handleAddTask}
-              isActive={activeColumnId === status && activeTask !== null}
+              isActive={activeColumnId === col.id && activeTask !== null}
               showSubtasks={userPreferences.showSubtasks}
             />
           ))}
+          {hasInvalidTasks && (
+            <KanbanColumn
+              column={INVALID_STATE_COLUMN}
+              tasks={tasksByStatus[INVALID_STATE_COLUMN.id] || []}
+              onAddTask={handleAddTask}
+              isActive={activeColumnId === INVALID_STATE_COLUMN.id && activeTask !== null}
+              showSubtasks={userPreferences.showSubtasks}
+              isInvalid
+            />
+          )}
         </div>
 
         <DragOverlay>

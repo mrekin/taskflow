@@ -53,12 +53,11 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAppStore } from '@/store/app-store';
 import {
-  TASK_STATUSES,
   TASK_PRIORITIES,
-  STATUS_LABELS,
-  STATUS_COLORS,
   PRIORITY_LABELS,
   PRIORITY_COLORS,
+  getColumnLabelAndColor,
+  type StatusConfig,
 } from '@/lib/constants';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { TaskComments } from '@/components/task-comments';
@@ -76,6 +75,7 @@ export function TaskDetailDialog() {
     updateTask,
     deleteTask,
     fetchTasks,
+    statuses,
   } = useAppStore();
 
   const task = tasks.find((t) => t.id === selectedTaskId);
@@ -347,23 +347,34 @@ export function TaskDetailDialog() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {TASK_STATUSES.map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {STATUS_LABELS[s]}
+                            {statuses.map((col: StatusConfig) => (
+                              <SelectItem key={col.id} value={col.id}>
+                                {col.label}
                               </SelectItem>
                             ))}
+                            {(() => {
+                              const { isValid } = getColumnLabelAndColor(statuses, task.status);
+                              if (!isValid && task.status) {
+                                return (
+                                  <SelectItem value={task.status}>
+                                    Invalid status ({task.status})
+                                  </SelectItem>
+                                );
+                              }
+                              return null;
+                            })()}
                           </SelectContent>
                         </Select>
                       ) : (
                         <Badge
                           className="text-xs"
                           style={{
-                            backgroundColor: STATUS_COLORS[task.status] + '20',
-                            color: STATUS_COLORS[task.status],
-                            borderColor: STATUS_COLORS[task.status] + '40',
+                            backgroundColor: getColumnLabelAndColor(statuses, task.status).color + '20',
+                            color: getColumnLabelAndColor(statuses, task.status).color,
+                            borderColor: getColumnLabelAndColor(statuses, task.status).color + '40',
                           }}
                         >
-                          {STATUS_LABELS[task.status]}
+                          {getColumnLabelAndColor(statuses, task.status).label}
                         </Badge>
                       )}
                     </div>
@@ -606,11 +617,11 @@ export function TaskDetailDialog() {
                                     variant="outline"
                                     className="text-[9px] px-1.5 h-4 font-normal shrink-0 hidden sm:inline-flex"
                                     style={{
-                                      borderColor: STATUS_COLORS[subtask.status] + '60',
-                                      color: STATUS_COLORS[subtask.status],
+                                      borderColor: getColumnLabelAndColor(statuses, subtask.status).color + '60',
+                                      color: getColumnLabelAndColor(statuses, subtask.status).color,
                                     }}
                                   >
-                                    {STATUS_LABELS[subtask.status]}
+                                    {getColumnLabelAndColor(statuses, subtask.status).label}
                                   </Badge>
 
                                   {/* Action buttons - show on hover */}

@@ -10,19 +10,17 @@ WORKDIR /app
 # Install bun
 COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
 
-# Copy package files and prisma config
+# Copy package files
 COPY package.json bun.lock ./
-COPY prisma ./prisma/
-COPY prisma.config.ts ./
 
 # Install dependencies with cache mount
 RUN bun install --frozen-lockfile
 
-# Generate Prisma client
-RUN bun run db:generate
-
 # Copy source code
 COPY . .
+
+# Generate Prisma client (must be AFTER copy so output isn't overwritten)
+RUN bun run db:generate
 
 # Build args for subpath support
 ARG NEXT_BASE_PATH=""
@@ -58,6 +56,7 @@ COPY --from=builder /app/.next/static ./.next/static
 # Copy Prisma files (schema + config + generated client)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/src/generated/prisma ./src/generated/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 

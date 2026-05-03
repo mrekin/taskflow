@@ -31,6 +31,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WebhooksSection } from '@/components/webhooks-section';
+import { StatusColumnsSettings } from '@/components/status-columns-settings';
 import { useAppStore } from '@/store/app-store';
 import { DEFAULT_PAGE_OPTIONS, DEFAULT_PREFERENCES } from '@/lib/constants';
 
@@ -218,7 +219,7 @@ export function SettingsView() {
               <ListChecks className="h-4 w-4 text-primary" />
               Tasks
             </CardTitle>
-            <CardDescription>Configure task display behavior</CardDescription>
+            <CardDescription>Configure task display and status columns</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
@@ -239,6 +240,10 @@ export function SettingsView() {
                 onCheckedChange={(v) => updateUserPreference('showSubtasks', v)}
               />
             </div>
+
+            <Separator />
+
+            <StatusColumnsSettings />
           </CardContent>
         </Card>
 

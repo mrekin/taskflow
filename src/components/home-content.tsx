@@ -252,6 +252,7 @@ function HomeContent() {
     fetchFolders,
     fetchTags,
     fetchUserPreferences,
+    fetchStatuses,
     updateProject,
     updateFolder,
     updateNote,
@@ -333,8 +334,9 @@ function HomeContent() {
       fetchFolders(),
       fetchTags(),
       fetchUserPreferences(),
+      fetchStatuses(),
     ]).finally(() => setInitialLoadDone(true));
-  }, [fetchAreas, fetchProjects, fetchTasks, fetchNotes, fetchFolders, fetchTags, fetchUserPreferences]);
+  }, [fetchAreas, fetchProjects, fetchTasks, fetchNotes, fetchFolders, fetchTags, fetchUserPreferences, fetchStatuses]);
 
   // Handle deep links from URL query params
   const searchParams = useSearchParams();

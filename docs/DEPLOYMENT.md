@@ -191,6 +191,19 @@ sudo systemctl status taskflow
 | `OIDC_CLIENT_ID` | ❌ | — | Client ID у OIDC-провайдера |
 | `OIDC_CLIENT_SECRET` | ❌ | — | Client Secret у OIDC-провайдера |
 | `NEXT_BASE_PATH` | ❌ | `""` | Субпуть для развертывания за прокси (например, `/taskflow`) |
+| `KANBAN_COLUMNS` | ❌ | — | Кастомные колонки канбан по умолчанию для всех пользователей. Формат: `Label:color,Label:color` или JSON-массив |
+
+**Пример `KANBAN_COLUMNS`:**
+
+```bash
+# Простой формат (Label:color через запятую)
+KANBAN_COLUMNS=To Do:#94a3b8,In Progress:#3b82f6,Review:#f59e0b,Done:#22c55e,Cancelled:#ef4444
+
+# JSON-формат (больше контроля)
+KANBAN_COLUMNS=[{"label":"To Do","color":"#94a3b8"},{"label":"In Progress","color":"#3b82f6"},{"label":"Done","color":"#22c55e"}]
+```
+
+Если `KANBAN_COLUMNS` не задана, используются встроенные defaults: To Do, In Progress, Done, Cancelled. Каждый пользователь может кастомизировать свой список в Settings > Kanban Columns.
 
 ---
 

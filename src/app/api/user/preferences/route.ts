@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUserId } from '@/lib/auth-utils';
 import { db } from '@/lib/db';
-import { DEFAULT_PREFERENCES, type UserPreferences } from '@/lib/constants';
+import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig } from '@/lib/constants';
 
 export async function GET() {
   const userId = await getCurrentUserId();
@@ -26,9 +26,15 @@ export async function GET() {
     notesTree: metadata.notesTree !== undefined ? Boolean(metadata.notesTree) : DEFAULT_PREFERENCES.notesTree,
     showSubtasks: metadata.showSubtasks !== undefined ? Boolean(metadata.showSubtasks) : DEFAULT_PREFERENCES.showSubtasks,
     defaultPage: (metadata.defaultPage as UserPreferences['defaultPage']) || DEFAULT_PREFERENCES.defaultPage,
+    customStatuses: parseStatuses(metadata.customStatuses),
   };
 
   return NextResponse.json(preferences);
+}
+
+function parseStatuses(value: unknown): StatusConfig[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  return value as StatusConfig[];
 }
 
 export async function PUT(request: Request) {
@@ -45,6 +51,7 @@ export async function PUT(request: Request) {
   const notesTree = typeof body.notesTree === 'boolean' ? body.notesTree : undefined;
   const showSubtasks = typeof body.showSubtasks === 'boolean' ? body.showSubtasks : undefined;
   const defaultPage = validDefaultPages.includes(body.defaultPage) ? body.defaultPage : undefined;
+  const customStatuses = body.customStatuses === null ? null : parseStatuses(body.customStatuses);
 
   const user = await db.user.findUnique({ where: { id: userId }, select: { metadata: true } });
   let existing: Record<string, unknown>;
@@ -58,6 +65,7 @@ export async function PUT(request: Request) {
   if (notesTree !== undefined) existing.notesTree = notesTree;
   if (showSubtasks !== undefined) existing.showSubtasks = showSubtasks;
   if (defaultPage !== undefined) existing.defaultPage = defaultPage;
+  if (customStatuses !== undefined) existing.customStatuses = customStatuses;
 
   await db.user.update({
     where: { id: userId },
@@ -69,6 +77,7 @@ export async function PUT(request: Request) {
     notesTree: existing.notesTree !== undefined ? Boolean(existing.notesTree) : DEFAULT_PREFERENCES.notesTree,
     showSubtasks: existing.showSubtasks !== undefined ? Boolean(existing.showSubtasks) : DEFAULT_PREFERENCES.showSubtasks,
     defaultPage: (existing.defaultPage as UserPreferences['defaultPage']) || DEFAULT_PREFERENCES.defaultPage,
+    customStatuses: parseStatuses(existing.customStatuses),
   };
 
   return NextResponse.json(preferences);

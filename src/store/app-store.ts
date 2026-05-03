@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery } from '@/lib/types';
-import { DEFAULT_PREFERENCES, type UserPreferences } from '@/lib/constants';
+import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig, resolveStatuses, DEFAULT_STATUSES } from '@/lib/constants';
 
 const basePath = process.env.NEXT_BASE_PATH || '';
 const api = (path: string) => `${basePath}${path}`;
@@ -43,6 +43,10 @@ interface AppState {
   userPreferences: UserPreferences;
   preferencesLoaded: boolean;
 
+  // Kanban Columns
+  statuses: StatusConfig[];
+  serverStatuses: StatusConfig[] | null;
+
   // Actions - Navigation
   setCurrentView: (view: ViewType) => void;
   selectArea: (id: string | null) => void;
@@ -62,6 +66,11 @@ interface AppState {
   // Actions - User Preferences
   fetchUserPreferences: () => Promise<void>;
   updateUserPreference: <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => Promise<void>;
+
+  // Actions - Kanban Columns
+  fetchStatuses: () => Promise<void>;
+  updateCustomStatuses: (columns: StatusConfig[] | null) => Promise<void>;
+  resetCustomStatuses: () => Promise<void>;
 
   // Actions - Data Fetching
   fetchAreas: () => Promise<void>;
@@ -151,6 +160,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   // User Preferences initial state
   userPreferences: DEFAULT_PREFERENCES,
   preferencesLoaded: false,
+
+  // Kanban Columns initial state
+  statuses: DEFAULT_STATUSES,
+  serverStatuses: null,
 
   // Navigation actions
   setCurrentView: (view) => set({ currentView: view }),
@@ -752,6 +765,46 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.error('Failed to fetch deliveries:', error);
       return [];
     }
+  },
+
+  // Kanban Columns
+  fetchStatuses: async () => {
+    try {
+      const serverRes = await fetch(api('/api/settings'));
+      if (serverRes.ok) {
+        const serverData = await serverRes.json();
+        const serverCols: StatusConfig[] = serverData.statuses || DEFAULT_STATUSES;
+        set({ serverStatuses: serverCols });
+        const userPrefs = get().userPreferences;
+        const resolved = resolveStatuses(userPrefs.customStatuses, serverCols);
+        set({ statuses: resolved });
+      }
+    } catch (error) {
+      console.error('Failed to fetch statuses:', error);
+    }
+  },
+
+  updateCustomStatuses: async (columns) => {
+    const current = get().userPreferences;
+    try {
+      const res = await fetch(api('/api/user/preferences'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customStatuses: columns }),
+      });
+      if (!res.ok) throw new Error('Failed to update statuses');
+      const serverPrefs: UserPreferences = await res.json();
+      set({ userPreferences: serverPrefs });
+      const resolved = resolveStatuses(serverPrefs.customStatuses, get().serverStatuses);
+      set({ statuses: resolved });
+    } catch (error) {
+      console.error('Failed to update custom statuses:', error);
+      set({ userPreferences: current });
+    }
+  },
+
+  resetCustomStatuses: async () => {
+    await get().updateCustomStatuses(null);
   },
 
   // User Preferences
