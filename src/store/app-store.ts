@@ -813,7 +813,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       const res = await fetch(api('/api/user/preferences'));
       if (!res.ok) throw new Error('Failed to fetch preferences');
       const preferences: UserPreferences = await res.json();
-      set({ userPreferences: preferences, preferencesLoaded: true });
+      const serverStatuses = get().serverStatuses;
+      if (serverStatuses) {
+        const resolved = resolveStatuses(preferences.customStatuses, serverStatuses);
+        set({ userPreferences: preferences, preferencesLoaded: true, statuses: resolved });
+      } else {
+        set({ userPreferences: preferences, preferencesLoaded: true });
+      }
     } catch (error) {
       console.error('Failed to fetch preferences:', error);
       set({ preferencesLoaded: true });

@@ -218,7 +218,7 @@ export function NotesList() {
 
     if (projectFilter && projectFilter.length > 0) {
       result = result.filter((note) =>
-        projectFilter.includes(note.projectId)
+        note.projectId != null && projectFilter.includes(note.projectId)
       );
     }
 

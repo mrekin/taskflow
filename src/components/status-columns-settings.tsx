@@ -170,7 +170,7 @@ export function StatusColumnsSettings() {
   }, [resetCustomStatuses]);
 
   const deleteTargetColumn = deleteTarget ? currentColumns.find((c) => c.id === deleteTarget) : null;
-  const isDuplicate = newLabel.trim() && currentColumns.some((c) => c.id === slugifyLabel(newLabel.trim()));
+  const isDuplicate = newLabel.trim().length > 0 && currentColumns.some((c) => c.id === slugifyLabel(newLabel.trim()));
 
   return (
     <>
@@ -251,7 +251,7 @@ export function StatusColumnsSettings() {
                   size="sm"
                   className="h-7 text-xs"
                   onClick={handleAdd}
-                  disabled={!newLabel.trim() || isDuplicate}
+                  disabled={newLabel.trim().length === 0 || isDuplicate}
                 >
                   Add
                 </Button>

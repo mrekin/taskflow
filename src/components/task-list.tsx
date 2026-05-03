@@ -131,7 +131,7 @@ export function TaskList() {
     // Filter by projects
     if (projectFilter && projectFilter.length > 0) {
       filtered = filtered.filter((t) =>
-        projectFilter.includes(t.projectId)
+        t.projectId != null && projectFilter.includes(t.projectId)
       );
     }
 

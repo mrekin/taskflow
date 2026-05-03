@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 
     const partialDateMatch = search.match(/^(\d{4})$/);
     const yearStart = partialDateMatch ? new Date(`${partialDateMatch[1]}-01-01T00:00:00.000Z`) : null;
-    const yearEnd = yearStart ? new Date(`${parseInt(partialDateMatch[1]) + 1}-01-01T00:00:00.000Z`) : null;
+    const yearEnd = yearStart ? new Date(`${parseInt(partialDateMatch![1]) + 1}-01-01T00:00:00.000Z`) : null;
 
     // Get folder tree for scoping
     const allFolders = await db.noteFolder.findMany({
