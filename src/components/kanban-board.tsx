@@ -301,10 +301,12 @@ export function KanbanBoard() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    setActiveTask(null);
-    setActiveColumnId(null);
 
-    if (!over) return;
+    if (!over) {
+      setActiveTask(null);
+      setActiveColumnId(null);
+      return;
+    }
 
     const activeTaskId = active.id as string;
     const overId = over.id as string;
@@ -312,6 +314,8 @@ export function KanbanBoard() {
     let targetStatus: string | null = null;
 
     if (overId === INVALID_STATE_COLUMN.id) {
+      setActiveTask(null);
+      setActiveColumnId(null);
       return;
     }
 
@@ -324,6 +328,8 @@ export function KanbanBoard() {
         if (allColumnIds.has(overStatus)) {
           targetStatus = overStatus;
         } else {
+          setActiveTask(null);
+          setActiveColumnId(null);
           return;
         }
       }
@@ -331,8 +337,16 @@ export function KanbanBoard() {
 
     const currentTask = tasks.find((t) => t.id === activeTaskId);
     if (currentTask && targetStatus && currentTask.status !== targetStatus) {
+      useAppStore.setState((state) => ({
+        tasks: state.tasks.map((t) =>
+          t.id === activeTaskId ? { ...t, status: targetStatus! } : t
+        ),
+      }));
       updateTask(activeTaskId, { status: targetStatus });
     }
+
+    setActiveTask(null);
+    setActiveColumnId(null);
   };
 
   const handleDragCancel = () => {

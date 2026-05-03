@@ -107,17 +107,16 @@ export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: Tas
   return (
     <motion.div
       ref={!isDragOverlay ? setNodeRef : undefined}
-      style={!isDragOverlay ? style : undefined}
+      style={!isDragOverlay ? { ...style, ...(isDragging ? { opacity: 0 } : {}) } : undefined}
       layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
+      animate={{ y: 0 }}
       transition={{ duration: 0.15 }}
       className={cn(
+
         isDragOverlay && 'rotate-3 shadow-xl scale-105',
-        isDragging && 'opacity-40',
       )}
       {...(!isDragOverlay ? attributes : {})}
+      {...(!isDragOverlay ? listeners : {})}
     >
       <Card
         className={cn(
@@ -132,15 +131,11 @@ export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: Tas
         onMouseLeave={() => setIsHovered(false)}
       >
         <div className="p-3 space-y-2">
-          {/* Header row: drag handle + title + priority */}
           <div className="flex items-start gap-2">
             {!isDragOverlay && (
-              <button
-                className="mt-0.5 cursor-grab opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0"
-                {...listeners}
-              >
+              <div className="mt-0.5 opacity-0 group-hover:opacity-60 transition-opacity shrink-0 pointer-events-none">
                 <GripVertical className="size-4 text-muted-foreground" />
-              </button>
+              </div>
             )}
             {isDragOverlay && (
               <GripVertical className="size-4 text-muted-foreground mt-0.5 shrink-0" />
