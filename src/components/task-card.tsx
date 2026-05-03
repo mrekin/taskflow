@@ -107,12 +107,12 @@ export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: Tas
   return (
     <motion.div
       ref={!isDragOverlay ? setNodeRef : undefined}
-      style={!isDragOverlay ? { ...style, ...(isDragging ? { opacity: 0 } : {}) } : undefined}
+      style={!isDragOverlay ? style : undefined}
       layout
-      animate={{ y: 0 }}
       transition={{ duration: 0.15 }}
       className={cn(
-
+        !isDragOverlay && !isDragging && 'opacity-100',
+        !isDragOverlay && isDragging && 'opacity-0',
         isDragOverlay && 'rotate-3 shadow-xl scale-105',
       )}
       {...(!isDragOverlay ? attributes : {})}
