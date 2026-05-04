@@ -27,11 +27,13 @@ import {
   LayoutGrid,
   StickyNote,
   ListChecks,
+  Tags,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WebhooksSection } from '@/components/webhooks-section';
 import { StatusColumnsSettings } from '@/components/status-columns-settings';
+import { TagsManagementSection } from '@/components/tags-management-section';
 import { useAppStore } from '@/store/app-store';
 import { DEFAULT_PAGE_OPTIONS, DEFAULT_PREFERENCES } from '@/lib/constants';
 
@@ -299,6 +301,20 @@ export function SettingsView() {
                 }}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Tags Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Tags className="h-4 w-4 text-primary" />
+              Tags
+            </CardTitle>
+            <CardDescription>Manage tags used across tasks, notes, projects, and areas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TagsManagementSection />
           </CardContent>
         </Card>
 
