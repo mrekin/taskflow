@@ -8,6 +8,7 @@ import { TagBadges } from '@/components/tag-badges';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { MentionTextarea } from '@/components/mention-autocomplete';
 import {
   Select,
   SelectContent,
@@ -612,25 +613,22 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
                 placeholder="Note title..."
               />
             </div>
-            <Textarea
+            <MentionTextarea
               ref={textareaRef}
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={(val) => setContent(val)}
               placeholder="Start writing... (Markdown supported)"
-              className="flex-1 resize-none border-none rounded-none p-4 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar"
+              className="flex-1 resize-none border-none rounded-none p-4 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
             />
           </div>
         )}
 
-        {/* Split mode - side by side */}
         {editorMode === 'split' && (
           <div className="h-full grid grid-cols-1 lg:grid-cols-2 divide-x divide-border">
-            {/* Editor pane */}
             <div className="h-full overflow-hidden flex flex-col">
               <div className="px-4 py-2 border-b bg-muted/30">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Editor</span>
               </div>
-              {/* Title input */}
               <div className="px-4 pt-3 shrink-0">
                 <Input
                   value={title}
@@ -639,12 +637,12 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
                   placeholder="Note title..."
                 />
               </div>
-              <Textarea
+              <MentionTextarea
                 ref={textareaRef}
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={(val) => setContent(val)}
                 placeholder="Start writing... (Markdown supported)"
-                className="flex-1 resize-none border-none rounded-none p-4 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar"
+                className="flex-1 resize-none border-none rounded-none p-4 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
               />
             </div>
 

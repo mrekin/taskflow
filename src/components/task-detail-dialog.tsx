@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { MentionTextarea } from '@/components/mention-autocomplete';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -315,12 +316,12 @@ export function TaskDetailDialog() {
                       Description
                     </Label>
                     {isEditing ? (
-                      <Textarea
+                      <MentionTextarea
                         value={description}
-                        onChange={(e) => setDescription(e.target.value)}
+                        onChange={(val) => setDescription(val)}
                         placeholder="Add a description... (Markdown supported)"
                         rows={6}
-                        className="font-mono text-sm"
+                        className="font-mono text-sm w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       />
                     ) : (
                       task.description ? (

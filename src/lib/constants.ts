@@ -80,6 +80,7 @@ export interface UserPreferences {
   showSubtasks: boolean;
   defaultPage: DefaultPage;
   customStatuses: StatusConfig[] | null;
+  entityShortLinks: boolean;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -88,6 +89,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   showSubtasks: true,
   defaultPage: 'quick-create',
   customStatuses: null,
+  entityShortLinks: false,
 };
 
 export function resolveStatuses(

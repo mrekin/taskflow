@@ -28,6 +28,7 @@ import {
   StickyNote,
   ListChecks,
   Tags,
+  Link2,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -210,6 +211,27 @@ export function SettingsView() {
                   })}
                 </SelectContent>
               </Select>
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Label htmlFor="entity-short-links">Short entity links</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {prefs.entityShortLinks
+                    ? 'Entity links are shortened (#T-3) — portable if server changes'
+                    : 'Entity links keep full URL — portable when exporting to files'}
+                </p>
+              </div>
+              <Switch
+                id="entity-short-links"
+                checked={prefs.entityShortLinks}
+                onCheckedChange={(v) => updateUserPreference('entityShortLinks', v)}
+              />
             </div>
           </CardContent>
         </Card>

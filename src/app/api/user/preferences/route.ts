@@ -27,6 +27,7 @@ export async function GET() {
     showSubtasks: metadata.showSubtasks !== undefined ? Boolean(metadata.showSubtasks) : DEFAULT_PREFERENCES.showSubtasks,
     defaultPage: (metadata.defaultPage as UserPreferences['defaultPage']) || DEFAULT_PREFERENCES.defaultPage,
     customStatuses: parseStatuses(metadata.customStatuses),
+    entityShortLinks: metadata.entityShortLinks !== undefined ? Boolean(metadata.entityShortLinks) : DEFAULT_PREFERENCES.entityShortLinks,
   };
 
   return NextResponse.json(preferences);
@@ -52,6 +53,7 @@ export async function PUT(request: Request) {
   const showSubtasks = typeof body.showSubtasks === 'boolean' ? body.showSubtasks : undefined;
   const defaultPage = validDefaultPages.includes(body.defaultPage) ? body.defaultPage : undefined;
   const customStatuses = body.customStatuses === null ? null : parseStatuses(body.customStatuses);
+  const entityShortLinks = typeof body.entityShortLinks === 'boolean' ? body.entityShortLinks : undefined;
 
   const user = await db.user.findUnique({ where: { id: userId }, select: { metadata: true } });
   let existing: Record<string, unknown>;
@@ -66,6 +68,7 @@ export async function PUT(request: Request) {
   if (showSubtasks !== undefined) existing.showSubtasks = showSubtasks;
   if (defaultPage !== undefined) existing.defaultPage = defaultPage;
   if (customStatuses !== undefined) existing.customStatuses = customStatuses;
+  if (entityShortLinks !== undefined) existing.entityShortLinks = entityShortLinks;
 
   await db.user.update({
     where: { id: userId },
@@ -78,6 +81,7 @@ export async function PUT(request: Request) {
     showSubtasks: existing.showSubtasks !== undefined ? Boolean(existing.showSubtasks) : DEFAULT_PREFERENCES.showSubtasks,
     defaultPage: (existing.defaultPage as UserPreferences['defaultPage']) || DEFAULT_PREFERENCES.defaultPage,
     customStatuses: parseStatuses(existing.customStatuses),
+    entityShortLinks: existing.entityShortLinks !== undefined ? Boolean(existing.entityShortLinks) : DEFAULT_PREFERENCES.entityShortLinks,
   };
 
   return NextResponse.json(preferences);

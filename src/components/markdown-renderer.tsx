@@ -7,6 +7,10 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Separator } from '@/components/ui/separator';
 import { useAppStore } from '@/store/app-store';
+import { processContent, isLocalEntityUrl } from '@/lib/smart-links';
+import { useState } from 'react';
+import { Check, Link2 } from 'lucide-react';
+import { copyToClipboard } from '@/lib/utils';
 
 interface MarkdownRendererProps {
   content: string;
@@ -15,77 +19,94 @@ interface MarkdownRendererProps {
   stripFirstH1?: boolean;
 }
 
-// Entity reference pattern: #T-7, #P-3, #N-258, #A-2
-const ENTITY_REF_REGEX = /#([TPNA])-(\d+)/gi;
-
-function EntityReferenceLink({ type, num }: { type: string; num: number }) {
-  const { tasks, projects, notes, areas, selectTask, selectNote, selectProject, selectArea, setCurrentView, fetchTasks, fetchNotes } = useAppStore();
+function EntityMentionBadge({ type, num }: { type: string; num: number }) {
+  const { tasks, projects, notes, areas } = useAppStore();
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const upperType = type.toUpperCase();
 
-  // Find entity by shortIdNum
   let entityId: string | null = null;
   let entityName: string | null = null;
+  let entityType: 'task' | 'project' | 'note' | 'area' | null = null;
 
   if (upperType === 'T') {
     const task = tasks.find((t) => t.shortIdNum === num);
-    if (task) { entityId = task.id; entityName = task.title; }
+    if (task) { entityId = task.id; entityName = task.title; entityType = 'task'; }
   } else if (upperType === 'P') {
     const project = projects.find((p) => p.shortIdNum === num);
-    if (project) { entityId = project.id; entityName = project.name; }
+    if (project) { entityId = project.id; entityName = project.name; entityType = 'project'; }
   } else if (upperType === 'N') {
     const note = notes.find((n) => n.shortIdNum === num);
-    if (note) { entityId = note.id; entityName = note.title; }
+    if (note) { entityId = note.id; entityName = note.title; entityType = 'note'; }
   } else if (upperType === 'A') {
     const area = areas.find((a) => a.shortIdNum === num);
-    if (area) { entityId = area.id; entityName = area.name; }
+    if (area) { entityId = area.id; entityName = area.name; entityType = 'area'; }
   }
 
-  const handleClick = (e: React.MouseEvent) => {
+  const displayId = `${upperType}-${num}`;
+  const truncatedTitle = entityName
+    ? entityName.length > 30
+      ? entityName.slice(0, 30) + '\u2026'
+      : entityName
+    : displayId;
+
+  const paramMap: Record<string, string> = { T: 'task', P: 'project', N: 'note', A: 'area' };
+  const param = paramMap[upperType] || 'task';
+  const href = entityId ? `${window.location.origin}${window.location.pathname}?${param}=${displayId}` : '#';
+
+  const handleCopyLink = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!entityId) return;
-
-    if (upperType === 'T') {
-      selectTask(entityId);
-    } else if (upperType === 'P') {
-      selectProject(entityId);
-      setCurrentView('projects');
-      fetchTasks(entityId);
-      fetchNotes(entityId);
-    } else if (upperType === 'N') {
-      selectNote(entityId);
-      setCurrentView('note-editor');
-    } else if (upperType === 'A') {
-      selectArea(entityId);
-      setCurrentView('areas');
+    const ok = await copyToClipboard(href);
+    if (ok) {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 1500);
     }
   };
 
-  const displayId = `${upperType}-${num}`;
-
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-mono hover:bg-primary/20 transition-colors cursor-pointer border border-primary/20"
-      title={entityName ? `Open ${displayId}: ${entityName}` : `Open ${displayId}`}
+    <span
+      className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 text-primary text-xs font-mono border border-primary/20"
+      onPointerDown={(e) => e.stopPropagation()}
     >
-      <span className="font-semibold">{displayId}</span>
-      {entityName && <span className="opacity-70 max-w-[120px] truncate">"{entityName}"</span>}
-    </button>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="px-1.5 py-0.5 hover:bg-primary/20 transition-colors flex items-center gap-1 max-w-[200px]"
+        title={entityName ? `${displayId}: ${entityName}` : displayId}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="shrink-0 text-[10px] font-semibold opacity-70">{displayId}</span>
+        {entityName && (
+          <span className="truncate text-[11px] opacity-80">{truncatedTitle}</span>
+        )}
+      </a>
+      <button
+        type="button"
+        onClick={handleCopyLink}
+        className="px-1 py-0.5 hover:bg-primary/20 transition-colors border-l border-primary/20"
+        title="Copy link"
+      >
+        {copiedLink ? (
+          <Check className="size-2.5 text-emerald-500" />
+        ) : (
+          <Link2 className="size-2.5" />
+        )}
+      </button>
+    </span>
   );
 }
 
 export function MarkdownRenderer({ content, className = '', compact = false, stripFirstH1 = false }: MarkdownRendererProps) {
+  const entityShortLinks = useAppStore((s) => s.userPreferences.entityShortLinks);
+
   if (!content.trim()) {
     return <span className="text-muted-foreground text-xs">No content</span>;
   }
 
-  let processedContent = content.replace(
-    ENTITY_REF_REGEX,
-    (_match, type, num) => `[#${type}-${num}](entity:${type.toUpperCase()}:${num})`
-  );
+  let processedContent = processContent(content);
 
   if (stripFirstH1 && !compact) {
     processedContent = processedContent.replace(/^#\s+.+\n?/, '');
@@ -99,6 +120,7 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
     <div className={`prose ${proseSize} dark:prose-invert max-w-none prose-headings:font-semibold prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent prose-code:before:content-none prose-code:after:content-none ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkBreaks]}
+        urlTransform={(url) => url}
         components={{
           code(props) {
             const { children, className, ...rest } = props;
@@ -162,15 +184,24 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
             );
           },
           a({ children, href }) {
-            // Handle entity references
             if (href?.startsWith('entity:')) {
               const parts = href.split(':');
               const type = parts[1];
               const num = parseInt(parts[2], 10);
               if (type && !isNaN(num)) {
-                return <EntityReferenceLink type={type} num={num} />;
+                return <EntityMentionBadge type={type} num={num} />;
               }
             }
+
+            const entityUrlMatch = href && href.match(/^https?:\/\/[^/]+\/[^\s]*[?&](task|project|note|area)=([TPNAtpna]-\d+)/i);
+            if (entityUrlMatch && href && isLocalEntityUrl(href)) {
+              const prefix = entityUrlMatch[2].split('-')[0].toUpperCase();
+              const numStr = entityUrlMatch[2].split('-')[1];
+              if (numStr) {
+                return <EntityMentionBadge type={prefix} num={parseInt(numStr, 10)} />;
+              }
+            }
+
             return (
               <a
                 href={href}

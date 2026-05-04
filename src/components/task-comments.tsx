@@ -8,6 +8,7 @@ import { MessageSquare, Send, Pencil, Trash2, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { MentionTextarea } from '@/components/mention-autocomplete';
 import { useAppStore } from '@/store/app-store';
 import type { Comment } from '@/lib/types';
 
@@ -158,11 +159,11 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
                     {/* Comment body or edit mode */}
                     {editingCommentId === comment.id ? (
                       <div className="space-y-1.5 pt-1">
-                        <Textarea
+                        <MentionTextarea
                           value={editingContent}
-                          onChange={(e) => setEditingContent(e.target.value)}
+                          onChange={(val) => setEditingContent(val)}
                           onKeyDown={(e) => handleEditKeyDown(e, comment.id)}
-                          className="min-h-14 text-xs py-1.5"
+                          className="min-h-14 text-xs py-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           autoFocus
                         />
                         <div className="flex items-center gap-1">
@@ -229,11 +230,11 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
 
       {/* New comment input - compact */}
       <div className="flex gap-2 items-end">
-        <Textarea
+        <MentionTextarea
           value={newContent}
-          onChange={(e) => setNewContent(e.target.value)}
+          onChange={(val) => setNewContent(val)}
           placeholder="Add a comment..."
-          className="min-h-8 text-xs resize-none flex-1 py-1.5"
+          className="min-h-8 text-xs resize-none flex-1 py-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           rows={1}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
