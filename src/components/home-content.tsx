@@ -1096,6 +1096,7 @@ function HomeContent() {
             onClick={() => setCurrentView('settings')}
           >
             <Settings className="size-3.5 mr-2" /> Settings
+            <span className="ml-auto text-[10px] text-muted-foreground">{process.env.NEXT_PUBLIC_APP_VERSION || ''}</span>
           </Button>
           <div
             className="flex items-center gap-2 px-3 py-2 cursor-pointer rounded-md hover:bg-accent"

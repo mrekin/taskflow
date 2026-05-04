@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Check, ChevronsUpDown } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import {
@@ -26,6 +26,14 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { useAppStore } from '@/store/app-store';
 import { TASK_PRIORITIES, PRIORITY_LABELS, getColumnLabelAndColor, type StatusConfig } from '@/lib/constants';
 import { TagPicker } from '@/components/tag-picker';
@@ -57,6 +65,7 @@ export function CreateTaskDialog({
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [parentTaskOpen, setParentTaskOpen] = useState(false);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -235,19 +244,68 @@ export function CreateTaskDialog({
             {!parentId && (
               <div className="flex flex-col gap-2">
                 <Label>Parent Task</Label>
-                <Select value={parentTaskId} onValueChange={setParentTaskId}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="No parent" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No parent</SelectItem>
-                    {topLevelTasks.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        <span className="line-clamp-1">{t.title}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={parentTaskOpen} onOpenChange={setParentTaskOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={parentTaskOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {parentTaskId !== 'none'
+                        ? (() => {
+                            const t = topLevelTasks.find((task) => task.id === parentTaskId);
+                            return t ? (
+                              <span className="truncate">
+                                <span className="text-muted-foreground mr-1">{t.shortId}</span>
+                                {t.title}
+                              </span>
+                            ) : (
+                              'Select task...'
+                            );
+                          })()
+                        : 'No parent'}
+                      <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+                    <Command>
+                      <CommandInput placeholder="Search by ID or title..." />
+                      <CommandList
+                        onWheel={(e) => e.stopPropagation()}
+                      >
+                        <CommandEmpty>No tasks found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="none"
+                            onSelect={() => {
+                              setParentTaskId('none');
+                              setParentTaskOpen(false);
+                            }}
+                          >
+                            <Check className={cn('mr-2 size-4', parentTaskId === 'none' ? 'opacity-100' : 'opacity-0')} />
+                            No parent
+                          </CommandItem>
+                          {topLevelTasks.map((t) => (
+                            <CommandItem
+                              key={t.id}
+                              value={`${t.shortId} ${t.title}`}
+                              onSelect={() => {
+                                setParentTaskId(t.id);
+                                setParentTaskOpen(false);
+                              }}
+                            >
+                              <Check className={cn('mr-2 size-4 shrink-0', parentTaskId === t.id ? 'opacity-100' : 'opacity-0')} />
+                              <span className="text-muted-foreground mr-1 shrink-0">{t.shortId}</span>
+                              <span className="truncate">{t.title}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
           </div>
