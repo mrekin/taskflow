@@ -31,10 +31,10 @@ import { TaskCard } from '@/components/task-card';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { TaskDetailDialog } from '@/components/task-detail-dialog';
 import { useAppStore } from '@/store/app-store';
-import { INVALID_STATE_COLUMN, type StatusConfig } from '@/lib/constants';
+import { INVALID_STATE_COLUMN, TASK_PRIORITIES, type StatusConfig } from '@/lib/constants';
 import type { Task } from '@/lib/types';
 
-type KanbanSortField = 'sortOrder' | 'id' | 'createdAt' | 'updatedAt' | 'title';
+type KanbanSortField = 'id' | 'priority' | 'createdAt' | 'updatedAt' | 'title';
 type KanbanSortDirection = 'asc' | 'desc';
 
 interface KanbanColumnProps {
@@ -74,7 +74,7 @@ function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInva
         )}
         style={{ borderColor: isActive ? 'var(--color-primary)' : column.color }}
       >
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 justify-end">
           {isInvalid ? (
             <AlertTriangle className="size-3.5 text-red-500 shrink-0" />
           ) : (
@@ -147,7 +147,7 @@ export function KanbanBoard() {
   const [defaultStatus, setDefaultStatus] = useState<string>('todo');
   const [searchInput, setSearchInput] = useState(taskSearchQuery);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [sortField, setSortField] = useState<KanbanSortField>('sortOrder');
+  const [sortField, setSortField] = useState<KanbanSortField>('id');
   const [sortDirection, setSortDirection] = useState<KanbanSortDirection>('asc');
 
   const visibleColumns = useMemo(() => statuses.filter((c) => c.visible), [statuses]);
@@ -226,6 +226,9 @@ export function KanbanBoard() {
           case 'id':
             comparison = (a.shortIdNum ?? 0) - (b.shortIdNum ?? 0);
             break;
+          case 'priority':
+            comparison = TASK_PRIORITIES.indexOf(a.priority as typeof TASK_PRIORITIES[number]) - TASK_PRIORITIES.indexOf(b.priority as typeof TASK_PRIORITIES[number]);
+            break;
           case 'createdAt':
             comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
             break;
@@ -236,7 +239,7 @@ export function KanbanBoard() {
             comparison = a.title.localeCompare(b.title);
             break;
           default:
-            comparison = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+            comparison = (a.shortIdNum ?? 0) - (b.shortIdNum ?? 0);
         }
         return sortDirection === 'asc' ? comparison : -comparison;
       });
@@ -362,27 +365,6 @@ export function KanbanBoard() {
   return (
     <div className="h-full space-y-4">
       <div className="flex items-center gap-2 justify-end">
-        <Select value={sortField} onValueChange={(v) => setSortField(v as KanbanSortField)}>
-          <SelectTrigger className="w-[150px] h-7 text-xs">
-            <ArrowUpDown className="size-3 mr-1 text-muted-foreground" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="sortOrder">Order</SelectItem>
-            <SelectItem value="id">ID</SelectItem>
-            <SelectItem value="createdAt">Created</SelectItem>
-            <SelectItem value="updatedAt">Updated</SelectItem>
-            <SelectItem value="title">Title</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 text-xs px-2"
-          onClick={() => setSortDirection((d) => d === 'asc' ? 'desc' : 'asc')}
-        >
-          {sortDirection === 'asc' ? '↑ Asc' : '↓ Desc'}
-        </Button>
         <div className="relative w-56">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
           <Input
@@ -400,6 +382,27 @@ export function KanbanBoard() {
             </button>
           )}
         </div>
+        <Select value={sortField} onValueChange={(v) => setSortField(v as KanbanSortField)}>
+          <SelectTrigger className="w-[150px] h-7 text-xs">
+            <ArrowUpDown className="size-3 mr-1 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="id">ID</SelectItem>
+            <SelectItem value="priority">Priority</SelectItem>
+            <SelectItem value="createdAt">Created</SelectItem>
+            <SelectItem value="updatedAt">Updated</SelectItem>
+            <SelectItem value="title">Title</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs px-2"
+          onClick={() => setSortDirection((d) => d === 'asc' ? 'desc' : 'asc')}
+        >
+          {sortDirection === 'asc' ? '↑ Asc' : '↓ Desc'}
+        </Button>
       </div>
       <DndContext
         sensors={sensors}
