@@ -31,10 +31,14 @@ export async function getCurrentUserId(): Promise<string | null> {
     // Session check failed
   }
 
-  if (!cachedDemoUserId) {
-    cachedDemoUserId = await ensureDemoUser();
+  if (process.env.DEMO_MODE === 'true') {
+    if (!cachedDemoUserId) {
+      cachedDemoUserId = await ensureDemoUser();
+    }
+    return cachedDemoUserId;
   }
-  return cachedDemoUserId;
+
+  return null;
 }
 
 export async function requireAuth(): Promise<{ userId: string } | { error: NextResponse }> {
