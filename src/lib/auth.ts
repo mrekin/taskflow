@@ -11,22 +11,27 @@ const providers: NextAuthOptions["providers"] = [
     async authorize(credentials) {
       if (!credentials?.email) return null;
 
-      let user = await db.user.findUnique({ where: { email: credentials.email } });
-      if (!user) {
-        user = await db.user.create({
-          data: {
-            email: credentials.email,
-            name: credentials.email.split("@")[0],
-          },
-        });
-      }
+      try {
+        let user = await db.user.findUnique({ where: { email: credentials.email } });
+        if (!user) {
+          user = await db.user.create({
+            data: {
+              email: credentials.email,
+              name: credentials.email.split("@")[0],
+            },
+          });
+        }
 
-      return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        image: user.image,
-      };
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        };
+      } catch (error) {
+        console.error("[auth] authorize error:", error);
+        return null;
+      }
     },
   }),
 ];

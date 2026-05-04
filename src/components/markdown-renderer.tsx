@@ -100,8 +100,6 @@ function EntityMentionBadge({ type, num }: { type: string; num: number }) {
 }
 
 export function MarkdownRenderer({ content, className = '', compact = false, stripFirstH1 = false }: MarkdownRendererProps) {
-  const entityShortLinks = useAppStore((s) => s.userPreferences.entityShortLinks);
-
   if (!content.trim()) {
     return <span className="text-muted-foreground text-xs">No content</span>;
   }

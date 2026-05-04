@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -12,35 +12,58 @@ export default function Page() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const basePath = process.env.NEXT_BASE_PATH || '';
+  const [initError, setInitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'loading') return;
 
     fetch(`${basePath}/api/config`)
-      .then(r => r.json())
+      .then(async (r) => {
+        if (!r.ok) {
+          const data = await r.json().catch(() => null);
+          throw new Error(data?.error || `Server error (${r.status})`);
+        }
+        return r.json();
+      })
       .then((config: { demoMode: boolean; hasOidc: boolean }) => {
         const isDemoSession = session?.user?.email === DEMO_EMAIL;
 
-        // Demo session but demo mode turned off — invalidate
         if (isDemoSession && !config.demoMode) {
           signOut({ redirect: false });
           return;
         }
 
-        // Already authenticated — nothing to do
         if (session) return;
 
-        // Not authenticated
         if (config.demoMode) {
           signIn('credentials', { email: DEMO_EMAIL, redirect: false });
         } else {
           router.replace('/login');
         }
       })
-      .catch(() => {
-        router.replace('/login');
+      .catch((err) => {
+        setInitError(err instanceof Error ? err.message : String(err));
       });
   }, [session, status, router, basePath]);
+
+  if (initError) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background p-8">
+        <div className="max-w-md text-center space-y-4">
+          <Image src={`${basePath}/logo.png`} alt="TaskFlow" width={48} height={48} className="h-12 w-12 rounded-lg object-cover mx-auto" unoptimized />
+          <h1 className="text-2xl font-bold text-destructive">Server Error</h1>
+          <p className="text-sm text-muted-foreground">Unable to connect to the server. Please check your configuration.</p>
+          <pre className="text-xs text-left bg-muted p-3 rounded-lg overflow-auto max-h-32 font-mono">{initError}</pre>
+          <button
+            onClick={() => { setInitError(null); window.location.reload(); }}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (status === 'loading' || !session) {
     return (
