@@ -4,26 +4,22 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Set subpath if deploying behind a proxy (e.g., "/app")
-        NEXT_BASE_PATH: "/taskflow"
+        NEXT_BASE_PATH: ${NEXT_BASE_PATH:-}
     container_name: taskflow
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     environment:
-      - DEMO_MODE=true
+      - DEMO_MODE=${DEMO_MODE:-true}
       - NODE_ENV=production
-      - DATABASE_URL=file:/app/db/taskflow.db
-      - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=change-me-in-production-use-openssl-rand-base64-32
-      # Scheduler interval for background jobs (due date webhooks, etc.) in minutes. Default: 1
-      # - SCHEDULER_INTERVAL_MIN=1
-      # Custom status columns for Kanban (optional - "Label:color" pairs, comma-separated; ID is auto-generated from label)
-      # - KANBAN_COLUMNS=To Do:#94a3b8,In Progress:#3b82f6,Review:#f59e0b,Done:#22c55e,Cancelled:#ef4444
-      # OIDC Configuration (optional - uncomment and configure)
-      # - OIDC_ISSUER=https://your-keycloak.com/realms/your-realm
-      # - OIDC_CLIENT_ID=taskflow
-      # - OIDC_CLIENT_SECRET=your-client-secret
+      - DATABASE_URL=${DATABASE_URL:-file:/app/db/taskflow.db}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-me-in-production}
+      - SCHEDULER_INTERVAL_MIN=${SCHEDULER_INTERVAL_MIN:-1}
+      # - KANBAN_COLUMNS=${KANBAN_COLUMNS}
+      # - OIDC_ISSUER=${OIDC_ISSUER}
+      # - OIDC_CLIENT_ID=${OIDC_CLIENT_ID}
+      # - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
     volumes:
       - ./taskflow-data:/app/db
 
