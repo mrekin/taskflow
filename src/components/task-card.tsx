@@ -163,7 +163,7 @@ export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: Tas
                 )}
               >
                 <Calendar className="size-3" />
-                {format(parseISO(task.dueDate), 'MMM d')}
+                {format(parseISO(task.dueDate), 'MMM d, HH:mm')}
               </Badge>
             )}
 

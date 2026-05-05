@@ -84,6 +84,9 @@ docker compose ps
 # Посмотреть логи
 docker compose logs -f taskflow
 
+# В логах при старте должна быть строка шедулера:
+# [Scheduler] Started. Interval: 1 min. Pending jobs: 0
+
 # Проверить доступность
 curl -s -o /dev/null -w "%{http_code}" http://localhost:3000
 # Ожидаемый ответ: 200
@@ -192,6 +195,7 @@ sudo systemctl status taskflow
 | `OIDC_CLIENT_SECRET` | ❌ | — | Client Secret у OIDC-провайдера |
 | `NEXT_BASE_PATH` | ❌ | `""` | Субпуть для развертывания за прокси (например, `/taskflow`) |
 | `KANBAN_COLUMNS` | ❌ | — | Кастомные колонки канбан по умолчанию для всех пользователей. Формат: `Label:color,Label:color` или JSON-массив |
+| `SCHEDULER_INTERVAL_MIN` | ❌ | `1` | Интервал фонового шедулера в минутах (due date webhooks и др.) |
 
 **Пример `KANBAN_COLUMNS`:**
 
@@ -406,3 +410,10 @@ cp db/taskflow-backup-YYYYMMDD.db db/taskflow.db
 - Увеличьте объем RAM (рекомендуется ≥ 1 ГБ)
 - В production-режиме Prisma не логирует запросы (убедитесь, что `NODE_ENV=production`)
 - При большом объеме данных (>10 000 задач) рассмотрите переход на PostgreSQL (потребуется изменение `DATABASE_URL` и схемы Prisma)
+
+### Шедулер не работает (нет логов `[Scheduler]`)
+
+- В Docker: убедитесь что при сборке копируется `.next/server` — см. `COPY --from=builder /app/.next/server ./.next/server` в Dockerfile
+- Без Docker (standalone): файл `.next/server/instrumentation.js` должен существовать рядом с `server.js`
+- Проверьте что `src/instrumentation.ts` присутствует в исходниках и не удалён
+- Убедитесь что `NODE_ENV` не установлен в значение, блокирующее instrumentation (не используйте `test`)

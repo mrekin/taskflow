@@ -30,6 +30,7 @@ model User {
   comments      Comment[]
   tags          Tag[]
   webhooks      Webhook[]
+  scheduledJobs ScheduledJob[]
 }
 
 model Area {
@@ -192,4 +193,17 @@ model WebhookDelivery {
   createdAt  DateTime @default(now())
 
   webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+}
+
+model ScheduledJob {
+  id         String   @id @default(cuid())
+  type       String
+  fireAt     DateTime
+  entityId   String
+  entityType String   @default("task")
+  ownerId    String
+  payload    String   @default("{}")
+  createdAt  DateTime @default(now())
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 }

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { parseJsonFields } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
 import { fireWebhookEvent, buildTaskContext, resolveTaskAreaId, computeChanges } from "@/lib/webhook-engine";
+import { createScheduledJob, deleteScheduledJobsForEntity } from "@/lib/scheduler";
 
 // GET /api/tasks/[id] - Get single task with subtasks and comments
 export async function GET(
@@ -120,38 +121,43 @@ export async function PUT(
       },
     });
 
-    // Fire webhook events if relevant fields changed
+    // Fire webhook events + manage scheduled jobs
     try {
       const changes = computeChanges(
         existing as unknown as Record<string, unknown>,
         updateData,
-        ['status', 'dueDate']
+        ['status']
       );
 
-      if (Object.keys(changes).length > 0) {
+      if (changes.status) {
         const areaId = task.project?.areaId ?? await resolveTaskAreaId(task.projectId);
+        await fireWebhookEvent(buildTaskContext(
+          { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: task.ownerId },
+          'task.status_changed',
+          changes,
+          areaId
+        ));
+      }
 
-        if (changes.status) {
-          await fireWebhookEvent(buildTaskContext(
-            { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: task.ownerId },
-            'task.status_changed',
-            changes,
-            areaId
-          ));
-        }
-
-        if (changes.dueDate) {
-          await fireWebhookEvent(buildTaskContext(
-            { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: task.ownerId },
-            'task.due_date_reached',
-            changes,
-            areaId
-          ));
+      if (dueDate !== undefined) {
+        await deleteScheduledJobsForEntity(task.id, 'due_date_reached');
+        if (dueDate) {
+          await createScheduledJob({
+            type: 'due_date_reached',
+            fireAt: new Date(dueDate),
+            entityId: task.id,
+            entityType: 'task',
+            ownerId: task.ownerId,
+            payload: {
+              title: task.title,
+              shortIdNum: task.shortIdNum,
+              projectId: task.projectId,
+            },
+          });
         }
       }
     } catch (webhookError) {
-      console.error('[Webhook] Error in task update webhook:', webhookError);
-      // Don't fail the request if webhook fails
+      console.error('[Webhook/Scheduler] Error in task update:', webhookError);
     }
 
     const { subtasks, ...rest } = task;

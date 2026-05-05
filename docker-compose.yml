@@ -16,6 +16,8 @@ services:
       - DATABASE_URL=file:/app/db/taskflow.db
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=change-me-in-production-use-openssl-rand-base64-32
+      # Scheduler interval for background jobs (due date webhooks, etc.) in minutes. Default: 1
+      # - SCHEDULER_INTERVAL_MIN=1
       # Custom status columns for Kanban (optional - "Label:color" pairs, comma-separated; ID is auto-generated from label)
       # - KANBAN_COLUMNS=To Do:#94a3b8,In Progress:#3b82f6,Review:#f59e0b,Done:#22c55e,Cancelled:#ef4444
       # OIDC Configuration (optional - uncomment and configure)

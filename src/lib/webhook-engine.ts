@@ -299,6 +299,9 @@ export function computeChanges(
   for (const field of fields) {
     const oldVal = oldRecord[field];
     const newVal = newRecord[field];
+    if (oldVal instanceof Date && newVal instanceof Date) {
+      if (oldVal.getTime() === newVal.getTime()) continue;
+    }
     if (oldVal !== newVal) {
       changes[field] = { from: oldVal, to: newVal };
     }

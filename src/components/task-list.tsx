@@ -251,7 +251,7 @@ export function TaskList() {
           `# ${task.title}`,
           `**Status**: ${STATUS_LABELS[task.status] || task.status}`,
           `**Priority**: ${PRIORITY_LABELS[task.priority] || task.priority}`,
-          `**Due**: ${task.dueDate ? format(parseISO(task.dueDate), 'yyyy-MM-dd') : 'No due date'}`,
+          `**Due**: ${task.dueDate ? format(parseISO(task.dueDate), 'yyyy-MM-dd HH:mm') : 'No due date'}`,
         ];
         if (project) {
           lines.push(`**Project**: ${project}`);
@@ -501,7 +501,7 @@ export function TaskList() {
                           )}
                         >
                           <Calendar className="size-3" />
-                          {format(parseISO(task.dueDate), 'MMM d')}
+                          {format(parseISO(task.dueDate), 'MMM d, HH:mm')}
                         </span>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>

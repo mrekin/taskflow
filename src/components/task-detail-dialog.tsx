@@ -40,6 +40,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
+import { TimePicker } from '@/components/ui/time-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog,
@@ -85,6 +86,7 @@ export function TaskDetailDialog() {
   const [status, setStatus] = useState('');
   const [priority, setPriority] = useState('');
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [dueTime, setDueTime] = useState('09:00');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -121,7 +123,12 @@ export function TaskDetailDialog() {
         description: description.trim() || null,
         status,
         priority,
-        dueDate: dueDate ? dueDate.toISOString() : null,
+        dueDate: dueDate ? (() => {
+          const [h, m] = dueTime.split(':').map(Number);
+          const d = new Date(dueDate);
+          d.setHours(h, m, 0, 0);
+          return d.toISOString();
+        })() : null,
         projectId,
         tagIds: localTagIds,
       });
@@ -258,7 +265,8 @@ export function TaskDetailDialog() {
                             setDescription(task.description || '');
                             setStatus(task.status);
                             setPriority(task.priority);
-                            setDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
+      setDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
+      setDueTime(task.dueDate ? format(parseISO(task.dueDate), 'HH:mm') : '09:00');
                             setProjectId(task.projectId ?? null);
                           }}
                         >
@@ -410,30 +418,43 @@ export function TaskDetailDialog() {
                         Due Date
                       </Label>
                       {isEditing ? (
-                        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                'w-full justify-start text-left font-normal',
-                                !dueDate && 'text-muted-foreground',
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 size-4" />
-                              {dueDate ? format(dueDate, 'PPP') : 'Pick a date'}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={dueDate}
-                              onSelect={(date) => {
-                                setDueDate(date);
-                                setCalendarOpen(false);
-                              }}
+                        <div className="flex gap-2">
+                          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  'flex-1 justify-start text-left font-normal',
+                                  !dueDate && 'text-muted-foreground',
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 size-4" />
+                                {dueDate ? format(dueDate, 'PP') : 'Pick a date'}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={dueDate}
+                                onSelect={(date) => {
+                                  if (date) {
+                                    const [h, m] = dueTime.split(':').map(Number);
+                                    date.setHours(h, m, 0, 0);
+                                  }
+                                  setDueDate(date ?? undefined);
+                                  setCalendarOpen(false);
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          {dueDate && (
+                            <TimePicker
+                              value={dueTime}
+                              onChange={setDueTime}
+                              className="shrink-0"
                             />
-                          </PopoverContent>
-                        </Popover>
+                          )}
+                        </div>
                       ) : (
                         <div className="flex items-center gap-2">
                           <CalendarIcon className="size-4 text-muted-foreground" />
@@ -444,7 +465,7 @@ export function TaskDetailDialog() {
                                 isOverdue && 'text-red-600 font-medium',
                               )}
                             >
-                              {format(parseISO(task.dueDate), 'PPP')}
+                              {format(parseISO(task.dueDate), 'PP, HH:mm')}
                               {isOverdue && ' (Overdue)'}
                             </span>
                           ) : (

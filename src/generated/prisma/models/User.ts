@@ -223,6 +223,7 @@ export type UserWhereInput = {
   comments?: Prisma.CommentListRelationFilter
   tags?: Prisma.TagListRelationFilter
   webhooks?: Prisma.WebhookListRelationFilter
+  scheduledJobs?: Prisma.ScheduledJobListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -244,6 +245,7 @@ export type UserOrderByWithRelationInput = {
   comments?: Prisma.CommentOrderByRelationAggregateInput
   tags?: Prisma.TagOrderByRelationAggregateInput
   webhooks?: Prisma.WebhookOrderByRelationAggregateInput
+  scheduledJobs?: Prisma.ScheduledJobOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -268,6 +270,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   comments?: Prisma.CommentListRelationFilter
   tags?: Prisma.TagListRelationFilter
   webhooks?: Prisma.WebhookListRelationFilter
+  scheduledJobs?: Prisma.ScheduledJobListRelationFilter
 }, "id" | "email" | "oidcId">
 
 export type UserOrderByWithAggregationInput = {
@@ -319,6 +322,7 @@ export type UserCreateInput = {
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobCreateNestedManyWithoutOwnerInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -340,6 +344,7 @@ export type UserUncheckedCreateInput = {
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type UserUpdateInput = {
@@ -361,6 +366,7 @@ export type UserUpdateInput = {
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -382,6 +388,7 @@ export type UserUncheckedUpdateInput = {
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -606,6 +613,20 @@ export type UserUpdateOneRequiredWithoutWebhooksNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutWebhooksInput, Prisma.UserUpdateWithoutWebhooksInput>, Prisma.UserUncheckedUpdateWithoutWebhooksInput>
 }
 
+export type UserCreateNestedOneWithoutScheduledJobsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutScheduledJobsInput, Prisma.UserUncheckedCreateWithoutScheduledJobsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutScheduledJobsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutScheduledJobsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutScheduledJobsInput, Prisma.UserUncheckedCreateWithoutScheduledJobsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutScheduledJobsInput
+  upsert?: Prisma.UserUpsertWithoutScheduledJobsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutScheduledJobsInput, Prisma.UserUpdateWithoutScheduledJobsInput>, Prisma.UserUncheckedUpdateWithoutScheduledJobsInput>
+}
+
 export type UserCreateWithoutOwnedAreasInput = {
   id?: string
   email: string
@@ -624,6 +645,7 @@ export type UserCreateWithoutOwnedAreasInput = {
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobCreateNestedManyWithoutOwnerInput
 }
 
 export type UserUncheckedCreateWithoutOwnedAreasInput = {
@@ -644,6 +666,7 @@ export type UserUncheckedCreateWithoutOwnedAreasInput = {
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type UserCreateOrConnectWithoutOwnedAreasInput = {
@@ -680,6 +703,7 @@ export type UserUpdateWithoutOwnedAreasInput = {
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutOwnedAreasInput = {
@@ -700,6 +724,7 @@ export type UserUncheckedUpdateWithoutOwnedAreasInput = {
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserCreateWithoutOwnedProjectsInput = {
@@ -720,6 +745,7 @@ export type UserCreateWithoutOwnedProjectsInput = {
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobCreateNestedManyWithoutOwnerInput
 }
 
 export type UserUncheckedCreateWithoutOwnedProjectsInput = {
@@ -740,6 +766,7 @@ export type UserUncheckedCreateWithoutOwnedProjectsInput = {
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type UserCreateOrConnectWithoutOwnedProjectsInput = {
@@ -776,6 +803,7 @@ export type UserUpdateWithoutOwnedProjectsInput = {
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutOwnedProjectsInput = {
@@ -796,6 +824,7 @@ export type UserUncheckedUpdateWithoutOwnedProjectsInput = {
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserCreateWithoutOwnedTasksInput = {
@@ -816,6 +845,7 @@ export type UserCreateWithoutOwnedTasksInput = {
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobCreateNestedManyWithoutOwnerInput
 }
 
 export type UserUncheckedCreateWithoutOwnedTasksInput = {
@@ -836,6 +866,7 @@ export type UserUncheckedCreateWithoutOwnedTasksInput = {
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type UserCreateOrConnectWithoutOwnedTasksInput = {
@@ -861,6 +892,7 @@ export type UserCreateWithoutAssignedTasksInput = {
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobCreateNestedManyWithoutOwnerInput
 }
 
 export type UserUncheckedCreateWithoutAssignedTasksInput = {
@@ -881,6 +913,7 @@ export type UserUncheckedCreateWithoutAssignedTasksInput = {
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type UserCreateOrConnectWithoutAssignedTasksInput = {
@@ -917,6 +950,7 @@ export type UserUpdateWithoutOwnedTasksInput = {
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutOwnedTasksInput = {
@@ -937,6 +971,7 @@ export type UserUncheckedUpdateWithoutOwnedTasksInput = {
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserUpsertWithoutAssignedTasksInput = {
@@ -968,6 +1003,7 @@ export type UserUpdateWithoutAssignedTasksInput = {
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAssignedTasksInput = {
@@ -988,6 +1024,7 @@ export type UserUncheckedUpdateWithoutAssignedTasksInput = {
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserCreateWithoutOwnedNotesInput = {
@@ -1008,6 +1045,7 @@ export type UserCreateWithoutOwnedNotesInput = {
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobCreateNestedManyWithoutOwnerInput
 }
 
 export type UserUncheckedCreateWithoutOwnedNotesInput = {
@@ -1028,6 +1066,7 @@ export type UserUncheckedCreateWithoutOwnedNotesInput = {
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type UserCreateOrConnectWithoutOwnedNotesInput = {
@@ -1064,6 +1103,7 @@ export type UserUpdateWithoutOwnedNotesInput = {
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutOwnedNotesInput = {
@@ -1084,6 +1124,7 @@ export type UserUncheckedUpdateWithoutOwnedNotesInput = {
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserCreateWithoutOwnedFoldersInput = {
@@ -1104,6 +1145,7 @@ export type UserCreateWithoutOwnedFoldersInput = {
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobCreateNestedManyWithoutOwnerInput
 }
 
 export type UserUncheckedCreateWithoutOwnedFoldersInput = {
@@ -1124,6 +1166,7 @@ export type UserUncheckedCreateWithoutOwnedFoldersInput = {
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type UserCreateOrConnectWithoutOwnedFoldersInput = {
@@ -1160,6 +1203,7 @@ export type UserUpdateWithoutOwnedFoldersInput = {
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutOwnedFoldersInput = {
@@ -1180,6 +1224,7 @@ export type UserUncheckedUpdateWithoutOwnedFoldersInput = {
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserCreateWithoutCommentsInput = {
@@ -1200,6 +1245,7 @@ export type UserCreateWithoutCommentsInput = {
   assignedTasks?: Prisma.TaskCreateNestedManyWithoutAssigneeInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobCreateNestedManyWithoutOwnerInput
 }
 
 export type UserUncheckedCreateWithoutCommentsInput = {
@@ -1220,6 +1266,7 @@ export type UserUncheckedCreateWithoutCommentsInput = {
   assignedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutAssigneeInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type UserCreateOrConnectWithoutCommentsInput = {
@@ -1256,6 +1303,7 @@ export type UserUpdateWithoutCommentsInput = {
   assignedTasks?: Prisma.TaskUpdateManyWithoutAssigneeNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCommentsInput = {
@@ -1276,6 +1324,7 @@ export type UserUncheckedUpdateWithoutCommentsInput = {
   assignedTasks?: Prisma.TaskUncheckedUpdateManyWithoutAssigneeNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserCreateWithoutTagsInput = {
@@ -1296,6 +1345,7 @@ export type UserCreateWithoutTagsInput = {
   assignedTasks?: Prisma.TaskCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobCreateNestedManyWithoutOwnerInput
 }
 
 export type UserUncheckedCreateWithoutTagsInput = {
@@ -1316,6 +1366,7 @@ export type UserUncheckedCreateWithoutTagsInput = {
   assignedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type UserCreateOrConnectWithoutTagsInput = {
@@ -1352,6 +1403,7 @@ export type UserUpdateWithoutTagsInput = {
   assignedTasks?: Prisma.TaskUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTagsInput = {
@@ -1372,6 +1424,7 @@ export type UserUncheckedUpdateWithoutTagsInput = {
   assignedTasks?: Prisma.TaskUncheckedUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserCreateWithoutWebhooksInput = {
@@ -1392,6 +1445,7 @@ export type UserCreateWithoutWebhooksInput = {
   assignedTasks?: Prisma.TaskCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobCreateNestedManyWithoutOwnerInput
 }
 
 export type UserUncheckedCreateWithoutWebhooksInput = {
@@ -1412,6 +1466,7 @@ export type UserUncheckedCreateWithoutWebhooksInput = {
   assignedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutAssigneeInput
   comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
   tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedCreateNestedManyWithoutOwnerInput
 }
 
 export type UserCreateOrConnectWithoutWebhooksInput = {
@@ -1448,6 +1503,7 @@ export type UserUpdateWithoutWebhooksInput = {
   assignedTasks?: Prisma.TaskUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUpdateManyWithoutOwnerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutWebhooksInput = {
@@ -1468,6 +1524,107 @@ export type UserUncheckedUpdateWithoutWebhooksInput = {
   assignedTasks?: Prisma.TaskUncheckedUpdateManyWithoutAssigneeNestedInput
   comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
   tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
+  scheduledJobs?: Prisma.ScheduledJobUncheckedUpdateManyWithoutOwnerNestedInput
+}
+
+export type UserCreateWithoutScheduledJobsInput = {
+  id?: string
+  email: string
+  name?: string | null
+  image?: string | null
+  oidcId?: string | null
+  oidcProvider?: string | null
+  metadata?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  ownedAreas?: Prisma.AreaCreateNestedManyWithoutOwnerInput
+  ownedProjects?: Prisma.ProjectCreateNestedManyWithoutOwnerInput
+  ownedTasks?: Prisma.TaskCreateNestedManyWithoutOwnerInput
+  ownedNotes?: Prisma.NoteCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderCreateNestedManyWithoutOwnerInput
+  assignedTasks?: Prisma.TaskCreateNestedManyWithoutAssigneeInput
+  comments?: Prisma.CommentCreateNestedManyWithoutOwnerInput
+  tags?: Prisma.TagCreateNestedManyWithoutOwnerInput
+  webhooks?: Prisma.WebhookCreateNestedManyWithoutOwnerInput
+}
+
+export type UserUncheckedCreateWithoutScheduledJobsInput = {
+  id?: string
+  email: string
+  name?: string | null
+  image?: string | null
+  oidcId?: string | null
+  oidcProvider?: string | null
+  metadata?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  ownedAreas?: Prisma.AreaUncheckedCreateNestedManyWithoutOwnerInput
+  ownedProjects?: Prisma.ProjectUncheckedCreateNestedManyWithoutOwnerInput
+  ownedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutOwnerInput
+  ownedNotes?: Prisma.NoteUncheckedCreateNestedManyWithoutOwnerInput
+  ownedFolders?: Prisma.NoteFolderUncheckedCreateNestedManyWithoutOwnerInput
+  assignedTasks?: Prisma.TaskUncheckedCreateNestedManyWithoutAssigneeInput
+  comments?: Prisma.CommentUncheckedCreateNestedManyWithoutOwnerInput
+  tags?: Prisma.TagUncheckedCreateNestedManyWithoutOwnerInput
+  webhooks?: Prisma.WebhookUncheckedCreateNestedManyWithoutOwnerInput
+}
+
+export type UserCreateOrConnectWithoutScheduledJobsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutScheduledJobsInput, Prisma.UserUncheckedCreateWithoutScheduledJobsInput>
+}
+
+export type UserUpsertWithoutScheduledJobsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutScheduledJobsInput, Prisma.UserUncheckedUpdateWithoutScheduledJobsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutScheduledJobsInput, Prisma.UserUncheckedCreateWithoutScheduledJobsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutScheduledJobsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutScheduledJobsInput, Prisma.UserUncheckedUpdateWithoutScheduledJobsInput>
+}
+
+export type UserUpdateWithoutScheduledJobsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ownedAreas?: Prisma.AreaUpdateManyWithoutOwnerNestedInput
+  ownedProjects?: Prisma.ProjectUpdateManyWithoutOwnerNestedInput
+  ownedTasks?: Prisma.TaskUpdateManyWithoutOwnerNestedInput
+  ownedNotes?: Prisma.NoteUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUpdateManyWithoutOwnerNestedInput
+  assignedTasks?: Prisma.TaskUpdateManyWithoutAssigneeNestedInput
+  comments?: Prisma.CommentUpdateManyWithoutOwnerNestedInput
+  tags?: Prisma.TagUpdateManyWithoutOwnerNestedInput
+  webhooks?: Prisma.WebhookUpdateManyWithoutOwnerNestedInput
+}
+
+export type UserUncheckedUpdateWithoutScheduledJobsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcProvider?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ownedAreas?: Prisma.AreaUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedProjects?: Prisma.ProjectUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedTasks?: Prisma.TaskUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedNotes?: Prisma.NoteUncheckedUpdateManyWithoutOwnerNestedInput
+  ownedFolders?: Prisma.NoteFolderUncheckedUpdateManyWithoutOwnerNestedInput
+  assignedTasks?: Prisma.TaskUncheckedUpdateManyWithoutAssigneeNestedInput
+  comments?: Prisma.CommentUncheckedUpdateManyWithoutOwnerNestedInput
+  tags?: Prisma.TagUncheckedUpdateManyWithoutOwnerNestedInput
+  webhooks?: Prisma.WebhookUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 
@@ -1485,6 +1642,7 @@ export type UserCountOutputType = {
   comments: number
   tags: number
   webhooks: number
+  scheduledJobs: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1497,6 +1655,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   comments?: boolean | UserCountOutputTypeCountCommentsArgs
   tags?: boolean | UserCountOutputTypeCountTagsArgs
   webhooks?: boolean | UserCountOutputTypeCountWebhooksArgs
+  scheduledJobs?: boolean | UserCountOutputTypeCountScheduledJobsArgs
 }
 
 /**
@@ -1572,6 +1731,13 @@ export type UserCountOutputTypeCountWebhooksArgs<ExtArgs extends runtime.Types.E
   where?: Prisma.WebhookWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountScheduledJobsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ScheduledJobWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1592,6 +1758,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   comments?: boolean | Prisma.User$commentsArgs<ExtArgs>
   tags?: boolean | Prisma.User$tagsArgs<ExtArgs>
   webhooks?: boolean | Prisma.User$webhooksArgs<ExtArgs>
+  scheduledJobs?: boolean | Prisma.User$scheduledJobsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1642,6 +1809,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   comments?: boolean | Prisma.User$commentsArgs<ExtArgs>
   tags?: boolean | Prisma.User$tagsArgs<ExtArgs>
   webhooks?: boolean | Prisma.User$webhooksArgs<ExtArgs>
+  scheduledJobs?: boolean | Prisma.User$scheduledJobsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1659,6 +1827,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     comments: Prisma.$CommentPayload<ExtArgs>[]
     tags: Prisma.$TagPayload<ExtArgs>[]
     webhooks: Prisma.$WebhookPayload<ExtArgs>[]
+    scheduledJobs: Prisma.$ScheduledJobPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -2073,6 +2242,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   comments<T extends Prisma.User$commentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$commentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CommentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   tags<T extends Prisma.User$tagsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$tagsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TagPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   webhooks<T extends Prisma.User$webhooksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$webhooksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$WebhookPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  scheduledJobs<T extends Prisma.User$scheduledJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$scheduledJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ScheduledJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2715,6 +2885,30 @@ export type User$webhooksArgs<ExtArgs extends runtime.Types.Extensions.InternalA
   take?: number
   skip?: number
   distinct?: Prisma.WebhookScalarFieldEnum | Prisma.WebhookScalarFieldEnum[]
+}
+
+/**
+ * User.scheduledJobs
+ */
+export type User$scheduledJobsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ScheduledJob
+   */
+  select?: Prisma.ScheduledJobSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ScheduledJob
+   */
+  omit?: Prisma.ScheduledJobOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ScheduledJobInclude<ExtArgs> | null
+  where?: Prisma.ScheduledJobWhereInput
+  orderBy?: Prisma.ScheduledJobOrderByWithRelationInput | Prisma.ScheduledJobOrderByWithRelationInput[]
+  cursor?: Prisma.ScheduledJobWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ScheduledJobScalarFieldEnum | Prisma.ScheduledJobScalarFieldEnum[]
 }
 
 /**

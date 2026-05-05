@@ -74,6 +74,7 @@ bun run dev
 | `DEMO_MODE` | no | `false` | Skip authentication, auto-login as demo user |
 | `NEXT_BASE_PATH` | no | `""` | Subpath for reverse proxy deployment (build-time) |
 | `KANBAN_COLUMNS` | no | — | Default Kanban board columns. Format: `Label:color,...` or JSON array |
+| `SCHEDULER_INTERVAL_MIN` | no | `1` | Background scheduler interval in minutes (due date webhooks, etc.) |
 
 ## Documentation
 

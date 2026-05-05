@@ -393,7 +393,8 @@ export const ModelName = {
   Comment: 'Comment',
   Tag: 'Tag',
   Webhook: 'Webhook',
-  WebhookDelivery: 'WebhookDelivery'
+  WebhookDelivery: 'WebhookDelivery',
+  ScheduledJob: 'ScheduledJob'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -409,7 +410,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "area" | "project" | "task" | "note" | "noteFolder" | "comment" | "tag" | "webhook" | "webhookDelivery"
+    modelProps: "user" | "area" | "project" | "task" | "note" | "noteFolder" | "comment" | "tag" | "webhook" | "webhookDelivery" | "scheduledJob"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1153,6 +1154,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ScheduledJob: {
+      payload: Prisma.$ScheduledJobPayload<ExtArgs>
+      fields: Prisma.ScheduledJobFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ScheduledJobFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ScheduledJobPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ScheduledJobFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ScheduledJobPayload>
+        }
+        findFirst: {
+          args: Prisma.ScheduledJobFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ScheduledJobPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ScheduledJobFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ScheduledJobPayload>
+        }
+        findMany: {
+          args: Prisma.ScheduledJobFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ScheduledJobPayload>[]
+        }
+        create: {
+          args: Prisma.ScheduledJobCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ScheduledJobPayload>
+        }
+        createMany: {
+          args: Prisma.ScheduledJobCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ScheduledJobCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ScheduledJobPayload>[]
+        }
+        delete: {
+          args: Prisma.ScheduledJobDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ScheduledJobPayload>
+        }
+        update: {
+          args: Prisma.ScheduledJobUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ScheduledJobPayload>
+        }
+        deleteMany: {
+          args: Prisma.ScheduledJobDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ScheduledJobUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ScheduledJobUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ScheduledJobPayload>[]
+        }
+        upsert: {
+          args: Prisma.ScheduledJobUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ScheduledJobPayload>
+        }
+        aggregate: {
+          args: Prisma.ScheduledJobAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateScheduledJob>
+        }
+        groupBy: {
+          args: Prisma.ScheduledJobGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ScheduledJobGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ScheduledJobCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ScheduledJobCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1355,6 +1430,20 @@ export const WebhookDeliveryScalarFieldEnum = {
 export type WebhookDeliveryScalarFieldEnum = (typeof WebhookDeliveryScalarFieldEnum)[keyof typeof WebhookDeliveryScalarFieldEnum]
 
 
+export const ScheduledJobScalarFieldEnum = {
+  id: 'id',
+  type: 'type',
+  fireAt: 'fireAt',
+  entityId: 'entityId',
+  entityType: 'entityType',
+  ownerId: 'ownerId',
+  payload: 'payload',
+  createdAt: 'createdAt'
+} as const
+
+export type ScheduledJobScalarFieldEnum = (typeof ScheduledJobScalarFieldEnum)[keyof typeof ScheduledJobScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1531,6 +1620,7 @@ export type GlobalOmitConfig = {
   tag?: Prisma.TagOmit
   webhook?: Prisma.WebhookOmit
   webhookDelivery?: Prisma.WebhookDeliveryOmit
+  scheduledJob?: Prisma.ScheduledJobOmit
 }
 
 /* Types for Logging */

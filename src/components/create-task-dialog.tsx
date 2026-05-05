@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
+import { TimePicker } from '@/components/ui/time-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
@@ -60,6 +61,7 @@ export function CreateTaskDialog({
   const [status, setStatus] = useState<string>(defaultStatus || 'todo');
   const [priority, setPriority] = useState<string>('medium');
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [dueTime, setDueTime] = useState('09:00');
   const [projectId, setProjectId] = useState<string>(defaultProjectId || selectedProjectId || 'none');
   const [parentTaskId, setParentTaskId] = useState<string>(parentId || 'none');
   const [tagIds, setTagIds] = useState<string[]>([]);
@@ -75,6 +77,7 @@ export function CreateTaskDialog({
       setStatus(defaultStatus || 'todo');
       setPriority('medium');
       setDueDate(undefined);
+      setDueTime('09:00');
       setProjectId(defaultProjectId || selectedProjectId || 'none');
       setParentTaskId(parentId || 'none');
       setTagIds([]);
@@ -93,7 +96,12 @@ export function CreateTaskDialog({
         description: description.trim() || null,
         status,
         priority,
-        dueDate: dueDate ? dueDate.toISOString() : null,
+        dueDate: dueDate ? (() => {
+          const [h, m] = dueTime.split(':').map(Number);
+          const d = new Date(dueDate);
+          d.setHours(h, m, 0, 0);
+          return d.toISOString();
+        })() : null,
         projectId: projectId === 'none' ? null : projectId,
         parentId: parentTaskId === 'none' ? null : parentTaskId,
         tagIds,
@@ -111,6 +119,7 @@ export function CreateTaskDialog({
       setStatus(defaultStatus || 'todo');
       setPriority('medium');
       setDueDate(undefined);
+      setDueTime('09:00');
       setProjectId(defaultProjectId || selectedProjectId || 'none');
       setParentTaskId(parentId || 'none');
       setTagIds([]);
@@ -190,31 +199,44 @@ export function CreateTaskDialog({
 
             <div className="flex flex-col gap-2">
               <Label>Due Date</Label>
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={cn(
-                      'w-full justify-start text-left font-normal',
-                      !dueDate && 'text-muted-foreground',
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 size-4" />
-                    {dueDate ? format(dueDate, 'PPP') : 'Pick a date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dueDate}
-                    onSelect={(date) => {
-                      setDueDate(date);
-                      setCalendarOpen(false);
-                    }}
+              <div className="flex gap-2">
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        'flex-1 justify-start text-left font-normal',
+                        !dueDate && 'text-muted-foreground',
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 size-4" />
+                      {dueDate ? format(dueDate, 'PP') : 'Pick a date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dueDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          const [h, m] = dueTime.split(':').map(Number);
+                          date.setHours(h, m, 0, 0);
+                        }
+                        setDueDate(date ?? undefined);
+                        setCalendarOpen(false);
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {dueDate && (
+                  <TimePicker
+                    value={dueTime}
+                    onChange={setDueTime}
+                    className="shrink-0"
                   />
-                </PopoverContent>
-              </Popover>
+                )}
+              </div>
             </div>
 
             {!parentId && (

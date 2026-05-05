@@ -67,3 +67,8 @@ export type Webhook = Prisma.WebhookModel
  * 
  */
 export type WebhookDelivery = Prisma.WebhookDeliveryModel
+/**
+ * Model ScheduledJob
+ * 
+ */
+export type ScheduledJob = Prisma.ScheduledJobModel

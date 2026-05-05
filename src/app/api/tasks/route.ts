@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
 import { fireWebhookEvent, buildTaskContext, resolveTaskAreaId } from "@/lib/webhook-engine";
+import { createScheduledJob } from "@/lib/scheduler";
 
 // GET /api/tasks - List tasks with optional filters
 export async function GET(request: NextRequest) {
@@ -187,6 +188,26 @@ export async function POST(request: NextRequest) {
       ));
     } catch (webhookError) {
       console.error('[Webhook] Error in task create webhook:', webhookError);
+    }
+
+    // Create scheduled job for due date webhook
+    if (task.dueDate) {
+      try {
+        await createScheduledJob({
+          type: 'due_date_reached',
+          fireAt: task.dueDate,
+          entityId: task.id,
+          entityType: 'task',
+          ownerId: task.ownerId,
+          payload: {
+            title: task.title,
+            shortIdNum: task.shortIdNum,
+            projectId: task.projectId,
+          },
+        });
+      } catch (schedulerError) {
+        console.error('[Scheduler] Error creating scheduled job:', schedulerError);
+      }
     }
 
     return NextResponse.json(

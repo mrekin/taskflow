@@ -13,8 +13,9 @@ User
  │         ├── Note       (заметка)
  │         └── NoteFolder (папка заметок)
  ├── Tag           (тег — привязывается к Area, Project, Task, Note)
- └── Webhook       (вебхук)
-      └── WebhookDelivery (доставка вебхука)
+└── Webhook       (вебхук)
+     └── WebhookDelivery (доставка вебхука)
+└── ScheduledJob  (задание шедулера)
 ```
 
 ## Таблица сущностей
@@ -31,6 +32,7 @@ User
 | Тег | `Tag` | `src/app/api/tags/route.ts`<br>`src/app/api/tags/[id]/route.ts` | `src/components/tag-picker.tsx`<br>`src/components/tag-badges.tsx` | `src/store/app-store.ts`<br>`src/lib/api-utils.ts` |
 | Вебхук | `Webhook` | `src/app/api/webhooks/route.ts`<br>`src/app/api/webhooks/[id]/route.ts` | `src/components/webhooks-section.tsx` | `src/store/app-store.ts`<br>`src/lib/webhook-engine.ts` |
 | Доставка вебхука | `WebhookDelivery` | `src/app/api/webhooks/[id]/deliveries/route.ts` | `src/components/webhooks-section.tsx` | `src/store/app-store.ts`<br>`src/lib/webhook-engine.ts` |
+| Задание шедулера | `ScheduledJob` | — | — | `src/lib/scheduler.ts`<br>`src/instrumentation.ts` |
 
 ## Общие файлы
 
@@ -44,6 +46,8 @@ User
 | `src/lib/utils.ts` | Общие утилиты (shortId, форматирование) |
 | `src/lib/constants.ts` | Константы приложения |
 | `src/lib/webhook-engine.ts` | Движок отправки вебхуков (Task, Area, Project) |
+| `src/lib/scheduler.ts` | Фоновый шедулер (due date webhooks, etc.) |
+| `src/instrumentation.ts` | Точка входа шедулера (автозапуск при старте сервера) |
 | `src/components/app-shell.tsx` | Оболочка приложения, навигация между сущностями |
 | `src/components/home-content.tsx` | Главная страница, сводка по сущностям |
 | `src/components/quick-create.tsx` | Быстрое создание задач, заметок, проектов |

@@ -52,6 +52,8 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+# Copy full server dir (includes instrumentation.js + all chunks needed by scheduler)
+COPY --from=builder /app/.next/server ./.next/server
 
 # Copy Prisma files (schema + config + generated client)
 COPY --from=builder /app/prisma ./prisma

@@ -60,7 +60,8 @@ export const ModelName = {
   Comment: 'Comment',
   Tag: 'Tag',
   Webhook: 'Webhook',
-  WebhookDelivery: 'WebhookDelivery'
+  WebhookDelivery: 'WebhookDelivery',
+  ScheduledJob: 'ScheduledJob'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -240,6 +241,20 @@ export const WebhookDeliveryScalarFieldEnum = {
 } as const
 
 export type WebhookDeliveryScalarFieldEnum = (typeof WebhookDeliveryScalarFieldEnum)[keyof typeof WebhookDeliveryScalarFieldEnum]
+
+
+export const ScheduledJobScalarFieldEnum = {
+  id: 'id',
+  type: 'type',
+  fireAt: 'fireAt',
+  entityId: 'entityId',
+  entityType: 'entityType',
+  ownerId: 'ownerId',
+  payload: 'payload',
+  createdAt: 'createdAt'
+} as const
+
+export type ScheduledJobScalarFieldEnum = (typeof ScheduledJobScalarFieldEnum)[keyof typeof ScheduledJobScalarFieldEnum]
 
 
 export const SortOrder = {
