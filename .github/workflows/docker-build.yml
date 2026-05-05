@@ -20,7 +20,7 @@ on:
         type: string
 
 env:
-  REGISTRY: registry.mrekin.ru
+  REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
@@ -32,17 +32,17 @@ jobs:
       packages: write
 
     steps:
-      - name: Login to Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.ACTIONS_TOKEN }}
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract repository name (lowercase)
         id: repo
@@ -56,7 +56,7 @@ jobs:
           if [ "${{ github.event_name }}" = "push" ]; then
             if [ "${GITHUB_REF#refs/tags/}" != "${GITHUB_REF}" ]; then
               TAG="${GITHUB_REF#refs/tags/v}"
-              echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+              echo "tag=${{ steps.repo.outputs.image }}:${TAG}" >> "$GITHUB_OUTPUT"
               echo "base_path=" >> "$GITHUB_OUTPUT"
             else
               TAGS="${{ steps.repo.outputs.image }}:test"
@@ -72,7 +72,7 @@ jobs:
           else
             TAG="${{ inputs.tag }}"
             [ -z "$TAG" ] && TAG="latest"
-            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ steps.repo.outputs.image }}:${TAG}" >> "$GITHUB_OUTPUT"
             echo "base_path=${{ inputs.next_base_path }}" >> "$GITHUB_OUTPUT"
           fi
 
@@ -87,5 +87,5 @@ jobs:
           tags: ${{ steps.meta.outputs.tag }}
           build-args: |
             NEXT_BASE_PATH=${{ steps.meta.outputs.base_path }}
-          cache-from: type=registry,ref=${{ steps.repo.outputs.image }}:buildcache
-          cache-to: type=registry,ref=${{ steps.repo.outputs.image }}:buildcache,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
