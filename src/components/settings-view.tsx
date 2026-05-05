@@ -64,6 +64,7 @@ export function SettingsView() {
   const email = session?.user?.email || '';
   const displayName = session?.user?.name || '';
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || 'unknown';
+  const buildType = process.env.NEXT_PUBLIC_BUILD_TYPE || 'test';
 
   const handleExportData = () => {
     const data = {
@@ -395,7 +396,7 @@ export function SettingsView() {
               <Separator />
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Version</span>
-                <span className="text-sm font-medium font-mono">{appVersion}</span>
+                <span className="text-sm font-medium font-mono">{appVersion} - {buildType}</span>
               </div>
               <Separator />
               <div>

@@ -22,9 +22,11 @@ COPY . .
 # Generate Prisma client (must be AFTER copy so output isn't overwritten)
 RUN bun run db:generate
 
-# Build args for subpath support
+# Build args for subpath support and build type (test/dev/release)
 ARG NEXT_BASE_PATH=""
+ARG BUILD_TYPE=test
 ENV NEXT_BASE_PATH=$NEXT_BASE_PATH
+ENV BUILD_TYPE=${BUILD_TYPE}
 ENV NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
 ENV NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-me-in-production}
 ENV DATABASE_URL=${DATABASE_URL:-file:./db/taskflow.db}
@@ -36,7 +38,9 @@ RUN bun run build
 FROM node:22-alpine AS runner
 WORKDIR /app
 
+ARG BUILD_TYPE=test
 ENV NODE_ENV=production
+ENV BUILD_TYPE=${BUILD_TYPE}
 ENV NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
 ENV NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-me-in-production}
 ENV DATABASE_URL=${DATABASE_URL:-file:./db/taskflow.db}

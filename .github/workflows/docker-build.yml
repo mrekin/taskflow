@@ -13,11 +13,15 @@ on:
         required: false
         default: ''
         type: string
-      tag:
-        description: 'Docker image tag (default: latest)'
+      build_type:
+        description: 'Build type (test/dev/release)'
         required: false
-        default: latest
-        type: string
+        default: test
+        type: choice
+        options:
+          - test
+          - dev
+          - release
 
 env:
   REGISTRY: ghcr.io
@@ -53,28 +57,45 @@ jobs:
       - name: Determine image tag
         id: meta
         run: |
+          VERSION=$(grep '"version"' package.json | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
+          VERSION="${VERSION#v}"
           if [ "${{ github.event_name }}" = "push" ]; then
             if [ "${GITHUB_REF#refs/tags/}" != "${GITHUB_REF}" ]; then
+              BUILD_TYPE=release
               TAG="${GITHUB_REF#refs/tags/v}"
-              echo "tag=${{ steps.repo.outputs.image }}:${TAG}" >> "$GITHUB_OUTPUT"
-              echo "base_path=" >> "$GITHUB_OUTPUT"
+              TAGS="${{ steps.repo.outputs.image }}:${TAG}"$'\n'"${{ steps.repo.outputs.image }}:latest"
+              BASE_PATH=""
             else
-              TAGS="${{ steps.repo.outputs.image }}:test"
               if git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep -q "package.json"; then
-                VERSION=$(grep '"version"' package.json | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
-                TAGS="${TAGS}"$'\n'"${{ steps.repo.outputs.image }}:${VERSION}-dev"
+                if git diff ${{ github.event.before }} ${{ github.event.after }} package.json | grep -q '"version"'; then
+                  BUILD_TYPE=dev
+                  TAGS="${{ steps.repo.outputs.image }}:${VERSION}-dev"
+                else
+                  BUILD_TYPE=test
+                  TAGS="${{ steps.repo.outputs.image }}:test"
+                fi
+              else
+                BUILD_TYPE=test
+                TAGS="${{ steps.repo.outputs.image }}:test"
               fi
-              echo "tag<<EOF" >> "$GITHUB_OUTPUT"
-              echo "${TAGS}" >> "$GITHUB_OUTPUT"
-              echo "EOF" >> "$GITHUB_OUTPUT"
-              echo "base_path=/taskflow" >> "$GITHUB_OUTPUT"
+              BASE_PATH="/taskflow"
             fi
           else
-            TAG="${{ inputs.tag }}"
-            [ -z "$TAG" ] && TAG="latest"
-            echo "tag=${{ steps.repo.outputs.image }}:${TAG}" >> "$GITHUB_OUTPUT"
-            echo "base_path=${{ inputs.next_base_path }}" >> "$GITHUB_OUTPUT"
+            BUILD_TYPE="${{ inputs.build_type }}"
+            if [ "$BUILD_TYPE" = "release" ]; then
+              TAGS="${{ steps.repo.outputs.image }}:${VERSION}"$'\n'"${{ steps.repo.outputs.image }}:latest"
+            elif [ "$BUILD_TYPE" = "dev" ]; then
+              TAGS="${{ steps.repo.outputs.image }}:${VERSION}-dev"
+            else
+              TAGS="${{ steps.repo.outputs.image }}:test"
+            fi
+            BASE_PATH="${{ inputs.next_base_path }}"
           fi
+          echo "tag<<EOF" >> "$GITHUB_OUTPUT"
+          echo "${TAGS}" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "base_path=${BASE_PATH}" >> "$GITHUB_OUTPUT"
+          echo "build_type=${BUILD_TYPE}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -87,5 +108,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tag }}
           build-args: |
             NEXT_BASE_PATH=${{ steps.meta.outputs.base_path }}
+            BUILD_TYPE=${{ steps.meta.outputs.build_type }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
