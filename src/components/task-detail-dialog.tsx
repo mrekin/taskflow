@@ -51,7 +51,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAppStore } from '@/store/app-store';
 import {
   TASK_PRIORITIES,
@@ -219,7 +218,7 @@ export function TaskDetailDialog() {
   return (
     <>
       <Sheet open={!!selectedTaskId} onOpenChange={(open) => !open && selectTask(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-lg p-0">
+        <SheetContent side="right" className="w-full sm:max-w-2xl p-0">
           {task && (
             <div className="flex flex-col h-full">
               {/* Header */}
@@ -277,7 +276,7 @@ export function TaskDetailDialog() {
               </SheetHeader>
 
               {/* Content */}
-              <ScrollArea className="flex-1">
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar">
                 <div className="p-6 pt-0 space-y-5">
                   {/* Parent task link */}
                   {task.parentId && parentTask && (
@@ -736,7 +735,7 @@ export function TaskDetailDialog() {
                     </>
                   )}
                 </div>
-              </ScrollArea>
+              </div>
             </div>
           )}
         </SheetContent>

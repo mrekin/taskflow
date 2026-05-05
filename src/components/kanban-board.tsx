@@ -29,7 +29,6 @@ import {
 } from '@/components/ui/select';
 import { TaskCard } from '@/components/task-card';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
-import { TaskDetailDialog } from '@/components/task-detail-dialog';
 import { useAppStore } from '@/store/app-store';
 import { INVALID_STATE_COLUMN, TASK_PRIORITIES, type StatusConfig } from '@/lib/constants';
 import type { Task } from '@/lib/types';
@@ -445,7 +444,6 @@ export function KanbanBoard() {
         onOpenChange={setCreateDialogOpen}
         defaultStatus={defaultStatus}
       />
-      <TaskDetailDialog />
     </div>
   );
 }

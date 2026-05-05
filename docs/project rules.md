@@ -1,6 +1,6 @@
-* We use `docker compose up --build` command to build and test app. For small fixed don't need to build/test.
+* We use  `docker compose up --build` command to build and test app in docker. For small fixed don't need to build/test docker.
 
-* URGENT! Build docker every time after development complete
+* URGENT! Build docker after development complete if user asks
 
 * We use  headless chromium engine for browser MCP
 

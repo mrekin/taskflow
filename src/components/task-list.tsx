@@ -22,7 +22,6 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
-import { TaskDetailDialog } from '@/components/task-detail-dialog';
 import { TagBadges } from '@/components/tag-badges';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { useAppStore } from '@/store/app-store';
@@ -594,7 +593,6 @@ export function TaskList() {
       </div>
 
       <CreateTaskDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
-      <TaskDetailDialog />
     </div>
   );
 }

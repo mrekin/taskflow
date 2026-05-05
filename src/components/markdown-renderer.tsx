@@ -137,7 +137,7 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
             }
 
             return (
-              <div className="rounded-lg overflow-hidden my-2">
+              <div className="rounded-lg overflow-hidden my-2 max-w-full">
                 <SyntaxHighlighter
                   style={oneDark}
                   language={match[1]}
@@ -146,6 +146,8 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
                     margin: 0,
                     borderRadius: '0.5rem',
                     fontSize: compact ? '0.7rem' : '0.8125rem',
+                    maxWidth: '100%',
+                    overflowX: 'auto',
                   }}
                 >
                   {String(children).replace(/\n$/, '')}
