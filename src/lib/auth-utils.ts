@@ -31,7 +31,10 @@ export async function getCurrentUserId(): Promise<string | null> {
     // Session check failed
   }
 
-  if (process.env.DEMO_MODE === 'true') {
+  const noAuthMode = process.env.NOAUTH_MODE === 'true';
+  const demoMode = process.env.DEMO_MODE === 'true';
+
+  if (noAuthMode || demoMode) {
     if (!cachedDemoUserId) {
       cachedDemoUserId = await ensureDemoUser();
     }

@@ -8,7 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { LogIn, AlertTriangle } from 'lucide-react';
 
-type Config = { demoMode: boolean; hasOidc: boolean };
+type Config = {
+  noAuthMode: boolean;
+  hasOidc: boolean;
+  demoMode: boolean;
+  configError: string | null;
+};
 
 export default function LoginPage() {
   const { data: session, status } = useSession();
@@ -20,7 +25,7 @@ export default function LoginPage() {
     fetch(`${basePath}/api/config`)
       .then(r => r.json())
       .then(setConfig)
-      .catch(() => setConfig({ demoMode: false, hasOidc: false }));
+      .catch(() => setConfig({ noAuthMode: false, hasOidc: false, demoMode: false, configError: null }));
   }, [basePath]);
 
   useEffect(() => {
@@ -49,7 +54,43 @@ export default function LoginPage() {
 
   if (session) return null;
 
-  const hasAnyAuth = config.demoMode || config.hasOidc;
+  if (config.configError) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center space-y-4 pb-2">
+            <div className="flex justify-center">
+              <Image
+                src={`${basePath}/logo.png`}
+                alt="TaskFlow"
+                width={48}
+                height={48}
+                className="h-12 w-12 rounded-xl object-cover"
+                unoptimized
+              />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">TaskFlow</h1>
+              <p className="text-sm text-destructive mt-1">Configuration Error</p>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="size-5 text-destructive shrink-0 mt-0.5" />
+                <div className="space-y-2 text-sm">
+                  <p className="font-medium">Invalid configuration</p>
+                  <p className="text-muted-foreground">{config.configError}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const hasAnyAuth = config.noAuthMode || config.hasOidc || config.demoMode;
 
   return (
     <div className="flex h-screen items-center justify-center bg-background p-4">
@@ -81,7 +122,7 @@ export default function LoginPage() {
               Sign in with SSO
             </Button>
           )}
-          {config.demoMode && (
+          {config.noAuthMode && (
             <Button
               variant={config.hasOidc ? 'outline' : 'default'}
               className="w-full"
@@ -102,9 +143,11 @@ export default function LoginPage() {
                 </div>
               </div>
               <div className="text-xs font-mono bg-muted/50 rounded p-3 space-y-1.5">
-                <p className="text-muted-foreground"># Option 1: Enable demo mode</p>
+                <p className="text-muted-foreground"># Option 1: Enable no-auth mode</p>
+                <p>NOAUTH_MODE=true</p>
+                <p className="text-muted-foreground pt-1"># Option 2: Enable demo mode (auto-resets DB)</p>
                 <p>DEMO_MODE=true</p>
-                <p className="text-muted-foreground pt-1"># Option 2: Configure OIDC (e.g. Authentik)</p>
+                <p className="text-muted-foreground pt-1"># Option 3: Configure OIDC (e.g. Authentik)</p>
                 <p>OIDC_ISSUER=https://auth.example.com</p>
                 <p>OIDC_CLIENT_ID=your-client-id</p>
                 <p>OIDC_CLIENT_SECRET=your-secret</p>

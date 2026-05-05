@@ -2,5 +2,8 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     const { startScheduler } = await import('@/lib/scheduler');
     startScheduler();
+
+    const { startDemoReset } = await import('@/lib/demo-reset');
+    startDemoReset();
   }
 }

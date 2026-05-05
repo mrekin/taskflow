@@ -25,18 +25,26 @@ export default function Page() {
         }
         return r.json();
       })
-      .then((config: { demoMode: boolean; hasOidc: boolean }) => {
-        const isDemoSession = session?.user?.email === DEMO_EMAIL;
+      .then((config: { noAuthMode: boolean; hasOidc: boolean; demoMode: boolean; configError: string | null; demoUserEmail?: string }) => {
+        if (config.configError) {
+          setInitError(config.configError);
+          return;
+        }
 
-        if (isDemoSession && !config.demoMode) {
+        const demoEmail = config.demoUserEmail || DEMO_EMAIL;
+        const isDemoSession = session?.user?.email === demoEmail;
+
+        if (isDemoSession && !config.noAuthMode && !config.demoMode) {
           signOut({ redirect: false });
           return;
         }
 
         if (session) return;
 
-        if (config.demoMode) {
+        if (config.noAuthMode) {
           signIn('credentials', { email: DEMO_EMAIL, redirect: false });
+        } else if (config.demoMode) {
+          signIn('credentials', { email: demoEmail, redirect: false });
         } else {
           router.replace('/login');
         }

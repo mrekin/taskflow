@@ -10,7 +10,7 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     environment:
-      - DEMO_MODE=${DEMO_MODE:-true}
+      - NOAUTH_MODE=${NOAUTH_MODE:-true}
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL:-file:/app/db/taskflow.db}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
