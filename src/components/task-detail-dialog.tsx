@@ -222,7 +222,7 @@ export function TaskDetailDialog() {
           {task && (
             <div className="flex flex-col h-full">
               {/* Header */}
-              <SheetHeader className="p-6 pb-4">
+              <SheetHeader className="p-6 pb-4 pr-12">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
                     {task.parentId && (
@@ -319,7 +319,7 @@ export function TaskDetailDialog() {
                         value={description}
                         onChange={(val) => setDescription(val)}
                         placeholder="Add a description... (Markdown supported)"
-                        rows={6}
+                        rows={isEditing ? 18 : 6}
                         className="font-mono text-sm w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       />
                     ) : (
@@ -335,9 +335,9 @@ export function TaskDetailDialog() {
 
                   <Separator />
 
-                  {/* Status + Priority */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                  {/* Status + Priority + Due Date */}
+                  <div className={isEditing ? "grid grid-cols-3 gap-3" : "grid grid-cols-2 gap-4"}>
+                    <div className="space-y-1.5">
                       <Label className="text-muted-foreground text-xs uppercase tracking-wider">
                         Status
                       </Label>
@@ -378,7 +378,7 @@ export function TaskDetailDialog() {
                         </Badge>
                       )}
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <Label className="text-muted-foreground text-xs uppercase tracking-wider">
                         Priority
                       </Label>
@@ -405,100 +405,86 @@ export function TaskDetailDialog() {
                         </div>
                       )}
                     </div>
-                  </div>
-
-                  {/* Due Date */}
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">
-                      Due Date
-                    </Label>
-                    {isEditing ? (
-                      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'w-full justify-start text-left font-normal',
-                              !dueDate && 'text-muted-foreground',
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 size-4" />
-                            {dueDate ? format(dueDate, 'PPP') : 'Pick a date'}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={dueDate}
-                            onSelect={(date) => {
-                              setDueDate(date);
-                              setCalendarOpen(false);
-                            }}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <CalendarIcon className="size-4 text-muted-foreground" />
-                        {task.dueDate ? (
-                          <span
-                            className={cn(
-                              'text-sm',
-                              isOverdue && 'text-red-600 font-medium',
-                            )}
-                          >
-                            {format(parseISO(task.dueDate), 'PPP')}
-                            {isOverdue && ' (Overdue)'}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">No due date</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Project - only editable for top-level tasks */}
-                  {!task.parentId && (
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">
-                      Project
-                    </Label>
-                    {isEditing ? (
-                      <Select
-                        value={projectId ?? 'none'}
-                        onValueChange={(v) => setProjectId(v === 'none' ? null : v)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select project" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No project</SelectItem>
-                          {projects.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : project ? (
-                      <div className="flex items-center gap-2">
-                        <FolderOpen className="size-4 text-muted-foreground" />
-                        <span className="text-sm">{project.name}</span>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">No project</span>
-                    )}
-                  </div>
-                  )}
-
-                  {/* Tags */}
-                  <>
-                    <Separator />
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <Label className="text-muted-foreground text-xs uppercase tracking-wider">
-                        Tags
+                        Due Date
                       </Label>
                       {isEditing ? (
+                        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                'w-full justify-start text-left font-normal',
+                                !dueDate && 'text-muted-foreground',
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 size-4" />
+                              {dueDate ? format(dueDate, 'PPP') : 'Pick a date'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={dueDate}
+                              onSelect={(date) => {
+                                setDueDate(date);
+                                setCalendarOpen(false);
+                              }}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <CalendarIcon className="size-4 text-muted-foreground" />
+                          {task.dueDate ? (
+                            <span
+                              className={cn(
+                                'text-sm',
+                                isOverdue && 'text-red-600 font-medium',
+                              )}
+                            >
+                              {format(parseISO(task.dueDate), 'PPP')}
+                              {isOverdue && ' (Overdue)'}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">No due date</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Project + Tags row */}
+                  {isEditing ? (
+                    <div className={task.parentId ? "grid grid-cols-1 gap-3" : "grid grid-cols-[1fr_2fr] gap-3"}>
+                      {!task.parentId && (
+                        <div className="space-y-1.5">
+                          <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                            Project
+                          </Label>
+                          <Select
+                            value={projectId ?? 'none'}
+                            onValueChange={(v) => setProjectId(v === 'none' ? null : v)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select project" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No project</SelectItem>
+                              {projects.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      <div className="space-y-1.5">
+                        <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                          Tags
+                        </Label>
                         <TagPicker
                           selectedTagIds={localTagIds}
                           onTagIdsChange={(tagIds) => {
@@ -506,11 +492,40 @@ export function TaskDetailDialog() {
                             updateTask(task.id, { tagIds });
                           }}
                         />
-                      ) : (
-                        <TagBadges tagIds={localTagIds} max={10} />
-                      )}
+                      </div>
                     </div>
-                  </>
+                  ) : (
+                    <>
+                      {!task.parentId && (
+                        <div className="space-y-1.5">
+                          <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                            Project
+                          </Label>
+                          {project ? (
+                            <div className="flex items-center gap-2">
+                              <FolderOpen className="size-4 text-muted-foreground" />
+                              <span className="text-sm">{project.name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">No project</span>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Tags - view mode only */}
+                  {!isEditing && (
+                    <>
+                      <Separator />
+                      <div className="space-y-2">
+                        <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                          Tags
+                        </Label>
+                        <TagBadges tagIds={localTagIds} max={10} />
+                      </div>
+                    </>
+                  )}
 
                   {/* Subtasks - only show for top-level tasks */}
                   {!task.parentId && (
