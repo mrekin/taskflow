@@ -1,0 +1,91 @@
+name: Build Docker Image
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      next_base_path:
+        description: 'NEXT_BASE_PATH (e.g. /taskflow — leave empty for root)'
+        required: false
+        default: ''
+        type: string
+      tag:
+        description: 'Docker image tag (default: latest)'
+        required: false
+        default: latest
+        type: string
+
+env:
+  REGISTRY: registry.mrekin.ru
+  IMAGE_NAME: ${{ gitea.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    permissions:
+       contents: read
+       packages: write
+
+    steps:
+      - name: Login to Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ gitea.actor }}
+          password: ${{ secrets.ACTIONS_TOKEN }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract repository name (lowercase)
+        id: repo
+        run: |
+          REPO_LOWER=$(echo "${{ gitea.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "image=${{ env.REGISTRY }}/${REPO_LOWER}" >> "$GITHUB_OUTPUT"
+
+      - name: Determine image tag
+        id: meta
+        run: |
+          if [ "${{ gitea.event_name }}" = "push" ]; then
+            if [ "${GITEA_REF#refs/tags/}" != "${GITEA_REF}" ]; then
+              TAG="${GITEA_REF#refs/tags/v}"
+              echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+              echo "base_path=" >> "$GITHUB_OUTPUT"
+            else
+              TAGS="${{ steps.repo.outputs.image }}:test"
+              if git diff --name-only ${{ gitea.event.before }} ${{ gitea.event.after }} | grep -q "package.json"; then
+                VERSION=$(grep '"version"' package.json | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
+                TAGS="${TAGS}"$'\n'"${{ steps.repo.outputs.image }}:${VERSION}-dev"
+              fi
+              echo "tag<<EOF" >> "$GITHUB_OUTPUT"
+              echo "${TAGS}" >> "$GITHUB_OUTPUT"
+              echo "EOF" >> "$GITHUB_OUTPUT"
+              echo "base_path=/taskflow" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            TAG="${{ inputs.tag }}"
+            [ -z "$TAG" ] && TAG="latest"
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "base_path=${{ inputs.next_base_path }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tag }}
+          build-args: |
+            NEXT_BASE_PATH=${{ steps.meta.outputs.base_path }}
+          cache-from: type=registry,ref=${{ steps.repo.outputs.image }}:buildcache
+          cache-to: type=registry,ref=${{ steps.repo.outputs.image }}:buildcache,mode=max

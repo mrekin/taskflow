@@ -164,22 +164,33 @@ model Tag {
 }
 
 model Webhook {
-  id          String   @id @default(cuid())
-  name        String
-  url         String
-  method      String   @default("POST")
-  events      String   @default("[]")
-  scopeType   String?
-  scopeId     String?
-  headers     String   @default("{}")
+  id           String   @id @default(cuid())
+  name         String
+  url          String
+  method       String   @default("POST")
+  headers      String   @default("{}")
   bodyTemplate String?
-  active      Boolean  @default(true)
-  ownerId     String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  active       Boolean  @default(true)
+  ownerId      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  owner    User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner      User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   deliveries WebhookDelivery[]
+  triggers   WebhookTrigger[]
+}
+
+model WebhookTrigger {
+  id        String   @id @default(cuid())
+  webhookId String
+  events    String   @default("[]")
+  scopeType String?
+  scopeId   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
 }
 
 model WebhookDelivery {

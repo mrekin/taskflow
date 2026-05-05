@@ -1,11 +1,9 @@
-// Webhook trigger engine
-// Fires webhooks when events occur (status change, due date reached, etc.)
-
 import { db } from '@/lib/db';
 import { formatShortId, type EntityType } from './utils';
 
 export type WebhookEvent =
   | 'task.status_changed'
+  | 'task.priority_changed'
   | 'task.due_date_reached'
   | 'task.created'
   | 'project.status_changed'
@@ -23,27 +21,26 @@ export interface WebhookContext {
   ownerId: string;
 }
 
+interface TriggerRecord {
+  id: string;
+  webhookId: string;
+  events: string;
+  scopeType: string | null;
+  scopeId: string | null;
+  active: boolean;
+}
+
 interface WebhookRecord {
   id: string;
   url: string;
   method: string;
-  events: string;
-  scopeType: string | null;
-  scopeId: string | null;
   headers: string;
   bodyTemplate: string | null;
   active: boolean;
   ownerId: string;
+  triggers: TriggerRecord[];
 }
 
-/**
- * Replace placeholders in a template string with context values.
- * Supported placeholders:
- *   {taskId} / {projectId} / {entityId}  → entity shortId (e.g., T-7, P-3)
- *   {title} / {entityTitle}              → entity title
- *   {event}                              → event name (e.g., task.status_changed)
- *   {status}                             → new status value (if available in changes)
- */
 export function replacePlaceholders(template: string, ctx: WebhookContext): string {
   const newStatus = ctx.changes?.status?.to;
   return template
@@ -56,72 +53,56 @@ export function replacePlaceholders(template: string, ctx: WebhookContext): stri
     .replace(/\{status\}/g, typeof newStatus === 'string' ? newStatus : '');
 }
 
-/**
- * Find matching webhooks for a given event and context.
- * A webhook matches if:
- * 1. It's active
- * 2. It belongs to the same owner
- * 3. Its events list includes the triggered event
- * 4. Its scope matches:
- *    - No scope (global) → always matches
- *    - scopeType='task' + scopeId=entityId → matches this specific task
- *    - scopeType='project' + scopeId=projectId → matches tasks in this project
- *    - scopeType='area' + scopeId=areaId → matches tasks/projects in this area
- */
-function webhookMatchesScope(webhook: WebhookRecord, ctx: WebhookContext): boolean {
-  // No scope = global webhook, matches everything
-  if (!webhook.scopeType || !webhook.scopeId) return true;
+function triggerMatchesScope(trigger: TriggerRecord, ctx: WebhookContext): boolean {
+  if (!trigger.scopeType || !trigger.scopeId) return true;
 
-  // Direct entity match
-  if (webhook.scopeType === ctx.entityType && webhook.scopeId === ctx.entityId) return true;
+  if (trigger.scopeType === ctx.entityType && trigger.scopeId === ctx.entityId) return true;
 
-  // Project scope: matches if entity is a task in this project
-  if (webhook.scopeType === 'project' && ctx.entityType === 'task' && ctx.projectId === webhook.scopeId) return true;
+  if (trigger.scopeType === 'project' && ctx.entityType === 'task' && ctx.projectId === trigger.scopeId) return true;
 
-  // Project scope: matches if entity IS this project
-  if (webhook.scopeType === 'project' && ctx.entityType === 'project' && ctx.entityId === webhook.scopeId) return true;
+  if (trigger.scopeType === 'project' && ctx.entityType === 'project' && ctx.entityId === trigger.scopeId) return true;
 
-  // Area scope: matches if entity's project is in this area, or if entity's area is this area
-  if (webhook.scopeType === 'area' && ctx.areaId === webhook.scopeId) return true;
+  if (trigger.scopeType === 'area' && ctx.areaId === trigger.scopeId) return true;
 
   return false;
 }
 
-/**
- * Fire a webhook event. Finds all matching webhooks and dispatches them.
- * This is non-blocking — errors are logged but don't affect the caller.
- */
 export async function fireWebhookEvent(ctx: WebhookContext): Promise<void> {
   try {
-    // Find all active webhooks for this owner
     const webhooks = await db.webhook.findMany({
       where: {
         ownerId: ctx.ownerId,
         active: true,
       },
+      include: {
+        triggers: {
+          where: { active: true },
+        },
+      },
     });
 
-    const matchingWebhooks = webhooks.filter((wh) => {
-      // Check event match
-      const events: string[] = JSON.parse(wh.events || '[]');
-      if (!events.includes(ctx.event)) return false;
+    const matchingWebhooks: WebhookRecord[] = [];
 
-      // Check scope match
-      return webhookMatchesScope(wh as unknown as WebhookRecord, ctx);
-    });
+    for (const webhook of webhooks) {
+      const hasMatch = webhook.triggers.some((trigger) => {
+        const events: string[] = JSON.parse(trigger.events || '[]');
+        if (!events.includes(ctx.event)) return false;
+        return triggerMatchesScope(trigger as unknown as TriggerRecord, ctx);
+      });
 
-    // Fire all matching webhooks in parallel (non-blocking)
+      if (hasMatch) {
+        matchingWebhooks.push(webhook as unknown as WebhookRecord);
+      }
+    }
+
     await Promise.allSettled(
-      matchingWebhooks.map((webhook) => dispatchWebhook(webhook as unknown as WebhookRecord, ctx))
+      matchingWebhooks.map((webhook) => dispatchWebhook(webhook, ctx))
     );
   } catch (error) {
     console.error('[Webhook] Error firing webhook event:', error);
   }
 }
 
-/**
- * Dispatch a single webhook: make the HTTP request and log the delivery.
- */
 export async function dispatchWebhook(webhook: WebhookRecord, ctx: WebhookContext): Promise<{ success: boolean; statusCode: number | null; response: string | null; elapsed: number }> {
   const rawUrl = replacePlaceholders(webhook.url, ctx);
   const url = encodeURI(rawUrl);
@@ -140,10 +121,9 @@ export async function dispatchWebhook(webhook: WebhookRecord, ctx: WebhookContex
         'Content-Type': 'application/json',
         ...headers,
       },
-      signal: AbortSignal.timeout(10000), // 10s timeout
+      signal: AbortSignal.timeout(10000),
     };
 
-    // For POST requests, include a JSON body
     if (method === 'POST') {
       const bodyData: Record<string, unknown> = {
         event: ctx.event,
@@ -153,22 +133,18 @@ export async function dispatchWebhook(webhook: WebhookRecord, ctx: WebhookContex
         timestamp: new Date().toISOString(),
       };
 
-      // Include changes if available
       if (ctx.changes) {
         bodyData.changes = ctx.changes;
       }
 
-      // If custom body template is provided, use it
       if (webhook.bodyTemplate) {
         const customBody = replacePlaceholders(webhook.bodyTemplate, ctx);
         try {
-          // Try to parse as JSON first
           fetchOptions.body = JSON.stringify({
             ...JSON.parse(customBody),
             ...bodyData,
           });
         } catch {
-          // If not valid JSON, send as plain text in a wrapper
           fetchOptions.body = JSON.stringify({
             ...bodyData,
             customBody,
@@ -194,7 +170,6 @@ export async function dispatchWebhook(webhook: WebhookRecord, ctx: WebhookContex
     console.error(`[Webhook] ${method} ${url} → ERROR: ${errMsg} (${elapsed}ms)`);
   }
 
-  // Log the delivery
   try {
     await db.webhookDelivery.create({
       data: {
@@ -220,10 +195,6 @@ export async function dispatchWebhook(webhook: WebhookRecord, ctx: WebhookContex
   return { success, statusCode, response: responseBody, elapsed: Date.now() - startTime };
 }
 
-/**
- * Resolve the areaId for a task by looking up its project.
- * Used when building webhook context for task events.
- */
 export async function resolveTaskAreaId(projectId: string | null | undefined): Promise<string | null> {
   if (!projectId) return null;
   try {
@@ -237,16 +208,10 @@ export async function resolveTaskAreaId(projectId: string | null | undefined): P
   }
 }
 
-/**
- * Resolve the areaId for a project (direct relation).
- */
 export function resolveProjectAreaId(areaId: string | null | undefined): string | null {
   return areaId ?? null;
 }
 
-/**
- * Build a webhook context from a task record.
- */
 export function buildTaskContext(
   task: { id: string; title: string; shortIdNum: number; projectId: string | null; ownerId: string },
   event: WebhookEvent,
@@ -266,9 +231,6 @@ export function buildTaskContext(
   };
 }
 
-/**
- * Build a webhook context from a project record.
- */
 export function buildProjectContext(
   project: { id: string; title?: string; name: string; shortIdNum: number; areaId: string | null; ownerId: string },
   event: WebhookEvent,
@@ -287,9 +249,6 @@ export function buildProjectContext(
   };
 }
 
-/**
- * Compute changes between old and new values for specific fields.
- */
 export function computeChanges(
   oldRecord: Record<string, unknown>,
   newRecord: Record<string, unknown>,

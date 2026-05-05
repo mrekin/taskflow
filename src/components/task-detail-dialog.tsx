@@ -14,6 +14,8 @@ import {
   Check,
   X,
   ChevronRight,
+  Webhook as WebhookIcon,
+  ChevronDown,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -53,6 +55,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAppStore } from '@/store/app-store';
+import type { WebhookTrigger } from '@/lib/types';
 import {
   TASK_PRIORITIES,
   PRIORITY_LABELS,
@@ -66,6 +69,7 @@ import { TagPicker } from '@/components/tag-picker';
 import { TagBadges } from '@/components/tag-badges';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { EntityIdBadge } from '@/components/entity-id-badge';
+import { toast } from 'sonner';
 
 export function TaskDetailDialog() {
   const {
@@ -77,6 +81,11 @@ export function TaskDetailDialog() {
     deleteTask,
     fetchTasks,
     statuses,
+    webhooks,
+    fetchWebhooks,
+    createWebhookTrigger,
+    updateWebhookTrigger,
+    deleteWebhookTrigger,
   } = useAppStore();
 
   const task = tasks.find((t) => t.id === selectedTaskId);
@@ -99,6 +108,14 @@ export function TaskDetailDialog() {
   const [editingSubtaskTitle, setEditingSubtaskTitle] = useState('');
   const [localTagIds, setLocalTagIds] = useState<string[]>([]);
 
+  const [webhookBindings, setWebhookBindings] = useState<
+    { webhookId: string; events: string[] }[]
+  >([]);
+  const [webhooksExpanded, setWebhooksExpanded] = useState(false);
+  const [taskTriggers, setTaskTriggers] = useState<
+    (WebhookTrigger & { webhookName?: string; webhookUrl?: string; webhookMethod?: string; webhookActive?: boolean })[]
+  >([]);
+
   // Sync local state when task changes
   useEffect(() => {
     if (task) {
@@ -111,8 +128,30 @@ export function TaskDetailDialog() {
       setLocalTagIds(task.tagIds || []);
       setIsEditing(false);
       setEditingSubtaskId(null);
+      setWebhookBindings([]);
+      setWebhooksExpanded(false);
     }
-  }, [task?.id]); // Only re-sync when task ID changes, not on every task object update
+  }, [task?.id]);
+
+  useEffect(() => {
+    if (task) {
+      fetchWebhooks();
+    }
+  }, [task?.id, fetchWebhooks]);
+
+  useEffect(() => {
+    if (task) {
+      const triggers: (WebhookTrigger & { webhookName?: string; webhookUrl?: string; webhookMethod?: string; webhookActive?: boolean })[] = [];
+      for (const w of webhooks) {
+        for (const t of w.triggers ?? []) {
+          if (t.scopeType === 'task' && t.scopeId === task.id) {
+            triggers.push({ ...t, webhookName: w.name, webhookUrl: w.url, webhookMethod: w.method, webhookActive: w.active });
+          }
+        }
+      }
+      setTaskTriggers(triggers);
+    }
+  }, [task?.id, webhooks]);
 
   const handleSave = async () => {
     if (!task || !title.trim()) return;
@@ -135,6 +174,86 @@ export function TaskDetailDialog() {
       setIsEditing(false);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const TASK_WEBHOOK_EVENTS = [
+    { value: 'task.status_changed', label: 'Status Changed' },
+    { value: 'task.priority_changed', label: 'Priority Changed' },
+    { value: 'task.due_date_reached', label: 'Due Date Reached' },
+    { value: 'task.created', label: 'Task Created' },
+  ] as const;
+
+  const addWebhookBinding = () => {
+    if (webhooks.length === 0) return;
+    setWebhookBindings((prev) => [
+      ...prev,
+      { webhookId: webhooks[0].id, events: ['task.status_changed'] },
+    ]);
+  };
+
+  const removeWebhookBinding = (index: number) => {
+    setWebhookBindings((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateBindingWebhook = (index: number, webhookId: string) => {
+    setWebhookBindings((prev) =>
+      prev.map((b, i) => (i === index ? { ...b, webhookId } : b)),
+    );
+  };
+
+  const toggleBindingEvent = (index: number, eventValue: string) => {
+    setWebhookBindings((prev) =>
+      prev.map((b, i) => {
+        if (i !== index) return b;
+        const events = b.events.includes(eventValue)
+          ? b.events.filter((e) => e !== eventValue)
+          : [...b.events, eventValue];
+        return { ...b, events };
+      }),
+    );
+  };
+
+  const handleAddWebhookBindings = async () => {
+    if (!task || webhookBindings.length === 0) return;
+    for (const binding of webhookBindings) {
+      try {
+        await createWebhookTrigger({
+          webhookId: binding.webhookId,
+          events: binding.events,
+          scopeType: 'task',
+          scopeId: task.id,
+        });
+      } catch {
+        const sourceWebhook = webhooks.find((w) => w.id === binding.webhookId);
+        toast.error(`Failed to create trigger for "${sourceWebhook?.name ?? 'webhook'}"`);
+      }
+    }
+    setWebhookBindings([]);
+    await fetchWebhooks();
+  };
+
+  const handleRemoveTaskTrigger = async (triggerId: string) => {
+    try {
+      await deleteWebhookTrigger(triggerId);
+      toast.success('Trigger removed');
+    } catch {
+      toast.error('Failed to remove trigger');
+    }
+  };
+
+  const handleToggleTriggerEvent = async (triggerId: string, eventValue: string, currentEvents: string[]) => {
+    const newEvents = currentEvents.includes(eventValue)
+      ? currentEvents.filter((e) => e !== eventValue)
+      : [...currentEvents, eventValue];
+    if (newEvents.length === 0) {
+      toast.error('Trigger must have at least one event');
+      return;
+    }
+    try {
+      await updateWebhookTrigger(triggerId, { events: newEvents });
+    } catch {
+      toast.error('Failed to update trigger');
     }
   };
 
@@ -749,6 +868,265 @@ export function TaskDetailDialog() {
                       </div>
                     </>
                   )}
+
+                  {/* Webhooks */}
+                  <>
+                    <Separator />
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => setWebhooksExpanded(!webhooksExpanded)}
+                      >
+                        {webhooksExpanded ? (
+                          <ChevronDown className="size-3.5" />
+                        ) : (
+                          <ChevronRight className="size-3.5" />
+                        )}
+                        <WebhookIcon className="size-3.5" />
+                        <span className="uppercase tracking-wider font-medium">
+                          Webhooks
+                        </span>
+                        {taskTriggers.length > 0 && (
+                          <span className="ml-1 rounded-full bg-primary/10 text-primary px-1.5 py-0.5 text-[10px]">
+                            {taskTriggers.length}
+                          </span>
+                        )}
+                      </button>
+
+                      {webhooksExpanded && !isEditing && (
+                        <div className="space-y-1.5 pl-1">
+                          {taskTriggers.length === 0 ? (
+                            <p className="text-[11px] text-muted-foreground text-center py-1">
+                              No webhooks for this task
+                            </p>
+                          ) : (
+                            taskTriggers.map((trigger) => (
+                              <div
+                                key={trigger.id}
+                                className="rounded-lg border p-2 space-y-1 overflow-hidden min-w-0"
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-medium truncate">
+                                    {trigger.webhookName}
+                                  </span>
+                                  <span className="font-mono text-[10px] text-muted-foreground shrink-0">
+                                    {trigger.webhookMethod}
+                                  </span>
+                                  <Badge variant={trigger.webhookActive !== false ? 'default' : 'outline'} className="text-[10px] h-4 px-1">
+                                    {trigger.webhookActive !== false ? 'Active' : 'Disabled'}
+                                  </Badge>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground font-mono break-all leading-tight">
+                                  {trigger.webhookUrl}
+                                </p>
+                                <div className="flex flex-wrap gap-1">
+                                  {trigger.events.map((ev) => (
+                                    <span
+                                      key={ev}
+                                      className="inline-flex rounded px-1.5 py-0.5 text-[10px] border border-primary/30 bg-primary/5"
+                                    >
+                                      {ev.replace('task.', '').replace(/_/g, ' ')}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+
+                      {webhooksExpanded && isEditing && (
+                        <div className="space-y-2 pl-1">
+                          {taskTriggers.map((trigger) => (
+                            <div
+                              key={trigger.id}
+                              className="rounded-lg border p-2.5 space-y-1.5 overflow-hidden min-w-0"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-medium truncate">
+                                      {trigger.webhookName}
+                                    </span>
+                                    <span className="font-mono text-[10px] text-muted-foreground shrink-0">
+                                      {trigger.webhookMethod}
+                                    </span>
+                                    <Badge variant={trigger.webhookActive !== false ? 'default' : 'outline'} className="text-[10px] h-4 px-1">
+                                      {trigger.webhookActive !== false ? 'Active' : 'Disabled'}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground font-mono break-all leading-tight">
+                                    {trigger.webhookUrl}
+                                  </p>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                                  onClick={() => handleRemoveTaskTrigger(trigger.id)}
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {TASK_WEBHOOK_EVENTS.map((ev) => (
+                                  <button
+                                    key={ev.value}
+                                    type="button"
+                                    className={cn(
+                                      'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] border transition-colors',
+                                      trigger.events.includes(ev.value)
+                                        ? 'border-primary/40 bg-primary/5 text-foreground'
+                                        : 'border-border text-muted-foreground hover:border-primary/20',
+                                    )}
+                                    onClick={() => handleToggleTriggerEvent(trigger.id, ev.value, trigger.events)}
+                                  >
+                                    <span
+                                      className={cn(
+                                        'size-2.5 rounded-sm border flex items-center justify-center shrink-0',
+                                        trigger.events.includes(ev.value)
+                                          ? 'border-primary bg-primary'
+                                          : 'border-muted-foreground/30',
+                                      )}
+                                    >
+                                      {trigger.events.includes(ev.value) && (
+                                        <Check className="size-2 text-primary-foreground" />
+                                      )}
+                                    </span>
+                                    {ev.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+
+                          {taskTriggers.length === 0 && webhookBindings.length === 0 && (
+                            <p className="text-[11px] text-muted-foreground text-center py-1">
+                              No webhooks for this task
+                            </p>
+                          )}
+
+                          {webhookBindings.map((binding, idx) => {
+                            const sourceWebhook = webhooks.find(
+                              (w) => w.id === binding.webhookId,
+                            );
+                            return (
+                              <div
+                                key={`new-${idx}`}
+                                className="rounded-lg border border-dashed border-primary/30 p-2.5 space-y-2 overflow-hidden min-w-0"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Select
+                                    value={binding.webhookId}
+                                    onValueChange={(val) =>
+                                      updateBindingWebhook(idx, val)
+                                    }
+                                  >
+                                    <SelectTrigger className="flex-1 h-8 text-xs">
+                                      <SelectValue placeholder="Select webhook" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {webhooks.map((w) => (
+                                        <SelectItem key={w.id} value={w.id}>
+                                          <div className="flex flex-col">
+                                            <span className="flex items-center gap-1.5">
+                                              <span className="font-mono text-[10px] text-muted-foreground">
+                                                {w.method}
+                                              </span>
+                                              {w.name}
+                                            </span>
+                                            <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[280px]">
+                                              {w.url}
+                                            </span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                                    onClick={() => removeWebhookBinding(idx)}
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </Button>
+                                </div>
+
+                                {sourceWebhook && (
+                                  <p className="text-[10px] text-muted-foreground font-mono break-all leading-tight px-0.5">
+                                    {sourceWebhook.url}
+                                  </p>
+                                )}
+
+                                <div className="flex flex-wrap gap-1">
+                                  {TASK_WEBHOOK_EVENTS.map((event) => (
+                                    <button
+                                      key={event.value}
+                                      type="button"
+                                      className={cn(
+                                        'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] border transition-colors',
+                                        binding.events.includes(event.value)
+                                          ? 'border-primary/40 bg-primary/5 text-foreground'
+                                          : 'border-border text-muted-foreground hover:border-primary/20',
+                                      )}
+                                      onClick={() =>
+                                        toggleBindingEvent(idx, event.value)
+                                      }
+                                    >
+                                      <span
+                                        className={cn(
+                                          'size-2.5 rounded-sm border flex items-center justify-center shrink-0',
+                                          binding.events.includes(event.value)
+                                            ? 'border-primary bg-primary'
+                                            : 'border-muted-foreground/30',
+                                        )}
+                                      >
+                                        {binding.events.includes(event.value) && (
+                                          <Check className="size-2 text-primary-foreground" />
+                                        )}
+                                      </span>
+                                      {event.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 h-8 text-xs"
+                              onClick={addWebhookBinding}
+                              disabled={webhooks.length === 0}
+                            >
+                              <Plus className="size-3 mr-1" />
+                              Add Webhook
+                            </Button>
+                            {webhookBindings.length > 0 && (
+                              <Button
+                                size="sm"
+                                className="h-8 text-xs"
+                                onClick={handleAddWebhookBindings}
+                              >
+                                Apply
+                              </Button>
+                            )}
+                          </div>
+
+                          {webhooks.length === 0 && (
+                            <p className="text-[11px] text-muted-foreground text-center">
+                              Create webhooks in Settings first
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </>
 
                   {/* Comments */}
                   <>

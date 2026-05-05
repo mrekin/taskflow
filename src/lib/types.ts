@@ -83,21 +83,30 @@ export interface Tag {
   updatedAt: string;
 }
 
+export interface WebhookTrigger {
+  id: string;
+  webhookId: string;
+  events: string[];
+  scopeType: string | null;
+  scopeId: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Webhook {
   id: string;
   name: string;
   url: string;
   method: string;
-  events: string[];
-  scopeType: string | null;
-  scopeId: string | null;
   headers: Record<string, string>;
   bodyTemplate: string | null;
   active: boolean;
   ownerId: string;
   createdAt: string;
   updatedAt: string;
-  _count?: { deliveries: number };
+  triggers?: WebhookTrigger[];
+  _count?: { deliveries: number; triggers: number };
 }
 
 export interface WebhookDelivery {

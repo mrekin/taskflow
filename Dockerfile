@@ -41,8 +41,8 @@ ENV NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
 ENV NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-me-in-production}
 ENV DATABASE_URL=${DATABASE_URL:-file:./db/taskflow.db}
 
-# Install prisma CLI for db push at runtime (schema migration)
-RUN npm install -g prisma@7
+# Install prisma CLI for db push at runtime (schema migration) + sqlite3 for data migrations
+RUN npm install -g prisma@7 && apk add --no-cache sqlite
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \

@@ -13,8 +13,9 @@ User
  │         ├── Note       (заметка)
  │         └── NoteFolder (папка заметок)
  ├── Tag           (тег — привязывается к Area, Project, Task, Note)
-└── Webhook       (вебхук)
-     └── WebhookDelivery (доставка вебхука)
+ └── Webhook       (вебхук)
+      ├── WebhookTrigger  (триггер вебхука)
+      └── WebhookDelivery (доставка вебхука)
 └── ScheduledJob  (задание шедулера)
 ```
 
@@ -31,6 +32,7 @@ User
 | Комментарий | `Comment` | `src/app/api/comments/route.ts`<br>`src/app/api/comments/[id]/route.ts` | `src/components/task-comments.tsx` | `src/store/app-store.ts` |
 | Тег | `Tag` | `src/app/api/tags/route.ts`<br>`src/app/api/tags/[id]/route.ts` | `src/components/tag-picker.tsx`<br>`src/components/tag-badges.tsx` | `src/store/app-store.ts`<br>`src/lib/api-utils.ts` |
 | Вебхук | `Webhook` | `src/app/api/webhooks/route.ts`<br>`src/app/api/webhooks/[id]/route.ts` | `src/components/webhooks-section.tsx` | `src/store/app-store.ts`<br>`src/lib/webhook-engine.ts` |
+| Триггер вебхука | `WebhookTrigger` | `src/app/api/webhooks/triggers/route.ts`<br>`src/app/api/webhooks/triggers/[triggerId]/route.ts` | `src/components/webhooks-section.tsx`<br>`src/components/task-detail-dialog.tsx` | `src/store/app-store.ts`<br>`src/lib/webhook-engine.ts` |
 | Доставка вебхука | `WebhookDelivery` | `src/app/api/webhooks/[id]/deliveries/route.ts` | `src/components/webhooks-section.tsx` | `src/store/app-store.ts`<br>`src/lib/webhook-engine.ts` |
 | Задание шедулера | `ScheduledJob` | — | — | `src/lib/scheduler.ts`<br>`src/instrumentation.ts` |
 
@@ -52,3 +54,61 @@ User
 | `src/components/home-content.tsx` | Главная страница, сводка по сущностям |
 | `src/components/quick-create.tsx` | Быстрое создание задач, заметок, проектов |
 | `prisma/schema.prisma` | Схема БД, все модели |
+
+## Вебхуки: Webhook, WebhookTrigger, Event, WebhookDelivery
+
+### Webhook (вебхук)
+
+HTTP-запрос, который отправляется при наступлении определённых событий. Содержит настройки доставки:
+
+- **URL** — адрес, на который отправляется запрос
+- **Method** — HTTP-метод (GET / POST)
+- **Headers** — кастомные заголовки (JSON)
+- **Body Template** — шаблон тела запроса с плейсхолдерами (`{entityId}`, `{title}`, `{status}` и др.)
+- **Active** — флаг включён/выключен
+
+### Event (событие)
+
+Строковый идентификатор типа происшедшего действия. События не хранятся в БД отдельно — это предопределённые константы:
+
+| Событие | Описание |
+|---|---|
+| `task.status_changed` | Изменён статус задачи |
+| `task.priority_changed` | Изменён приоритет задачи |
+| `task.due_date_reached` | Наступила дата выполнения задачи (шедулер) |
+| `task.created` | Задача создана |
+| `project.status_changed` | Изменён статус проекта |
+| `project.created` | Проект создан |
+
+### WebhookTrigger (триггер)
+
+Правило, связывающее вебхук с конкретными **событиями** и **областью (scope)**. Один вебхук может иметь **несколько триггеров** — для разных комбинаций событий и scope.
+
+Поля триггера:
+
+- **events** — массив строк с событиями (например, `["task.status_changed", "task.created"]`)
+- **scopeType** — тип области: `null` (глобально), `"area"`, `"project"`, `"task"`
+- **scopeId** — ID конкретной сущности области (area/project/task) или `null` для глобального scope
+- **active** — флаг активности триггера
+
+**Примеры:**
+- Триггер `{ events: ["task.status_changed"], scopeType: null, scopeId: null }` — срабатывать при изменении статуса любой задачи (глобальный scope)
+- Триггер `{ events: ["task.created"], scopeType: "project", scopeId: "abc123" }` — срабатывать при создании задачи в конкретном проекте
+- Триггер `{ events: ["task.due_date_reached"], scopeType: "task", scopeId: "xyz789" }` — срабатывать при наступлении deadline конкретной задачи
+
+### WebhookDelivery (доставка)
+
+Запись о каждой попытке отправки вебхука. Содержит HTTP-статус, тело ответа, флаг успеха и timestamp. Используется для истории и отладки.
+
+### Как это работает вместе
+
+```
+Событие (например, task.status_changed)
+  → webhook-engine ищет все WebhookTrigger, у которых:
+      • events содержит это событие
+      • scope совпадает с сущностью (или глобальный)
+      • webhook.active = true и trigger.active = true
+  → для каждого подходящего триггера: dispatchWebhook()
+    → отправляет HTTP-запрос по настройкам Webhook (URL, method, headers, body)
+    → создаёт WebhookDelivery с результатом
+```

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth-utils';
 
-// GET /api/webhooks/[id] - Get single webhook
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -16,7 +15,8 @@ export async function GET(
     const webhook = await db.webhook.findFirst({
       where: { id, ownerId: userId },
       include: {
-        _count: { select: { deliveries: true } },
+        _count: { select: { deliveries: true, triggers: true } },
+        triggers: true,
       },
     });
 
@@ -26,9 +26,12 @@ export async function GET(
 
     return NextResponse.json({
       ...webhook,
-      events: JSON.parse(webhook.events),
       headers: JSON.parse(webhook.headers),
-      _count: { deliveries: webhook._count.deliveries },
+      triggers: webhook.triggers.map((t) => ({
+        ...t,
+        events: JSON.parse(t.events || '[]'),
+      })),
+      _count: { deliveries: webhook._count.deliveries, triggers: webhook._count.triggers },
     });
   } catch (error) {
     console.error('Failed to fetch webhook:', error);
@@ -36,7 +39,6 @@ export async function GET(
   }
 }
 
-// PUT /api/webhooks/[id] - Update webhook
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -53,15 +55,12 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, url, method, events, scopeType, scopeId, headers, bodyTemplate, active } = body;
+    const { name, url, method, headers, bodyTemplate, active } = body;
 
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name.trim();
     if (url !== undefined) updateData.url = url.trim();
     if (method !== undefined) updateData.method = method.toUpperCase();
-    if (events !== undefined) updateData.events = JSON.stringify(events);
-    if (scopeType !== undefined) updateData.scopeType = scopeType || null;
-    if (scopeId !== undefined) updateData.scopeId = scopeId || null;
     if (headers !== undefined) updateData.headers = JSON.stringify(headers);
     if (bodyTemplate !== undefined) updateData.bodyTemplate = bodyTemplate || null;
     if (active !== undefined) updateData.active = active;
@@ -69,12 +68,18 @@ export async function PUT(
     const webhook = await db.webhook.update({
       where: { id },
       data: updateData,
+      include: {
+        triggers: true,
+      },
     });
 
     return NextResponse.json({
       ...webhook,
-      events: JSON.parse(webhook.events),
       headers: JSON.parse(webhook.headers),
+      triggers: webhook.triggers.map((t) => ({
+        ...t,
+        events: JSON.parse(t.events || '[]'),
+      })),
     });
   } catch (error) {
     console.error('Failed to update webhook:', error);
@@ -82,7 +87,6 @@ export async function PUT(
   }
 }
 
-// DELETE /api/webhooks/[id] - Delete webhook
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

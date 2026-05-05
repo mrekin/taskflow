@@ -86,8 +86,35 @@ else
 fi
 
 if [ "$NEEDS_MIGRATION" = "1" ]; then
+  # Pre-migration: migrate Webhook events/scope to WebhookTrigger if old columns exist
+  if [ -f "$DB_PATH" ]; then
+    echo "Checking for legacy webhook schema..."
+    # Check if old 'events' column exists on Webhook table
+    HAS_EVENTS=$(sqlite3 "$DB_PATH" "PRAGMA table_info(Webhook);" 2>/dev/null | grep -c "|events|" || echo "0")
+    if [ "$HAS_EVENTS" -ge 1 ]; then
+      echo "Legacy webhook schema detected. Running data migration..."
+      # Create WebhookTrigger table if not exists
+      sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS WebhookTrigger (
+        id TEXT PRIMARY KEY,
+        webhookId TEXT NOT NULL,
+        events TEXT NOT NULL DEFAULT '[]',
+        scopeType TEXT,
+        scopeId TEXT,
+        active INTEGER NOT NULL DEFAULT 1,
+        createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+        updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+      );" 2>/dev/null || true
+      # Migrate data from Webhook to WebhookTrigger
+      sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO WebhookTrigger (id, webhookId, events, scopeType, scopeId, active, createdAt, updatedAt)
+        SELECT lower(hex(randomblob(12))), w.id, w.events, w.scopeType, w.scopeId, 1, datetime('now'), datetime('now')
+        FROM Webhook w
+        WHERE w.events IS NOT NULL AND w.events != '[]';" 2>/dev/null || true
+      echo "Data migration complete."
+    fi
+  fi
+
   # Run prisma db push to create/migrate the schema
-  npx prisma db push 2>&1 || {
+  npx prisma db push --accept-data-loss 2>&1 || {
     echo ""
     echo "⚠ WARNING: Schema sync encountered an issue."
     echo "Starting the app anyway — some features may not work correctly."

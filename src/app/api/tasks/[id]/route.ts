@@ -126,7 +126,7 @@ export async function PUT(
       const changes = computeChanges(
         existing as unknown as Record<string, unknown>,
         updateData,
-        ['status']
+        ['status', 'priority']
       );
 
       if (changes.status) {
@@ -134,6 +134,16 @@ export async function PUT(
         await fireWebhookEvent(buildTaskContext(
           { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: task.ownerId },
           'task.status_changed',
+          changes,
+          areaId
+        ));
+      }
+
+      if (changes.priority) {
+        const areaId = task.project?.areaId ?? await resolveTaskAreaId(task.projectId);
+        await fireWebhookEvent(buildTaskContext(
+          { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: task.ownerId },
+          'task.priority_changed',
           changes,
           areaId
         ));

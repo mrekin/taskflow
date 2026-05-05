@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery } from '@/lib/types';
+import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery, WebhookTrigger } from '@/lib/types';
 import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig, resolveStatuses, DEFAULT_STATUSES } from '@/lib/constants';
 
 const basePath = process.env.NEXT_BASE_PATH || '';
@@ -91,7 +91,7 @@ interface AppState {
   deleteProject: (id: string) => Promise<void>;
 
   // Actions - CRUD Tasks
-  createTask: (data: Partial<Task>) => Promise<void>;
+  createTask: (data: Partial<Task>) => Promise<Task | undefined>;
   updateTask: (id: string, data: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
 
@@ -118,11 +118,16 @@ interface AppState {
 
   // Actions - CRUD Webhooks
   fetchWebhooks: () => Promise<void>;
-  createWebhook: (data: Partial<Webhook>) => Promise<void>;
+  createWebhook: (data: Partial<Webhook>) => Promise<Webhook>;
   updateWebhook: (id: string, data: Partial<Webhook>) => Promise<void>;
   deleteWebhook: (id: string) => Promise<void>;
   testWebhook: (id: string) => Promise<{ success: boolean; statusCode: number | null; response: string | null; elapsed: number }>;
   fetchWebhookDeliveries: (id: string) => Promise<WebhookDelivery[]>;
+
+  // Actions - CRUD Webhook Triggers
+  createWebhookTrigger: (data: { webhookId: string; events: string[]; scopeType?: string; scopeId?: string }) => Promise<WebhookTrigger | undefined>;
+  updateWebhookTrigger: (id: string, data: { events?: string[]; scopeType?: string; scopeId?: string; active?: boolean }) => Promise<WebhookTrigger | undefined>;
+  deleteWebhookTrigger: (id: string) => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -421,8 +426,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         return { tasks };
       });
+      return newTask;
     } catch (error) {
       console.error('Failed to create task:', error);
+      return undefined;
     }
   },
 
@@ -709,6 +716,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       const newWebhook: Webhook = await res.json();
       set((state) => ({ webhooks: [...state.webhooks, newWebhook] }));
+      return newWebhook;
     } catch (error) {
       console.error('Failed to create webhook:', error);
       throw error;
@@ -764,6 +772,75 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (error) {
       console.error('Failed to fetch deliveries:', error);
       return [];
+    }
+  },
+
+  createWebhookTrigger: async (data) => {
+    try {
+      const res = await fetch(api('/api/webhooks/triggers'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to create trigger');
+      }
+      const trigger: WebhookTrigger = await res.json();
+      set((state) => ({
+        webhooks: state.webhooks.map((w) =>
+          w.id === data.webhookId
+            ? { ...w, triggers: [...(w.triggers ?? []), trigger] }
+            : w
+        ),
+      }));
+      return trigger;
+    } catch (error) {
+      console.error('Failed to create trigger:', error);
+      throw error;
+    }
+  },
+
+  updateWebhookTrigger: async (id, data) => {
+    try {
+      const res = await fetch(api(`/api/webhooks/triggers/${id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to update trigger');
+      }
+      const updated: WebhookTrigger = await res.json();
+      set((state) => ({
+        webhooks: state.webhooks.map((w) =>
+          w.triggers?.some((t) => t.id === id)
+            ? { ...w, triggers: w.triggers!.map((t) => (t.id === id ? updated : t)) }
+            : w
+        ),
+      }));
+      return updated;
+    } catch (error) {
+      console.error('Failed to update trigger:', error);
+      throw error;
+    }
+  },
+
+  deleteWebhookTrigger: async (id) => {
+    try {
+      const res = await fetch(api(`/api/webhooks/triggers/${id}`), { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete trigger');
+      set((state) => ({
+        webhooks: state.webhooks.map((w) =>
+          w.triggers?.some((t) => t.id === id)
+            ? { ...w, triggers: w.triggers!.filter((t) => t.id !== id) }
+            : w
+        ),
+      }));
+    } catch (error) {
+      console.error('Failed to delete trigger:', error);
+      throw error;
     }
   },
 

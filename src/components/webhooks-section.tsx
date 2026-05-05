@@ -6,17 +6,13 @@ import {
   Webhook as WebhookIcon,
   Plus,
   Trash2,
-  Send,
   TestTube,
   ToggleLeft,
   ToggleRight,
   ChevronDown,
   ChevronRight,
-  Globe,
-  Clock,
   CheckCircle2,
   XCircle,
-  AlertCircle,
   Copy,
   Pencil,
 } from 'lucide-react';
@@ -44,22 +40,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAppStore } from '@/store/app-store';
 import type { Webhook, WebhookDelivery } from '@/lib/types';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-// Available webhook events
 const WEBHOOK_EVENTS = [
   { value: 'task.status_changed', label: 'Task Status Changed', description: 'When a task status is updated' },
+  { value: 'task.priority_changed', label: 'Task Priority Changed', description: 'When a task priority is updated' },
   { value: 'task.due_date_reached', label: 'Task Due Date Reached', description: 'When a task reaches its due date' },
   { value: 'task.created', label: 'Task Created', description: 'When a new task is created' },
   { value: 'project.status_changed', label: 'Project Status Changed', description: 'When a project status is updated' },
   { value: 'project.created', label: 'Project Created', description: 'When a new project is created' },
 ] as const;
 
-// Available placeholders for URL/body template
 const PLACEHOLDERS = [
   { value: '{entityId}', description: 'Entity short ID (e.g., T-7, P-3)' },
   { value: '{taskId}', description: 'Task short ID (same as entityId for tasks)' },
@@ -95,7 +89,12 @@ const defaultFormData: WebhookFormData = {
 };
 
 export function WebhooksSection() {
-  const { webhooks, fetchWebhooks, createWebhook, updateWebhook, deleteWebhook, testWebhook, fetchWebhookDeliveries, projects, areas } = useAppStore();
+  const {
+    webhooks, fetchWebhooks, createWebhook, updateWebhook, deleteWebhook,
+    testWebhook, fetchWebhookDeliveries, createWebhookTrigger, updateWebhookTrigger,
+    tasks, fetchTasks, projects, areas,
+  } = useAppStore();
+
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingWebhook, setEditingWebhook] = useState<Webhook | null>(null);
   const [formData, setFormData] = useState<WebhookFormData>(defaultFormData);
@@ -108,7 +107,53 @@ export function WebhooksSection() {
 
   useEffect(() => {
     fetchWebhooks();
-  }, [fetchWebhooks]);
+    fetchTasks();
+  }, [fetchWebhooks, fetchTasks]);
+
+  const basePath = process.env.NEXT_BASE_PATH || '';
+
+  const getTaskInfo = (taskId: string) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return null;
+    return { id: task.id, shortId: task.shortId, title: task.title };
+  };
+
+  const getScopeLabel = (scopeType: string | null, scopeId: string | null) => {
+    if (!scopeType) return 'Global';
+    if (scopeType === 'project') {
+      const project = projects.find((p) => p.id === scopeId);
+      return project ? `Project: ${project.name}` : 'Project scope';
+    }
+    if (scopeType === 'area') {
+      const area = areas.find((a) => a.id === scopeId);
+      return area ? `Area: ${area.name}` : 'Area scope';
+    }
+    return scopeType;
+  };
+
+  const getAllEvents = (webhook: Webhook) => {
+    const eventSet = new Set<string>();
+    for (const trigger of webhook.triggers ?? []) {
+      if (trigger.scopeType === 'task') continue;
+      for (const ev of trigger.events) {
+        eventSet.add(ev);
+      }
+    }
+    return Array.from(eventSet);
+  };
+
+  const getLinkedTasks = (webhook: Webhook) => {
+    const linked: { taskId: string; shortId: string; title: string }[] = [];
+    for (const trigger of webhook.triggers ?? []) {
+      if (trigger.scopeType === 'task' && trigger.scopeId) {
+        const info = getTaskInfo(trigger.scopeId);
+        if (info) {
+          linked.push({ taskId: info.id, shortId: info.shortId, title: info.title });
+        }
+      }
+    }
+    return linked;
+  };
 
   const handleCreate = () => {
     setFormData(defaultFormData);
@@ -117,13 +162,14 @@ export function WebhooksSection() {
   };
 
   const handleEdit = (webhook: Webhook) => {
+    const primaryTrigger = webhook.triggers?.[0];
     setFormData({
       name: webhook.name,
       url: webhook.url,
       method: webhook.method as 'GET' | 'POST',
-      events: webhook.events,
-      scopeType: webhook.scopeType || '',
-      scopeId: webhook.scopeId || '',
+      events: primaryTrigger?.events ?? [],
+      scopeType: primaryTrigger?.scopeType ?? '',
+      scopeId: primaryTrigger?.scopeId ?? '',
       headers: webhook.headers || {},
       bodyTemplate: webhook.bodyTemplate || '',
       active: webhook.active,
@@ -148,9 +194,6 @@ export function WebhooksSection() {
         name: formData.name.trim(),
         url: formData.url.trim(),
         method: formData.method,
-        events: formData.events,
-        scopeType: formData.scopeType || null,
-        scopeId: formData.scopeId || null,
         headers: formData.headers,
         bodyTemplate: formData.bodyTemplate || null,
         active: formData.active,
@@ -158,11 +201,35 @@ export function WebhooksSection() {
 
       if (editingWebhook) {
         await updateWebhook(editingWebhook.id, data);
+        const existingTriggers = editingWebhook.triggers ?? [];
+        if (existingTriggers.length > 0) {
+          await updateWebhookTrigger(existingTriggers[0].id, {
+            events: formData.events,
+            scopeType: formData.scopeType || undefined,
+            scopeId: formData.scopeId || undefined,
+          });
+        } else {
+          await createWebhookTrigger({
+            webhookId: editingWebhook.id,
+            events: formData.events,
+            scopeType: formData.scopeType || undefined,
+            scopeId: formData.scopeId || undefined,
+          });
+        }
         toast.success('Webhook updated');
       } else {
-        await createWebhook(data);
+        const newWebhook = await createWebhook(data);
+        if (newWebhook && formData.events.length > 0) {
+          await createWebhookTrigger({
+            webhookId: newWebhook.id,
+            events: formData.events,
+            scopeType: formData.scopeType || undefined,
+            scopeId: formData.scopeId || undefined,
+          });
+        }
         toast.success('Webhook created');
       }
+      await fetchWebhooks();
       setShowCreateDialog(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to save webhook');
@@ -196,7 +263,6 @@ export function WebhooksSection() {
       } else {
         toast.error(`Test failed (${result.statusCode ?? 'no response'}) — ${result.elapsed}ms`);
       }
-      // Refresh deliveries if expanded
       if (expandedWebhookId === id) {
         const dels = await fetchWebhookDeliveries(id);
         setDeliveries(dels);
@@ -219,15 +285,6 @@ export function WebhooksSection() {
     }
   };
 
-  const toggleEvent = (eventValue: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      events: prev.events.includes(eventValue)
-        ? prev.events.filter((e) => e !== eventValue)
-        : [...prev.events, eventValue],
-    }));
-  };
-
   const insertPlaceholder = (placeholder: string) => {
     const input = urlInputRef.current;
     const pos = urlCursorRef.current ?? input?.selectionStart ?? formData.url.length;
@@ -243,22 +300,17 @@ export function WebhooksSection() {
     });
   };
 
-  const getScopeLabel = (webhook: Webhook) => {
-    if (!webhook.scopeType) return 'Global';
-    if (webhook.scopeType === 'task') return 'Task scope';
-    if (webhook.scopeType === 'project') {
-      const project = projects.find((p) => p.id === webhook.scopeId);
-      return project ? `Project: ${project.name}` : 'Project scope';
-    }
-    if (webhook.scopeType === 'area') {
-      const area = areas.find((a) => a.id === webhook.scopeId);
-      return area ? `Area: ${area.name}` : 'Area scope';
-    }
-    return webhook.scopeType;
-  };
-
   const getEventLabel = (eventValue: string) => {
     return WEBHOOK_EVENTS.find((e) => e.value === eventValue)?.label || eventValue;
+  };
+
+  const toggleEvent = (eventValue: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      events: prev.events.includes(eventValue)
+        ? prev.events.filter((e) => e !== eventValue)
+        : [...prev.events, eventValue],
+    }));
   };
 
   return (
@@ -290,172 +342,217 @@ export function WebhooksSection() {
         ) : (
           <div className="space-y-2">
             <AnimatePresence mode="popLayout">
-              {webhooks.map((webhook) => (
-                <motion.div
-                  key={webhook.id}
-                  layout
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <div className={cn(
-                    'rounded-lg border transition-colors',
-                    !webhook.active && 'opacity-60',
-                    expandedWebhookId === webhook.id && 'ring-1 ring-primary/20'
-                  )}>
-                    {/* Webhook header */}
-                    <div
-                      className="flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => handleToggleExpand(webhook.id)}
-                    >
-                      <button className="shrink-0 text-muted-foreground">
-                        {expandedWebhookId === webhook.id ? (
-                          <ChevronDown className="size-4" />
-                        ) : (
-                          <ChevronRight className="size-4" />
-                        )}
-                      </button>
+              {webhooks.map((webhook) => {
+                const triggers = webhook.triggers ?? [];
+                const linkedTasks = getLinkedTasks(webhook);
+                const allEvents = getAllEvents(webhook);
+                const triggerCount = triggers.length;
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium truncate">{webhook.name}</span>
-                          <Badge variant={webhook.method === 'GET' ? 'secondary' : 'default'} className="text-[10px] h-5 px-1.5 font-mono">
-                            {webhook.method}
-                          </Badge>
-                          <Badge variant={webhook.active ? 'default' : 'outline'} className="text-[10px] h-5">
-                            {webhook.active ? 'Active' : 'Disabled'}
-                          </Badge>
-                          <Badge variant="outline" className="text-[10px] h-5">
-                            {getScopeLabel(webhook)}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5 font-mono">
-                          {webhook.url}
-                        </p>
-                      </div>
+                const scopeLabels: string[] = [];
+                const hasGlobal = triggers.some((t) => !t.scopeType);
+                const hasTaskScope = linkedTasks.length > 0;
+                if (hasGlobal) scopeLabels.push('Global');
+                for (const t of triggers) {
+                  if (t.scopeType === 'project') scopeLabels.push(getScopeLabel(t.scopeType, t.scopeId));
+                  if (t.scopeType === 'area') scopeLabels.push(getScopeLabel(t.scopeType, t.scopeId));
+                }
+                const scopeSummary = scopeLabels.length > 0 ? scopeLabels.join(', ') : (hasTaskScope ? `${triggerCount} trigger${triggerCount !== 1 ? 's' : ''}` : 'No scope');
 
-                      <div className="flex items-center gap-1 shrink-0">
-                        {webhook.events.slice(0, 2).map((event) => (
-                          <Badge key={event} variant="outline" className="text-[10px] h-5 px-1.5">
-                            {getEventLabel(event)}
-                          </Badge>
-                        ))}
-                        {webhook.events.length > 2 && (
-                          <Badge variant="outline" className="text-[10px] h-5 px-1.5">
-                            +{webhook.events.length - 2}
-                          </Badge>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7"
-                          onClick={() => handleToggleActive(webhook)}
-                          title={webhook.active ? 'Disable' : 'Enable'}
-                        >
-                          {webhook.active ? (
-                            <ToggleRight className="size-4 text-green-500" />
+                return (
+                  <motion.div
+                    key={webhook.id}
+                    layout
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <div className={cn(
+                      'rounded-lg border transition-colors',
+                      !webhook.active && 'opacity-60',
+                      expandedWebhookId === webhook.id && 'ring-1 ring-primary/20'
+                    )}>
+                      <div
+                        className="flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => handleToggleExpand(webhook.id)}
+                      >
+                        <button className="shrink-0 text-muted-foreground">
+                          {expandedWebhookId === webhook.id ? (
+                            <ChevronDown className="size-4" />
                           ) : (
-                            <ToggleLeft className="size-4 text-muted-foreground" />
+                            <ChevronRight className="size-4" />
                           )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7"
-                          onClick={() => handleTest(webhook.id)}
-                          disabled={testingId === webhook.id}
-                          title="Test webhook"
-                        >
-                          <TestTube className={cn("size-4", testingId === webhook.id && "animate-pulse")} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7"
-                          onClick={() => handleEdit(webhook)}
-                          title="Edit webhook"
-                        >
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDelete(webhook.id)}
-                          title="Delete webhook"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
-                    </div>
+                        </button>
 
-                    {/* Expanded: delivery history */}
-                    <AnimatePresence>
-                      {expandedWebhookId === webhook.id && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.15 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="border-t px-3 pb-3 pt-2">
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-xs font-medium text-muted-foreground">
-                                Delivery History
-                                {webhook._count && ` (${webhook._count.deliveries})`}
-                              </p>
-                            </div>
-                            {deliveries.length === 0 ? (
-                              <p className="text-xs text-muted-foreground text-center py-4">
-                                No deliveries yet. Test the webhook to see results here.
-                              </p>
-                            ) : (
-                              <ScrollArea className="max-h-64">
-                                <div className="space-y-1.5">
-                                  {deliveries.map((delivery) => (
-                                    <div
-                                      key={delivery.id}
-                                      className={cn(
-                                        'flex items-center gap-2 p-2 rounded-md text-xs',
-                                        delivery.success ? 'bg-green-500/5' : 'bg-red-500/5'
-                                      )}
-                                    >
-                                      {delivery.success ? (
-                                        <CheckCircle2 className="size-3.5 text-green-500 shrink-0" />
-                                      ) : (
-                                        <XCircle className="size-3.5 text-red-500 shrink-0" />
-                                      )}
-                                      <span className="font-mono text-muted-foreground">
-                                        {delivery.statusCode ?? 'ERR'}
-                                      </span>
-                                      <Badge variant="outline" className="text-[10px] h-4 px-1">
-                                        {delivery.event}
-                                      </Badge>
-                                      <span className="text-muted-foreground ml-auto">
-                                        {new Date(delivery.createdAt).toLocaleString()}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </ScrollArea>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium truncate">{webhook.name}</span>
+                            <Badge variant={webhook.method === 'GET' ? 'secondary' : 'default'} className="text-[10px] h-5 px-1.5 font-mono">
+                              {webhook.method}
+                            </Badge>
+                            <Badge variant={webhook.active ? 'default' : 'outline'} className="text-[10px] h-5">
+                              {webhook.active ? 'Active' : 'Disabled'}
+                            </Badge>
+                            {linkedTasks.length > 0 && (
+                              <Badge variant="outline" className="text-[10px] h-5">
+                                {linkedTasks.length} task{linkedTasks.length !== 1 ? 's' : ''}
+                              </Badge>
+                            )}
+                            {allEvents.length > 0 && (
+                              <Badge variant="outline" className="text-[10px] h-5">
+                                {scopeSummary} · {allEvents.length} event{allEvents.length !== 1 ? 's' : ''}
+                              </Badge>
                             )}
                           </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </motion.div>
-              ))}
+                          <p className="text-xs text-muted-foreground truncate mt-0.5 font-mono">
+                            {webhook.url}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7"
+                            onClick={() => handleToggleActive(webhook)}
+                            title={webhook.active ? 'Disable' : 'Enable'}
+                          >
+                            {webhook.active ? (
+                              <ToggleRight className="size-4 text-green-500" />
+                            ) : (
+                              <ToggleLeft className="size-4 text-muted-foreground" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7"
+                            onClick={() => handleTest(webhook.id)}
+                            disabled={testingId === webhook.id}
+                            title="Test webhook"
+                          >
+                            <TestTube className={cn("size-4", testingId === webhook.id && "animate-pulse")} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7"
+                            onClick={() => handleEdit(webhook)}
+                            title="Edit webhook"
+                          >
+                            <Pencil className="size-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDelete(webhook.id)}
+                            title="Delete webhook"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <AnimatePresence>
+                        {expandedWebhookId === webhook.id && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="border-t px-3 pb-3 pt-2 space-y-3">
+                              {/* Events */}
+                              {allEvents.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {allEvents.map((ev) => (
+                                    <span
+                                      key={ev}
+                                      className="inline-flex rounded px-1.5 py-0.5 text-[10px] border border-primary/30 bg-primary/5"
+                                    >
+                                      {getEventLabel(ev)}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Linked tasks */}
+                              {linkedTasks.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  <span className="text-[10px] text-muted-foreground mr-0.5">Tasks:</span>
+                                  {linkedTasks.map((lt) => (
+                                    <a
+                                      key={lt.taskId}
+                                      href={`${basePath}/?task=${lt.shortId}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      title={lt.title}
+                                      className="inline-flex items-center rounded-md bg-muted/60 border border-border/50 text-[10px] font-mono text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors px-1.5 py-0.5"
+                                    >
+                                      {lt.shortId}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Delivery History */}
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-xs font-medium text-muted-foreground">
+                                    Delivery History
+                                    {webhook._count && ` (${webhook._count.deliveries})`}
+                                  </p>
+                                </div>
+                                {deliveries.length === 0 ? (
+                                  <p className="text-xs text-muted-foreground text-center py-4">
+                                    No deliveries yet. Test the webhook to see results here.
+                                  </p>
+                                ) : (
+                                  <ScrollArea className="max-h-64">
+                                    <div className="space-y-1.5">
+                                      {deliveries.map((delivery) => (
+                                        <div
+                                          key={delivery.id}
+                                          className={cn(
+                                            'flex items-center gap-2 p-2 rounded-md text-xs',
+                                            delivery.success ? 'bg-green-500/5' : 'bg-red-500/5'
+                                          )}
+                                        >
+                                          {delivery.success ? (
+                                            <CheckCircle2 className="size-3.5 text-green-500 shrink-0" />
+                                          ) : (
+                                            <XCircle className="size-3.5 text-red-500 shrink-0" />
+                                          )}
+                                          <span className="font-mono text-muted-foreground">
+                                            {delivery.statusCode ?? 'ERR'}
+                                          </span>
+                                          <Badge variant="outline" className="text-[10px] h-4 px-1">
+                                            {delivery.event}
+                                          </Badge>
+                                          <span className="text-muted-foreground ml-auto">
+                                            {new Date(delivery.createdAt).toLocaleString()}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </ScrollArea>
+                                )}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
         )}
 
-        {/* Create/Edit Dialog */}
+        {/* Create/Edit Webhook Dialog */}
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -466,7 +563,6 @@ export function WebhooksSection() {
             </DialogHeader>
 
             <div className="space-y-5">
-              {/* Name */}
               <div className="space-y-2">
                 <Label>Name</Label>
                 <Input
@@ -476,7 +572,6 @@ export function WebhooksSection() {
                 />
               </div>
 
-              {/* Method + URL */}
               <div className="space-y-2">
                 <Label>Request URL</Label>
                 <div className="flex gap-2">
@@ -509,7 +604,6 @@ export function WebhooksSection() {
                 <p className="text-xs text-muted-foreground">
                   Use placeholders like {'{entityId}'}, {'{title}'}, {'{status}'} in the URL — they will be replaced at runtime.
                 </p>
-                {/* Placeholder chips */}
                 <div className="flex flex-wrap gap-1">
                   {PLACEHOLDERS.map((ph) => (
                     <button
@@ -526,7 +620,6 @@ export function WebhooksSection() {
                 </div>
               </div>
 
-              {/* Body Template (POST only) */}
               {formData.method === 'POST' && (
                 <div className="space-y-2">
                   <Label>Body Template <span className="text-muted-foreground font-normal">(optional)</span></Label>
@@ -545,7 +638,6 @@ export function WebhooksSection() {
 
               <Separator />
 
-              {/* Events */}
               <div className="space-y-3">
                 <Label>Events</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -582,12 +674,10 @@ export function WebhooksSection() {
 
               <Separator />
 
-              {/* Scope */}
               <div className="space-y-3">
                 <Label>Scope <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <p className="text-xs text-muted-foreground">
-                  Limit this webhook to a specific area, project, or task. Leave empty for global scope (all entities).
-                  Area scope includes all projects and tasks within the area.
+                  Limit this webhook to a specific area or project. Leave empty for global scope (all entities).
                 </p>
                 <div className="flex gap-2">
                   <Select
@@ -660,7 +750,6 @@ export function WebhooksSection() {
 
               <Separator />
 
-              {/* Active toggle */}
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Active</Label>

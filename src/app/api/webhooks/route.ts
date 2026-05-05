@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getCurrentUserId, requireAuth } from '@/lib/auth-utils';
 
-// GET /api/webhooks - List all webhooks for the current user
 export async function GET() {
   try {
     const userId = await getCurrentUserId();
@@ -12,15 +11,19 @@ export async function GET() {
       where: { ownerId: userId },
       orderBy: { createdAt: 'desc' },
       include: {
-        _count: { select: { deliveries: true } },
+        _count: { select: { deliveries: true, triggers: true } },
+        triggers: true,
       },
     });
 
     const result = webhooks.map((wh) => ({
       ...wh,
-      events: JSON.parse(wh.events || '[]'),
       headers: JSON.parse(wh.headers || '{}'),
-      _count: { deliveries: wh._count.deliveries },
+      triggers: wh.triggers.map((t) => ({
+        ...t,
+        events: JSON.parse(t.events || '[]'),
+      })),
+      _count: { deliveries: wh._count.deliveries, triggers: wh._count.triggers },
     }));
 
     return NextResponse.json(result);
@@ -30,7 +33,6 @@ export async function GET() {
   }
 }
 
-// POST /api/webhooks - Create a new webhook
 export async function POST(request: NextRequest) {
   try {
     const authResult = await requireAuth();
@@ -38,29 +40,10 @@ export async function POST(request: NextRequest) {
     const { userId } = authResult;
 
     const body = await request.json();
-    const { name, url, method, events, scopeType, scopeId, headers, bodyTemplate, active } = body;
+    const { name, url, method, headers, bodyTemplate, active } = body;
 
     if (!url || !name) {
       return NextResponse.json({ error: 'Name and URL are required' }, { status: 400 });
-    }
-
-    if (!events || !Array.isArray(events) || events.length === 0) {
-      return NextResponse.json({ error: 'At least one event is required' }, { status: 400 });
-    }
-
-    const validEvents = [
-      'task.status_changed',
-      'task.due_date_reached',
-      'task.created',
-      'project.status_changed',
-      'project.created',
-    ];
-    const invalidEvents = events.filter((e: string) => !validEvents.includes(e));
-    if (invalidEvents.length > 0) {
-      return NextResponse.json(
-        { error: `Invalid events: ${invalidEvents.join(', ')}` },
-        { status: 400 }
-      );
     }
 
     const webhook = await db.webhook.create({
@@ -68,20 +51,23 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         url: url.trim(),
         method: method?.toUpperCase() || 'POST',
-        events: JSON.stringify(events),
-        scopeType: scopeType || null,
-        scopeId: scopeId || null,
         headers: JSON.stringify(headers || {}),
         bodyTemplate: bodyTemplate || null,
         active: active !== false,
         ownerId: userId,
       },
+      include: {
+        triggers: true,
+      },
     });
 
     return NextResponse.json({
       ...webhook,
-      events: JSON.parse(webhook.events),
       headers: JSON.parse(webhook.headers),
+      triggers: webhook.triggers.map((t) => ({
+        ...t,
+        events: JSON.parse(t.events || '[]'),
+      })),
     }, { status: 201 });
   } catch (error) {
     console.error('Failed to create webhook:', error);

@@ -14,13 +14,16 @@ export async function POST(
     const { userId } = authResult;
 
     const { id } = await params;
-    const webhook = await db.webhook.findFirst({ where: { id, ownerId: userId } });
+    const webhook = await db.webhook.findFirst({
+      where: { id, ownerId: userId },
+      include: { triggers: { where: { active: true } } },
+    });
     if (!webhook) {
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
     }
 
-    const events: string[] = JSON.parse(webhook.events || '[]');
-    const testEvent = (events[0] || 'task.status_changed') as WebhookEvent;
+    const allEvents = webhook.triggers.flatMap((t) => JSON.parse(t.events || '[]') as string[]);
+    const testEvent = (allEvents[0] || 'task.status_changed') as WebhookEvent;
 
     const entityType = testEvent.startsWith('task.') ? 'task' as const : 'project' as const;
 
@@ -39,13 +42,11 @@ export async function POST(
         id: webhook.id,
         url: webhook.url,
         method: webhook.method,
-        events: webhook.events,
-        scopeType: webhook.scopeType,
-        scopeId: webhook.scopeId,
         headers: webhook.headers,
         bodyTemplate: webhook.bodyTemplate,
         active: webhook.active,
         ownerId: webhook.ownerId,
+        triggers: [],
       },
       ctx
     );
