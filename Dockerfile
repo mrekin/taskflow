@@ -16,11 +16,13 @@ COPY package.json bun.lock ./
 # Install dependencies with cache mount
 RUN bun install --frozen-lockfile
 
+# Copy Prisma schema and generate client (cached unless schema changes)
+COPY prisma ./prisma
+COPY prisma.config.ts ./prisma.config.ts
+RUN mkdir -p src/generated/prisma && bun run db:generate
+
 # Copy source code
 COPY . .
-
-# Generate Prisma client (must be AFTER copy so output isn't overwritten)
-RUN bun run db:generate
 
 # Build args for subpath support and build type (test/dev/release)
 ARG NEXT_BASE_PATH=""
