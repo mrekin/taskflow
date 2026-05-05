@@ -67,3 +67,6 @@ taskflow-data/
 .playwright-mcp/
 tests/
 .kilo/
+database.db
+database.db-shm
+database.db-wal
