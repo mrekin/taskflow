@@ -21,22 +21,22 @@ on:
 
 env:
   REGISTRY: registry.mrekin.ru
-  IMAGE_NAME: ${{ gitea.repository }}
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
 
     permissions:
-       contents: read
-       packages: write
+      contents: read
+      packages: write
 
     steps:
       - name: Login to Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ gitea.actor }}
+          username: ${{ github.actor }}
           password: ${{ secrets.ACTIONS_TOKEN }}
 
       - name: Checkout repository
@@ -47,20 +47,20 @@ jobs:
       - name: Extract repository name (lowercase)
         id: repo
         run: |
-          REPO_LOWER=$(echo "${{ gitea.repository }}" | tr '[:upper:]' '[:lower:]')
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           echo "image=${{ env.REGISTRY }}/${REPO_LOWER}" >> "$GITHUB_OUTPUT"
 
       - name: Determine image tag
         id: meta
         run: |
-          if [ "${{ gitea.event_name }}" = "push" ]; then
-            if [ "${GITEA_REF#refs/tags/}" != "${GITEA_REF}" ]; then
-              TAG="${GITEA_REF#refs/tags/v}"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            if [ "${GITHUB_REF#refs/tags/}" != "${GITHUB_REF}" ]; then
+              TAG="${GITHUB_REF#refs/tags/v}"
               echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
               echo "base_path=" >> "$GITHUB_OUTPUT"
             else
               TAGS="${{ steps.repo.outputs.image }}:test"
-              if git diff --name-only ${{ gitea.event.before }} ${{ gitea.event.after }} | grep -q "package.json"; then
+              if git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | grep -q "package.json"; then
                 VERSION=$(grep '"version"' package.json | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
                 TAGS="${TAGS}"$'\n'"${{ steps.repo.outputs.image }}:${VERSION}-dev"
               fi
