@@ -57,6 +57,7 @@ import {
   FolderOpen,
   AtSign,
   ChevronRight,
+  Table,
 } from 'lucide-react';
 import {
   Popover,
@@ -195,7 +196,25 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
     setCurrentView('notes');
   };
 
-  // Insert markdown syntax at cursor
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  const syncPreviewScroll = useCallback(() => {
+    const textarea = textareaRef.current;
+    const preview = previewRef.current;
+    if (!textarea || !preview) return;
+    const maxScroll = textarea.scrollHeight - textarea.clientHeight;
+    if (maxScroll <= 0) {
+      preview.scrollTop = 0;
+      return;
+    }
+    const ratio = textarea.scrollTop / maxScroll;
+    preview.scrollTop = ratio * (preview.scrollHeight - preview.clientHeight);
+  }, []);
+
+  useEffect(() => {
+    syncPreviewScroll();
+  }, [content, syncPreviewScroll]);
+
   const insertMarkdown = useCallback((prefix: string, suffix: string = '', defaultText: string = '') => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -218,6 +237,9 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
       const newCursorPos = start + prefix.length + textToInsert.length + suffix.length;
       textarea.focus();
       textarea.setSelectionRange(start + prefix.length, newCursorPos - suffix.length);
+      const insertLine = newContent.substring(0, newCursorPos).split('\n').length;
+      const lineHeight = parseFloat(getComputedStyle(textarea).lineHeight) || 20;
+      textarea.scrollTop = Math.max(0, insertLine * lineHeight - textarea.clientHeight / 2);
     });
   }, []);
 
@@ -233,6 +255,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
     { icon: Quote, label: 'Quote', prefix: '> ', suffix: '', defaultText: 'quote' },
     { icon: Link, label: 'Link', prefix: '[', suffix: '](url)', defaultText: 'link text' },
     { icon: Minus, label: 'Divider', prefix: '\n---\n', suffix: '', defaultText: '' },
+    { icon: Table, label: 'Table', prefix: '\n| Header | Header | Header |\n|--------|--------|--------|\n| Cell   | Cell   | Cell   |\n| Cell   | Cell   | Cell   |\n', suffix: '', defaultText: '' },
   ] as const;
 
   // Insert entity reference
@@ -399,7 +422,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
 
       {/* Markdown toolbar (only in edit/split modes) */}
       {editorMode !== 'preview' && (
-        <div className="flex items-center gap-1 px-3 py-1.5 border-b shrink-0 bg-muted/30">
+        <div className="sticky top-0 z-10 flex items-center gap-1 px-3 py-1.5 border-b shrink-0 bg-background">
           {toolbarConfig.map((tool) => (
             <Button
               key={tool.label}
@@ -603,8 +626,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
 
         {/* Edit mode */}
         {editorMode === 'edit' && (
-          <div className="h-full flex flex-col">
-            {/* Title input */}
+          <div className="h-full flex flex-col overflow-hidden pb-6">
             <div className="px-4 pt-3 shrink-0">
               <Input
                 value={title}
@@ -618,14 +640,14 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
               value={content}
               onChange={(val) => setContent(val)}
               placeholder="Start writing... (Markdown supported)"
-              className="flex-1 resize-none border-none rounded-none p-4 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
+              className="flex-1 min-h-0 resize-none border-none rounded-none px-4 pt-4 pb-8 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
             />
           </div>
         )}
 
         {editorMode === 'split' && (
           <div className="h-full grid grid-cols-1 lg:grid-cols-2 divide-x divide-border">
-            <div className="h-full overflow-hidden flex flex-col">
+            <div className="h-full overflow-hidden flex flex-col min-h-0 pb-6">
               <div className="px-4 py-2 border-b bg-muted/30">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Editor</span>
               </div>
@@ -641,8 +663,9 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
                 ref={textareaRef}
                 value={content}
                 onChange={(val) => setContent(val)}
+                onScroll={syncPreviewScroll}
                 placeholder="Start writing... (Markdown supported)"
-                className="flex-1 resize-none border-none rounded-none p-4 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
+                className="flex-1 min-h-0 resize-none border-none rounded-none px-4 pt-4 pb-8 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
               />
             </div>
 
@@ -651,7 +674,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
               <div className="px-4 py-2 border-b bg-muted/30">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Preview</span>
               </div>
-              <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+              <div ref={previewRef} className="flex-1 overflow-y-auto p-6 pb-12 custom-scrollbar">
                 {!content.trim() ? (
                   <div className="flex items-center justify-center h-full text-muted-foreground/50">
                     <p className="text-sm">Preview will appear here...</p>

@@ -1162,7 +1162,12 @@ function HomeContent() {
         </header>
 
         {/* Content area */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className={cn(
+          'flex-1',
+          currentView === 'note-editor' && selectedNoteId
+            ? 'overflow-hidden p-0'
+            : 'overflow-auto p-6',
+        )}>
           <AnimatePresence mode="wait">
             <motion.div
               key={currentView + (selectedAreaId || '') + (selectedProjectId || '') + (selectedNoteId || '')}
@@ -1170,6 +1175,9 @@ function HomeContent() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.15 }}
+              className={cn(
+                currentView === 'note-editor' && selectedNoteId && 'h-full',
+              )}
             >
               {renderContent()}
             </motion.div>
