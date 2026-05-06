@@ -74,6 +74,11 @@ export const DEFAULT_PAGE_OPTIONS = [
 
 export type DefaultPage = (typeof DEFAULT_PAGE_OPTIONS)[number]['value'];
 
+export interface ProfileVisibility {
+  nickname: boolean;
+  email: boolean;
+}
+
 export interface UserPreferences {
   noteAutoSave: boolean;
   notesTree: boolean;
@@ -81,6 +86,7 @@ export interface UserPreferences {
   defaultPage: DefaultPage;
   customStatuses: StatusConfig[] | null;
   entityShortLinks: boolean;
+  profileVisibility: ProfileVisibility;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -90,6 +96,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   defaultPage: 'quick-create',
   customStatuses: null,
   entityShortLinks: false,
+  profileVisibility: { nickname: false, email: false },
 };
 
 export function resolveStatuses(

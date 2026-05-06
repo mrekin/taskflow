@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { format, parseISO, isPast } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -108,6 +108,8 @@ export function TaskDetailDialog() {
   const [editingSubtaskTitle, setEditingSubtaskTitle] = useState('');
   const [localTagIds, setLocalTagIds] = useState<string[]>([]);
 
+  const navigatedFromParentRef = useRef(false);
+
   const [webhookBindings, setWebhookBindings] = useState<
     { webhookId: string; events: string[] }[]
   >([]);
@@ -130,6 +132,7 @@ export function TaskDetailDialog() {
       setEditingSubtaskId(null);
       setWebhookBindings([]);
       setWebhooksExpanded(false);
+      navigatedFromParentRef.current = false;
     }
   }, [task?.id]);
 
@@ -259,10 +262,10 @@ export function TaskDetailDialog() {
 
   const handleDelete = async () => {
     if (!task) return;
-    // If this is a subtask, go back to parent first
     const parentId = task.parentId;
+    const cameFromParent = navigatedFromParentRef.current;
     await deleteTask(task.id);
-    if (parentId) {
+    if (parentId && cameFromParent) {
       selectTask(parentId);
     } else {
       selectTask(null);
@@ -283,6 +286,9 @@ export function TaskDetailDialog() {
   };
 
   const handleSubtaskClick = (subtaskId: string) => {
+    if (task && !task.parentId) {
+      navigatedFromParentRef.current = true;
+    }
     selectTask(subtaskId);
   };
 

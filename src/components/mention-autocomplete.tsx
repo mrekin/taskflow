@@ -13,7 +13,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppStore } from '@/store/app-store';
-import { filterEntities, isLocalEntityUrl, type MentionItem } from '@/lib/smart-links';
+import { filterEntities, isLocalEntityUrl, type MentionItem, type UserMentionItem } from '@/lib/smart-links';
 import { getEntityLink } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +28,7 @@ const TYPE_ICONS: Record<string, string> = {
   project: 'P',
   note: 'N',
   area: 'A',
+  user: '@',
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -35,7 +36,14 @@ const TYPE_LABELS: Record<string, string> = {
   project: 'Projects',
   note: 'Notes',
   area: 'Areas',
+  user: 'Users',
 };
+
+type DropdownItem = MentionItem | (UserMentionItem & { type: 'user' });
+
+function isUserItem(item: DropdownItem): item is UserMentionItem & { type: 'user' } {
+  return 'type' in item && item.type === 'user';
+}
 
 function getCaretCoordinates(textarea: HTMLTextAreaElement, position: number): { top: number; left: number } {
   const div = document.createElement('div');
@@ -88,19 +96,20 @@ function Dropdown({
   onSelect,
   onHover,
 }: {
-  items: MentionItem[];
+  items: DropdownItem[];
   selectedIndex: number;
   viewportPos: { top: number; left: number };
-  onSelect: (item: MentionItem) => void;
+  onSelect: (item: DropdownItem) => void;
   onHover: (idx: number) => void;
 }) {
-  const groupedItems = items.reduce<Record<string, MentionItem[]>>((acc, item) => {
-    if (!acc[item.type]) acc[item.type] = [];
-    acc[item.type].push(item);
+  const groupedItems = items.reduce<Record<string, DropdownItem[]>>((acc, item) => {
+    const groupKey = isUserItem(item) ? 'user' : item.type;
+    if (!acc[groupKey]) acc[groupKey] = [];
+    acc[groupKey].push(item);
     return acc;
   }, {});
 
-  const typeOrder = ['task', 'project', 'note', 'area'];
+  const typeOrder = ['user', 'task', 'project', 'note', 'area'];
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -146,12 +155,18 @@ function Dropdown({
                     onMouseEnter={() => onHover(globalIdx)}
                   >
                     <span className="shrink-0 text-primary font-mono text-[10px] font-semibold w-4 text-center">
-                      {TYPE_ICONS[item.type]}
+                      {TYPE_ICONS[type]}
                     </span>
-                    <span className="font-mono text-[10px] text-muted-foreground shrink-0">
-                      {item.shortId}
-                    </span>
-                    <span className="truncate">{item.label}</span>
+                    {isUserItem(item) ? (
+                      <span className="truncate">{item.label}</span>
+                    ) : (
+                      <>
+                        <span className="font-mono text-[10px] text-muted-foreground shrink-0">
+                          {item.shortId}
+                        </span>
+                        <span className="truncate">{item.label}</span>
+                      </>
+                    )}
                   </button>
                 );
               })}
@@ -163,6 +178,9 @@ function Dropdown({
   );
 }
 
+const basePath = process.env.NEXT_BASE_PATH || '';
+const api = (path: string) => `${basePath}${path}`;
+
 export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaProps>(
   function MentionTextarea({ value, onChange, children, className, onKeyDown, ...rest }, forwardedRef) {
     const innerRef = useRef<HTMLTextAreaElement>(null);
@@ -172,15 +190,21 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
 
     const [isOpen, setIsOpen] = useState(false);
     const [triggerIndex, setTriggerIndex] = useState(-1);
+    const [triggerType, setTriggerType] = useState<'#' | '@'>('#');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [viewportPos, setViewportPos] = useState({ top: 0, left: 0 });
-    const [items, setItems] = useState<MentionItem[]>([]);
+    const [items, setItems] = useState<DropdownItem[]>([]);
 
     const isOpenRef = useRef(false);
+    const userSearchAbortRef = useRef<AbortController | null>(null);
 
     const closeDropdown = useCallback(() => {
       setIsOpen(false);
       isOpenRef.current = false;
+      if (userSearchAbortRef.current) {
+        userSearchAbortRef.current.abort();
+        userSearchAbortRef.current = null;
+      }
     }, []);
 
     const updatePosition = useCallback(() => {
@@ -216,49 +240,110 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
     const detectTrigger = useCallback(
       (val: string, cursorPos: number) => {
         const textBefore = val.substring(0, cursorPos);
+
         const hashIndex = textBefore.lastIndexOf('#');
+        const atIndex = textBefore.lastIndexOf('@');
 
-        if (hashIndex === -1) {
+        let activeTrigger: '#' | '@' | null = null;
+        let activeIndex = -1;
+
+        if (atIndex > hashIndex) {
+          const beforeAt = textBefore.substring(0, atIndex);
+          if (beforeAt.length === 0 || /[\s\n\r]$/.test(beforeAt)) {
+            activeTrigger = '@';
+            activeIndex = atIndex;
+          }
+        }
+
+        if (!activeTrigger && hashIndex !== -1) {
+          const beforeHash = textBefore.substring(0, hashIndex);
+          if (beforeHash.length === 0 || /[\s\n\r]$/.test(beforeHash)) {
+            activeTrigger = '#';
+            activeIndex = hashIndex;
+          }
+        }
+
+        if (!activeTrigger || activeIndex === -1) {
           closeDropdown();
           return;
         }
 
-        const beforeHash = textBefore.substring(0, hashIndex);
-        if (beforeHash.length > 0 && !/[\s\n\r]$/.test(beforeHash)) {
-          closeDropdown();
-          return;
-        }
+        const q = textBefore.substring(activeIndex + 1);
 
-        const q = textBefore.substring(hashIndex + 1);
-        setTriggerIndex(hashIndex);
-        const filtered = filterEntities(q, tasks, projects, notes, areas);
-        setItems(filtered);
-        setSelectedIndex(0);
+        if (activeTrigger === '#') {
+          setTriggerIndex(activeIndex);
+          setTriggerType('#');
+          const filtered = filterEntities(q, tasks, projects, notes, areas);
+          setItems(filtered);
+          setSelectedIndex(0);
 
-        if (filtered.length > 0) {
-          updatePosition();
-          setIsOpen(true);
-          isOpenRef.current = true;
-        } else {
-          closeDropdown();
+          if (filtered.length > 0) {
+            updatePosition();
+            setIsOpen(true);
+            isOpenRef.current = true;
+          } else {
+            closeDropdown();
+          }
+        } else if (activeTrigger === '@') {
+          setTriggerIndex(activeIndex);
+          setTriggerType('@');
+
+          if (userSearchAbortRef.current) {
+            userSearchAbortRef.current.abort();
+          }
+          const controller = new AbortController();
+          userSearchAbortRef.current = controller;
+
+          if (q.length < 1) {
+            closeDropdown();
+            return;
+          }
+
+          fetch(api(`/api/users/search?q=${encodeURIComponent(q)}`), { signal: controller.signal })
+            .then((res) => res.ok ? res.json() : [])
+            .then((users: UserMentionItem[]) => {
+              if (controller.signal.aborted) return;
+              const dropdownItems: DropdownItem[] = users.map((u) => ({ ...u, type: 'user' as const }));
+              setItems(dropdownItems);
+              setSelectedIndex(0);
+
+              if (dropdownItems.length > 0) {
+                updatePosition();
+                setIsOpen(true);
+                isOpenRef.current = true;
+              } else {
+                closeDropdown();
+              }
+            })
+            .catch(() => {
+              if (!controller.signal.aborted) {
+                closeDropdown();
+              }
+            });
         }
       },
       [tasks, projects, notes, areas, closeDropdown, updatePosition]
     );
 
     const insertMention = useCallback(
-      (item: MentionItem) => {
+      (item: DropdownItem) => {
         const textarea = innerRef.current;
         if (!textarea) return;
-
-        const entityShortLinks = useAppStore.getState().userPreferences.entityShortLinks;
 
         const cursorPos = textarea.selectionStart;
         const before = value.substring(0, triggerIndex);
         const after = value.substring(cursorPos);
-        const insertion = entityShortLinks
-          ? `#${item.shortId} `
-          : `${window.location.origin}${getEntityLink(item.type, item.shortId)} `;
+
+        let insertion: string;
+        if (isUserItem(item)) {
+          const identifier = item.name || item.email || item.label;
+          insertion = `@${identifier} `;
+        } else {
+          const entityShortLinks = useAppStore.getState().userPreferences.entityShortLinks;
+          insertion = entityShortLinks
+            ? `#${item.shortId} `
+            : `${window.location.origin}${getEntityLink(item.type, item.shortId)} `;
+        }
 
         const newValue = before + insertion + after;
         onChange(newValue);

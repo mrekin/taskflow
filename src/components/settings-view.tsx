@@ -1,6 +1,6 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useSyncExternalStore, useState, useCallback } from 'react';
 import { useTheme } from 'next-themes';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,9 +29,14 @@ import {
   ListChecks,
   Tags,
   Link2,
+  Loader2,
+  Pencil,
+  X,
+  Check,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { WebhooksSection } from '@/components/webhooks-section';
 import { StatusColumnsSettings } from '@/components/status-columns-settings';
 import { TagsManagementSection } from '@/components/tags-management-section';
@@ -56,7 +61,7 @@ const iconMap: Record<string, React.ElementType> = {
 
 export function SettingsView() {
   const { theme, setTheme } = useTheme();
-  const { data: session } = useSession();
+  const { data: session, update: updateSession } = useSession();
   const { userPreferences, updateUserPreference } = useAppStore();
   const mounted = useIsMounted();
 
@@ -65,6 +70,53 @@ export function SettingsView() {
   const displayName = session?.user?.name || '';
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || 'unknown';
   const buildType = process.env.NEXT_PUBLIC_BUILD_TYPE || 'test';
+
+  const [nameValue, setNameValue] = useState(displayName);
+  const [nameEditing, setNameEditing] = useState(false);
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [nameSuccess, setNameSuccess] = useState(false);
+
+  const handleSaveName = useCallback(async () => {
+    const trimmed = nameValue.trim();
+    if (!trimmed || trimmed.length < 2) {
+      setNameError('Name must be at least 2 characters');
+      return;
+    }
+    if (trimmed === displayName) return;
+
+    setNameSaving(true);
+    setNameError(null);
+    setNameSuccess(false);
+
+    try {
+      const basePath = process.env.NEXT_BASE_PATH || '';
+      const res = await fetch(`${basePath}/api/user/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+
+      if (res.status === 409) {
+        setNameError('This name is already taken');
+        return;
+      }
+      if (!res.ok) {
+        setNameError('Failed to update name');
+        return;
+      }
+
+      setNameSuccess(true);
+      setNameEditing(false);
+      setTimeout(() => setNameSuccess(false), 2000);
+
+      await updateSession?.();
+    } catch {
+      setNameError('Failed to update name');
+    } finally {
+      setNameSaving(false);
+    }
+  }, [nameValue, displayName, updateSession]);
 
   const handleExportData = () => {
     const data = {
@@ -136,24 +188,108 @@ export function SettingsView() {
                     .slice(0, 2)}
                 </AvatarFallback>
               </Avatar>
-              <div className="space-y-1">
-                <p className="text-sm font-medium">{displayName}</p>
+              <div className="space-y-1 flex-1 min-w-0">
+                {nameEditing ? (
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      id="user-name"
+                      value={nameValue}
+                      onChange={(e) => {
+                        setNameValue(e.target.value);
+                        setNameError(null);
+                        setNameSuccess(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveName();
+                        if (e.key === 'Escape') {
+                          setNameValue(displayName);
+                          setNameEditing(false);
+                          setNameError(null);
+                        }
+                      }}
+                      placeholder="Enter your name"
+                      className="h-7 text-sm"
+                      autoFocus
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0"
+                      onClick={handleSaveName}
+                      disabled={nameSaving || nameValue.trim() === displayName || nameValue.trim().length < 2}
+                    >
+                      {nameSaving ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => {
+                        setNameValue(displayName);
+                        setNameEditing(false);
+                        setNameError(null);
+                      }}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium">{displayName}</p>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 shrink-0"
+                      onClick={() => setNameEditing(true)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                {nameError && (
+                  <p className="text-xs text-destructive">{nameError}</p>
+                )}
                 <p className="text-xs text-muted-foreground">{email}</p>
               </div>
             </div>
 
             <Separator />
 
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  value={email}
-                  readOnly
-                  className="bg-muted"
+            <div className="flex items-center gap-4">
+              <Label className="text-sm font-medium shrink-0">Visible to others</Label>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="visibility-name"
+                  checked={prefs.profileVisibility.nickname}
+                  onCheckedChange={(checked) =>
+                    updateUserPreference('profileVisibility', {
+                      ...prefs.profileVisibility,
+                      nickname: checked === true,
+                    })
+                  }
                 />
-                <p className="text-xs text-muted-foreground">Email is read-only</p>
+                <Label htmlFor="visibility-name" className="text-sm cursor-pointer">
+                  Name
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="visibility-email"
+                  checked={prefs.profileVisibility.email}
+                  onCheckedChange={(checked) =>
+                    updateUserPreference('profileVisibility', {
+                      ...prefs.profileVisibility,
+                      email: checked === true,
+                    })
+                  }
+                />
+                <Label htmlFor="visibility-email" className="text-sm cursor-pointer">
+                  Email
+                </Label>
               </div>
             </div>
           </CardContent>

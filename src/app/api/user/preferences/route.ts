@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUserId } from '@/lib/auth-utils';
 import { db } from '@/lib/db';
-import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig } from '@/lib/constants';
+import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig, type ProfileVisibility } from '@/lib/constants';
 
 export async function GET() {
   const userId = await getCurrentUserId();
@@ -28,6 +28,7 @@ export async function GET() {
     defaultPage: (metadata.defaultPage as UserPreferences['defaultPage']) || DEFAULT_PREFERENCES.defaultPage,
     customStatuses: parseStatuses(metadata.customStatuses),
     entityShortLinks: metadata.entityShortLinks !== undefined ? Boolean(metadata.entityShortLinks) : DEFAULT_PREFERENCES.entityShortLinks,
+    profileVisibility: parseProfileVisibility(metadata.profileVisibility),
   };
 
   return NextResponse.json(preferences);
@@ -36,6 +37,15 @@ export async function GET() {
 function parseStatuses(value: unknown): StatusConfig[] | null {
   if (!Array.isArray(value) || value.length === 0) return null;
   return value as StatusConfig[];
+}
+
+function parseProfileVisibility(value: unknown): ProfileVisibility {
+  if (!value || typeof value !== 'object') return DEFAULT_PREFERENCES.profileVisibility;
+  const v = value as Record<string, unknown>;
+  return {
+    nickname: typeof v.nickname === 'boolean' ? v.nickname : DEFAULT_PREFERENCES.profileVisibility.nickname,
+    email: typeof v.email === 'boolean' ? v.email : DEFAULT_PREFERENCES.profileVisibility.email,
+  };
 }
 
 export async function PUT(request: Request) {
@@ -54,6 +64,7 @@ export async function PUT(request: Request) {
   const defaultPage = validDefaultPages.includes(body.defaultPage) ? body.defaultPage : undefined;
   const customStatuses = body.customStatuses === null ? null : parseStatuses(body.customStatuses);
   const entityShortLinks = typeof body.entityShortLinks === 'boolean' ? body.entityShortLinks : undefined;
+  const profileVisibility = body.profileVisibility ? parseProfileVisibility(body.profileVisibility) : undefined;
 
   const user = await db.user.findUnique({ where: { id: userId }, select: { metadata: true } });
   let existing: Record<string, unknown>;
@@ -69,6 +80,7 @@ export async function PUT(request: Request) {
   if (defaultPage !== undefined) existing.defaultPage = defaultPage;
   if (customStatuses !== undefined) existing.customStatuses = customStatuses;
   if (entityShortLinks !== undefined) existing.entityShortLinks = entityShortLinks;
+  if (profileVisibility !== undefined) existing.profileVisibility = profileVisibility;
 
   await db.user.update({
     where: { id: userId },
@@ -82,6 +94,7 @@ export async function PUT(request: Request) {
     defaultPage: (existing.defaultPage as UserPreferences['defaultPage']) || DEFAULT_PREFERENCES.defaultPage,
     customStatuses: parseStatuses(existing.customStatuses),
     entityShortLinks: existing.entityShortLinks !== undefined ? Boolean(existing.entityShortLinks) : DEFAULT_PREFERENCES.entityShortLinks,
+    profileVisibility: parseProfileVisibility(existing.profileVisibility),
   };
 
   return NextResponse.json(preferences);

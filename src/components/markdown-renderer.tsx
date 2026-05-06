@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { useAppStore } from '@/store/app-store';
 import { processContent, isLocalEntityUrl } from '@/lib/smart-links';
 import { useState } from 'react';
-import { Check, Link2 } from 'lucide-react';
+import { Check, Link2, User } from 'lucide-react';
 import { copyToClipboard } from '@/lib/utils';
 
 interface MarkdownRendererProps {
@@ -95,6 +95,18 @@ function EntityMentionBadge({ type, num }: { type: string; num: number }) {
           <Link2 className="size-2.5" />
         )}
       </button>
+    </span>
+  );
+}
+
+function UserMentionBadge({ identifier }: { identifier: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-mono border border-blue-500/20 px-1.5 py-0.5"
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <User className="size-3" />
+      <span className="truncate max-w-[150px]">{identifier}</span>
     </span>
   );
 }
@@ -190,6 +202,13 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
               const num = parseInt(parts[2], 10);
               if (type && !isNaN(num)) {
                 return <EntityMentionBadge type={type} num={num} />;
+              }
+            }
+
+            if (href?.startsWith('user:')) {
+              const identifier = href.substring(5);
+              if (identifier) {
+                return <UserMentionBadge identifier={identifier} />;
               }
             }
 
