@@ -92,7 +92,7 @@ export function WebhooksSection() {
   const {
     webhooks, fetchWebhooks, createWebhook, updateWebhook, deleteWebhook,
     testWebhook, fetchWebhookDeliveries, createWebhookTrigger, updateWebhookTrigger,
-    tasks, fetchTasks, projects, areas,
+    tasks, projects, areas,
   } = useAppStore();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -107,8 +107,7 @@ export function WebhooksSection() {
 
   useEffect(() => {
     fetchWebhooks();
-    fetchTasks();
-  }, [fetchWebhooks, fetchTasks]);
+  }, [fetchWebhooks]);
 
   const basePath = process.env.NEXT_BASE_PATH || '';
 

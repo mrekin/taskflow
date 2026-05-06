@@ -228,7 +228,6 @@ function HomeContent() {
     folders,
     tags,
     sidebarOpen,
-    isLoading,
     tagFilter,
     projectFilter,
     userPreferences,
@@ -700,7 +699,7 @@ function HomeContent() {
   };
 
   // Loading state
-  if (isLoading && areas.length === 0 && projects.length === 0) {
+  if (!initialLoadDone) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <motion.div
