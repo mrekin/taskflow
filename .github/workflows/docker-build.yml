@@ -13,6 +13,11 @@ on:
         required: false
         default: ''
         type: string
+      image_tag:
+        description: 'Custom image tag (leave empty for auto)'
+        required: false
+        default: ''
+        type: string
       build_type:
         description: 'Build type (test/dev/release)'
         required: false
@@ -78,11 +83,13 @@ jobs:
                 BUILD_TYPE=test
                 TAGS="${{ steps.repo.outputs.image }}:test"
               fi
-              BASE_PATH="/taskflow"
+              BASE_PATH=""
             fi
           else
             BUILD_TYPE="${{ inputs.build_type }}"
-            if [ "$BUILD_TYPE" = "release" ]; then
+            if [ -n "${{ inputs.image_tag }}" ]; then
+              TAGS="${{ steps.repo.outputs.image }}:${{ inputs.image_tag }}"
+            elif [ "$BUILD_TYPE" = "release" ]; then
               TAGS="${{ steps.repo.outputs.image }}:${VERSION}"$'\n'"${{ steps.repo.outputs.image }}:latest"
             elif [ "$BUILD_TYPE" = "dev" ]; then
               TAGS="${{ steps.repo.outputs.image }}:${VERSION}-dev"$'\n'"${{ steps.repo.outputs.image }}:test"

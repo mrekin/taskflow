@@ -1,5 +1,7 @@
 # TaskFlow
 
+# GITHUB REPO is only mirror! Issues can be open, but PR will not accepted
+
 Self-hosted task and notes management application for individual use or small teams, with Kanban board, Markdown notes, and hierarchical project organization.
 
 ## Features
@@ -41,6 +43,13 @@ cd taskflow
 mkdir -p taskflow-data
 chown -R 1001:1001 taskflow-data
 docker compose up -d
+```
+
+or
+
+```bash
+# use pre-build images
+docker pull ghcr.io/mrekin/taskflow:<tag>
 ```
 
 The app will be available at `http://localhost:3000`.
