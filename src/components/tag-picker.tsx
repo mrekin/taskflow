@@ -47,11 +47,10 @@ export function TagPicker({ selectedTagIds, onTagIdsChange }: TagPickerProps) {
   // Filtered suggestions: exclude already selected, filter by input
   const suggestions = useMemo(() => {
     const available = tags.filter((t) => !selectedTagIds.includes(t.id));
-    if (!inputValue.trim()) return available.slice(0, 8);
+    if (!inputValue.trim()) return available;
     const query = inputValue.toLowerCase().trim();
     return available
-      .filter((t) => t.name.toLowerCase().includes(query))
-      .slice(0, 8);
+      .filter((t) => t.name.toLowerCase().includes(query));
   }, [tags, selectedTagIds, inputValue]);
 
   const exactMatch = tags.find(
