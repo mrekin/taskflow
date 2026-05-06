@@ -180,7 +180,7 @@ export function TagPicker({ selectedTagIds, onTagIdsChange }: TagPickerProps) {
 
       {/* Dropdown suggestions */}
       {showSuggestions && (suggestions.length > 0 || canCreate) && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-popover border rounded-md shadow-md py-1 min-w-[180px] max-w-[260px]">
+        <div className="absolute top-full left-0 mt-1 z-50 bg-popover border rounded-md shadow-md py-1 min-w-[180px] max-w-[260px] max-h-[200px] overflow-y-auto">
           {/* Matching existing tags */}
           {suggestions.map((tag, i) => (
             <button
