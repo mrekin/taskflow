@@ -4,6 +4,10 @@
 
 Self-hosted task and notes management application for individual use or small teams, with Kanban board, Markdown notes, and hierarchical project organization.
 
+## 
+[Live Demo](https://taskflow.zapto.org)
+##
+
 ## Features
 
 - **Hierarchical organization** — Areas > Projects > Tasks with subtasks
