@@ -294,11 +294,6 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
           const controller = new AbortController();
           userSearchAbortRef.current = controller;
 
-          if (q.length < 1) {
-            closeDropdown();
-            return;
-          }
-
           fetch(api(`/api/users/search?q=${encodeURIComponent(q)}`), { signal: controller.signal })
             .then((res) => res.ok ? res.json() : [])
             .then((users: UserMentionItem[]) => {

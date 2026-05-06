@@ -21,18 +21,19 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get('q')?.trim().toLowerCase() || '';
 
-  if (!q || q.length < 1) {
-    return NextResponse.json([]);
+  const where: any = {
+    NOT: { id: userId },
+  };
+
+  if (q) {
+    where.OR = [
+      { name: { contains: q } },
+      { email: { contains: q } },
+    ];
   }
 
   const users = await db.user.findMany({
-    where: {
-      NOT: { id: userId },
-      OR: [
-        { name: { contains: q } },
-        { email: { contains: q } },
-      ],
-    },
+    where,
     select: { id: true, name: true, email: true, metadata: true },
     take: 10,
   });
@@ -47,16 +48,22 @@ export async function GET(request: NextRequest) {
       }
       const visibility = parseProfileVisibility(metadata.profileVisibility);
 
-      const showNickname = visibility.nickname && u.name;
+      const showName = visibility.nickname && u.name;
       const showEmail = visibility.email;
 
-      if (!showNickname && !showEmail) return null;
+      if (!showName && !showEmail) return null;
+
+      if (q) {
+        const nameMatch = showName && u.name && u.name.toLowerCase().includes(q);
+        const emailMatch = showEmail && u.email && u.email.toLowerCase().includes(q);
+        if (!nameMatch && !emailMatch) return null;
+      }
 
       return {
         id: u.id,
-        name: showNickname ? u.name : null,
+        name: showName ? u.name : null,
         email: showEmail ? u.email : null,
-        label: showNickname ? u.name : u.email,
+        label: showName ? u.name : u.email,
       };
     })
     .filter(Boolean);
