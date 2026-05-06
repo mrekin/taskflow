@@ -444,12 +444,21 @@ export const useAppStore = create<AppState>((set, get) => ({
       const updatedTask: Task = await res.json();
       set((state) => ({
         tasks: state.tasks.map((t) => {
-          if (t.id !== id) return t;
-          return {
-            ...updatedTask,
-            subtasks: updatedTask.subtasks ?? t.subtasks,
-            completedSubtasks: updatedTask.completedSubtasks ?? t.completedSubtasks,
-          };
+          if (t.id === id) {
+            return {
+              ...updatedTask,
+              subtasks: updatedTask.subtasks ?? t.subtasks,
+              completedSubtasks: updatedTask.completedSubtasks ?? t.completedSubtasks,
+            };
+          }
+          if (t.subtasks?.some((s) => s.id === id)) {
+            return {
+              ...t,
+              subtasks: t.subtasks.map((s) => s.id === id ? { ...s, ...updatedTask } : s),
+              completedSubtasks: updatedTask.completedSubtasks ?? t.completedSubtasks,
+            };
+          }
+          return t;
         }),
       }));
     } catch (error) {
@@ -461,10 +470,24 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const res = await fetch(api(`/api/tasks/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete task');
-      set((state) => ({
-        tasks: state.tasks.filter((t) => t.id !== id),
-        selectedTaskId: state.selectedTaskId === id ? null : state.selectedTaskId,
-      }));
+      set((state) => {
+        const deleted = state.tasks.find((t) => t.id === id);
+        return {
+          tasks: state.tasks
+            .filter((t) => t.id !== id)
+            .map((t) => {
+              if (!deleted?.parentId || t.id !== deleted.parentId) return t;
+              const subtasks = (t.subtasks ?? []).filter((s) => s.id !== id);
+              return {
+                ...t,
+                subtasks,
+                _count: { ...t._count, subtasks: (t._count?.subtasks ?? 0) - 1 },
+                completedSubtasks: (t.completedSubtasks ?? 0) - (deleted.status === 'done' ? 1 : 0),
+              };
+            }),
+          selectedTaskId: state.selectedTaskId === id ? null : state.selectedTaskId,
+        };
+      });
     } catch (error) {
       console.error('Failed to delete task:', error);
     }
