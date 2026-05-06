@@ -30,6 +30,10 @@ export function DemoBanner() {
       const diff = Math.max(0, resetTime - Date.now());
       if (diff === 0) {
         setRemaining('00:00');
+        fetch(`${basePath}/api/config`)
+          .then(r => r.json())
+          .then(data => setConfig(data))
+          .catch(() => {});
         return;
       }
       const totalSec = Math.floor(diff / 1000);

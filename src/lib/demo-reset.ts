@@ -4,10 +4,12 @@ import { getConfigError, DEMO_USER_EMAIL } from '@/lib/config';
 const DEFAULT_RESET_MIN = 15;
 const INITIAL_DELAY_MS = 30_000;
 
-let nextResetAt: Date | null = null;
+const globalForDemo = globalThis as typeof globalThis & {
+  __demoNextResetAt?: Date | null;
+};
 
 export function getNextResetAt(): Date | null {
-  return nextResetAt;
+  return globalForDemo.__demoNextResetAt ?? null;
 }
 
 async function resetDatabase(): Promise<void> {
@@ -36,12 +38,12 @@ async function resetDatabase(): Promise<void> {
   }
 
   scheduleNextReset();
-  console.log('[DemoReset] Database reset complete. Next reset at:', nextResetAt?.toISOString());
+  console.log('[DemoReset] Database reset complete. Next reset at:', globalForDemo.__demoNextResetAt?.toISOString());
 }
 
 function scheduleNextReset(): void {
   const resetMin = Math.max(1, parseInt(process.env.DEMO_RESET_MIN || String(DEFAULT_RESET_MIN), 10));
-  nextResetAt = new Date(Date.now() + resetMin * 60 * 1000);
+  globalForDemo.__demoNextResetAt = new Date(Date.now() + resetMin * 60 * 1000);
 }
 
 export function startDemoReset(): NodeJS.Timeout | null {
