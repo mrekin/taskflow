@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api-utils';
 import { X, User as UserIcon, Loader2 } from 'lucide-react';
 
 interface UserOption {
@@ -18,8 +19,6 @@ interface UserPickerProps {
   onAssigneeChange: (userId: string | null) => void;
 }
 
-const basePath = process.env.NEXT_BASE_PATH || '';
-const api = (path: string) => `${basePath}${path}`;
 
 export function UserPicker({ assigneeId, assignee, onAssigneeChange }: UserPickerProps) {
   const [inputValue, setInputValue] = useState('');

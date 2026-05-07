@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppStore } from '@/store/app-store';
+import { api } from '@/lib/api-utils';
 import { filterEntities, isLocalEntityUrl, type MentionItem, type UserMentionItem } from '@/lib/smart-links';
 import { getEntityLink } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -178,8 +179,7 @@ function Dropdown({
   );
 }
 
-const basePath = process.env.NEXT_BASE_PATH || '';
-const api = (path: string) => `${basePath}${path}`;
+
 
 export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaProps>(
   function MentionTextarea({ value, onChange, children, className, onKeyDown, ...rest }, forwardedRef) {

@@ -1,3 +1,6 @@
+const basePath = process.env.NEXT_BASE_PATH || '';
+export const api = (path: string) => `${basePath}${path}`;
+
 // Shared API utility functions for parsing JSON fields from SQLite
 
 import type { EntityType } from './utils';

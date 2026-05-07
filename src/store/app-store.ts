@@ -2,8 +2,7 @@ import { create } from 'zustand';
 import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery, WebhookTrigger } from '@/lib/types';
 import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig, resolveStatuses, DEFAULT_STATUSES } from '@/lib/constants';
 
-const basePath = process.env.NEXT_BASE_PATH || '';
-const api = (path: string) => `${basePath}${path}`;
+import { api } from '@/lib/api-utils';
 
 type ViewType = 'areas' | 'projects' | 'tasks' | 'kanban' | 'notes' | 'note-editor' | 'settings' | 'quick-create';
 

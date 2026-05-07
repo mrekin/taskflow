@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api-utils';
 import {
   VISIBILITY_OWNER,
   VISIBILITY_USERS,
@@ -91,7 +92,7 @@ export function VisibilityLock({
     if (users.length > 0) return;
     let cancelled = false;
     setUsersLoading(true);
-    fetch('/api/users')
+    fetch(api('/api/users'))
       .then((r) => r.json())
       .then((data: UserItem[]) => { if (!cancelled) setUsers(data.filter((u) => u.id !== ownerId)); })
       .catch(() => {})
