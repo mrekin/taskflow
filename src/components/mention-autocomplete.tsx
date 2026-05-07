@@ -331,8 +331,8 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
 
         let insertion: string;
         if (isUserItem(item)) {
-          const identifier = item.name || item.email || item.label;
-          insertion = `@${identifier} `;
+          const displayName = item.name || item.email || item.label;
+          insertion = `[@${displayName}](user:${item.id}) `;
         } else {
           const entityShortLinks = useAppStore.getState().userPreferences.entityShortLinks;
           insertion = entityShortLinks

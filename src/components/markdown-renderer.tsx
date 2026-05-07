@@ -8,7 +8,7 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Separator } from '@/components/ui/separator';
 import { useAppStore } from '@/store/app-store';
 import { processContent, isLocalEntityUrl } from '@/lib/smart-links';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, Link2, User } from 'lucide-react';
 import { copyToClipboard } from '@/lib/utils';
 
@@ -44,15 +44,23 @@ function EntityMentionBadge({ type, num }: { type: string; num: number }) {
   }
 
   const displayId = `${upperType}-${num}`;
+  const paramMap: Record<string, string> = { T: 'task', P: 'project', N: 'note', A: 'area' };
+  const param = paramMap[upperType] || 'task';
+  const href = `${window.location.origin}${window.location.pathname}?${param}=${displayId}`;
+
+  if (!entityId) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80 text-xs font-mono">
+        {displayId}
+      </a>
+    );
+  }
+
   const truncatedTitle = entityName
     ? entityName.length > 30
       ? entityName.slice(0, 30) + '\u2026'
       : entityName
     : displayId;
-
-  const paramMap: Record<string, string> = { T: 'task', P: 'project', N: 'note', A: 'area' };
-  const param = paramMap[upperType] || 'task';
-  const href = entityId ? `${window.location.origin}${window.location.pathname}?${param}=${displayId}` : '#';
 
   const handleCopyLink = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -99,14 +107,50 @@ function EntityMentionBadge({ type, num }: { type: string; num: number }) {
   );
 }
 
-function UserMentionBadge({ identifier }: { identifier: string }) {
+interface UserLookupResult { exists: boolean; name: string | null; email: string | null }
+
+const userLookupCache = new Map<string, UserLookupResult>();
+
+const basePath = typeof process !== 'undefined' ? (process.env.NEXT_BASE_PATH || '') : '';
+
+function UserMentionBadge({ userId, children }: { userId: string; children: React.ReactNode }) {
+  const [data, setData] = useState<UserLookupResult | null>(() => {
+    if (userLookupCache.has(userId)) return userLookupCache.get(userId)!;
+    return null;
+  });
+
+  useEffect(() => {
+    if (userLookupCache.has(userId)) {
+      setData(userLookupCache.get(userId)!);
+      return;
+    }
+
+    fetch(`${basePath}/api/users/lookup?id=${encodeURIComponent(userId)}`)
+      .then((res) => res.ok ? res.json() : { exists: false, name: null, email: null })
+      .then((result: UserLookupResult) => {
+        userLookupCache.set(userId, result);
+        setData(result);
+      })
+      .catch(() => {
+        const fallback: UserLookupResult = { exists: false, name: null, email: null };
+        userLookupCache.set(userId, fallback);
+        setData(fallback);
+      });
+  }, [userId]);
+
+  if (data && !data.exists) {
+    return <span>{children}</span>;
+  }
+
+  const label = data ? (data.name || data.email) : null;
+
   return (
     <span
       className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-mono border border-blue-500/20 px-1.5 py-0.5"
       onPointerDown={(e) => e.stopPropagation()}
     >
       <User className="size-3" />
-      <span className="truncate max-w-[150px]">{identifier}</span>
+      <span className="truncate max-w-[150px]">{label || children}</span>
     </span>
   );
 }
@@ -206,10 +250,8 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
             }
 
             if (href?.startsWith('user:')) {
-              const identifier = href.substring(5);
-              if (identifier) {
-                return <UserMentionBadge identifier={identifier} />;
-              }
+              const userId = href.substring(5);
+              return <UserMentionBadge userId={userId}>{children}</UserMentionBadge>;
             }
 
             const entityUrlMatch = href && href.match(/^https?:\/\/[^/]+\/[^\s]*[?&](task|project|note|area)=([TPNAtpna]-\d+)/i);

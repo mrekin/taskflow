@@ -110,53 +110,6 @@ export const entityUrlProcessor: ContentProcessor = {
 registerProcessor(entityRefProcessor);
 registerProcessor(entityUrlProcessor);
 
-const USER_MENTION_REGEX = /(?<=^|[\s\n\r])@([\w.\-@]+)/g;
-
-export const userMentionProcessor: ContentProcessor = {
-  name: 'userMention',
-  process(content: string): string {
-    const parts = splitByCodeBlocks(content);
-    return parts
-      .map((part) => {
-        if (part.isCode) return part.text;
-
-        let result = part.text;
-        const linkPlaceholder = '\x00ULINK\x00';
-        const links: string[] = [];
-
-        result = result.replace(/\[([^\]]*)\]\(([^)]*)\)/g, (_m, text: string, url: string) => {
-          links.push(`[${text}](${url})`);
-          return `${linkPlaceholder}${links.length - 1}\x00`;
-        });
-
-        USER_MENTION_REGEX.lastIndex = 0;
-        result = result.replace(USER_MENTION_REGEX, (_match, identifier: string) => {
-          if (identifier.startsWith('T-') || identifier.startsWith('P-') || identifier.startsWith('N-') || identifier.startsWith('A-')) {
-            return _match;
-          }
-          return `[@${identifier}](user:${identifier})`;
-        });
-
-        result = result.replace(new RegExp(`${linkPlaceholder.replace(/\x00/g, '\\x00')}(\\d+)\\x00`, 'g'), (_m, idx: string) => {
-          return links[parseInt(idx, 10)];
-        });
-
-        return result;
-      })
-      .join('');
-  },
-};
-
-registerProcessor(userMentionProcessor);
-
-export interface MentionItem {
-  type: 'task' | 'project' | 'note' | 'area';
-  id: string;
-  shortId: string;
-  label: string;
-  shortIdNum: number;
-}
-
 export interface UserMentionItem {
   id: string;
   name: string | null;
