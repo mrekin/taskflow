@@ -10,6 +10,8 @@ export interface Area {
   shortId: string;
   ownerId: string;
   sortOrder: number;
+  visibility: string | null;
+  visibleUserIds: string[];
   createdAt: string;
   updatedAt: string;
   projects?: Project[];
@@ -30,6 +32,8 @@ export interface Project {
   areaId: string | null;
   ownerId: string;
   sortOrder: number;
+  visibility: string | null;
+  visibleUserIds: string[];
   createdAt: string;
   updatedAt: string;
   area?: Area;
@@ -55,6 +59,8 @@ export interface Task {
   shortId: string;
   sortOrder: number;
   ownerId: string;
+  visibility: string | null;
+  visibleUserIds: string[];
   createdAt: string;
   updatedAt: string;
   assignee?: { id: string; name: string | null; email: string; image: string | null } | null;
@@ -133,6 +139,8 @@ export interface Note {
   shortId: string;
   ownerId: string;
   sortOrder: number;
+  visibility: string | null;
+  visibleUserIds: string[];
   createdAt: string;
   updatedAt: string;
   project?: Project;
@@ -149,6 +157,8 @@ export interface NoteFolder {
   shortId: string;
   ownerId: string;
   sortOrder: number;
+  visibility: string | null;
+  visibleUserIds: string[];
   createdAt: string;
   updatedAt: string;
   parent?: NoteFolder;

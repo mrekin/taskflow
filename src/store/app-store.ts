@@ -39,6 +39,9 @@ interface AppState {
   folderSearchResults: NoteFolder[];
   totalTaskCount: number;
   totalTaskStatusCounts: Record<string, number>;
+  currentUserId: string | null;
+  ownershipFilter: 'all' | 'mine' | 'shared';
+  users: Array<{ id: string; name: string | null; image: string | null }>;
 
   // User Preferences
   userPreferences: UserPreferences;
@@ -60,6 +63,9 @@ interface AppState {
   setTagFilter: (tagIds: string[]) => void;
   setProjectFilter: (projectIds: string[]) => void;
   setAssigneeFilter: (userIds: string[]) => void;
+  setCurrentUserId: (id: string | null) => void;
+  setOwnershipFilter: (filter: 'all' | 'mine' | 'shared') => void;
+  fetchUsers: () => Promise<void>;
   setTaskSearchQuery: (query: string) => void;
   setNoteSearchQuery: (query: string) => void;
   searchNotes: (projectId?: string, search?: string, folderId?: string) => Promise<void>;
@@ -164,6 +170,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   folderSearchResults: [],
   totalTaskCount: 0,
   totalTaskStatusCounts: { todo: 0, in_progress: 0, done: 0, cancelled: 0 },
+  currentUserId: null,
+  ownershipFilter: 'all',
+  users: [],
 
   // User Preferences initial state
   userPreferences: DEFAULT_PREFERENCES,
@@ -185,6 +194,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTagFilter: (tagIds) => set({ tagFilter: tagIds }),
   setProjectFilter: (projectIds) => set({ projectFilter: projectIds }),
   setAssigneeFilter: (userIds) => set({ assigneeFilter: userIds }),
+  setCurrentUserId: (id) => set({ currentUserId: id }),
+  setOwnershipFilter: (filter) => set({ ownershipFilter: filter }),
+  fetchUsers: async () => {
+    try {
+      const res = await fetch(api('/api/users'));
+      if (!res.ok) throw new Error('Failed to fetch users');
+      const users = await res.json();
+      set({ users });
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    }
+  },
   setTaskSearchQuery: (query) => set({ taskSearchQuery: query }),
   setNoteSearchQuery: (query) => set({ noteSearchQuery: query }),
   searchNotes: async (projectId?: string, search?: string, folderId?: string) => {

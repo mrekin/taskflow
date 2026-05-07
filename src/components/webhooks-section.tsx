@@ -52,6 +52,9 @@ const WEBHOOK_EVENTS = [
   { value: 'task.created', label: 'Task Created', description: 'When a new task is created' },
   { value: 'project.status_changed', label: 'Project Status Changed', description: 'When a project status is updated' },
   { value: 'project.created', label: 'Project Created', description: 'When a new project is created' },
+  { value: 'entity.access_granted', label: 'Access Granted', description: 'When a user is granted access to an entity' },
+  { value: 'entity.access_revoked', label: 'Access Revoked', description: 'When user access is revoked from an entity' },
+  { value: 'entity.visibility_changed', label: 'Visibility Changed', description: 'When entity visibility level is changed' },
 ] as const;
 
 const PLACEHOLDERS = [
@@ -62,6 +65,11 @@ const PLACEHOLDERS = [
   { value: '{entityTitle}', description: 'Entity title (same as {title})' },
   { value: '{event}', description: 'Event name (e.g., task.status_changed)' },
   { value: '{status}', description: 'New status value (when status changed)' },
+  { value: '{grantedToId}', description: 'Granted User ID' },
+  { value: '{grantedToName}', description: 'Granted User Name' },
+  { value: '{grantedToEmail}', description: 'Granted User Email' },
+  { value: '{visibilityFrom}', description: 'Previous Visibility' },
+  { value: '{visibilityTo}', description: 'New Visibility' },
 ];
 
 interface WebhookFormData {

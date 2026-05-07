@@ -90,7 +90,7 @@ if [ "$NEEDS_MIGRATION" = "1" ]; then
   if [ -f "$DB_PATH" ]; then
     echo "Checking for legacy webhook schema..."
     # Check if old 'events' column exists on Webhook table
-    HAS_EVENTS=$(sqlite3 "$DB_PATH" "PRAGMA table_info(Webhook);" 2>/dev/null | grep -c "|events|" || echo "0")
+    HAS_EVENTS=$(sqlite3 "$DB_PATH" "PRAGMA table_info(Webhook);" 2>/dev/null | grep -c "|events|" || true)
     if [ "$HAS_EVENTS" -ge 1 ]; then
       echo "Legacy webhook schema detected. Running data migration..."
       # Create WebhookTrigger table if not exists

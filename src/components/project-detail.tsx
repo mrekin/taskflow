@@ -66,6 +66,8 @@ import { TagPicker } from '@/components/tag-picker';
 import { TagBadges } from '@/components/tag-badges';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { ColorPicker } from '@/components/color-picker';
+import { OwnerIndicator } from '@/components/owner-indicator';
+import { VisibilityLock } from '@/components/visibility-lock';
 
 export function ProjectDetail() {
   const {
@@ -80,11 +82,13 @@ export function ProjectDetail() {
     notes,
     fetchNotes,
     tasks,
+    currentUserId,
   } = useAppStore();
 
   const project = projects.find((p) => p.id === selectedProjectId);
   const area = project?.areaId ? areas.find((a) => a.id === project.areaId) : null;
   const projectNotes = notes.filter((n) => n.projectId === selectedProjectId);
+  const isReadOnly = !!project && !!currentUserId && project.ownerId !== currentUserId;
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -95,6 +99,8 @@ export function ProjectDetail() {
   const [showCreateNote, setShowCreateNote] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [editTagIds, setEditTagIds] = useState<string[]>([]);
+  const [editVisibility, setEditVisibility] = useState<string | null>(null);
+  const [editVisibleUserIds, setEditVisibleUserIds] = useState<string[]>([]);
 
   // Fetch notes for this project
   useEffect(() => {
@@ -110,6 +116,8 @@ export function ProjectDetail() {
     setEditColor(project.color);
     setEditStatus(project.status);
     setEditTagIds(project.tagIds || []);
+    setEditVisibility(project.visibility);
+    setEditVisibleUserIds(project.visibleUserIds || []);
     setIsEditing(true);
   };
 
@@ -121,6 +129,8 @@ export function ProjectDetail() {
       color: editColor,
       status: editStatus,
       tagIds: editTagIds,
+      visibility: editVisibility,
+      visibleUserIds: editVisibleUserIds,
     });
     setIsEditing(false);
   };
@@ -183,6 +193,15 @@ export function ProjectDetail() {
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold">{project.name}</h1>
               <EntityIdBadge id={project.id} shortId={project.shortId || 'P-?'} type="project" />
+              <VisibilityLock
+                value={project.visibility}
+                visibleUserIds={project.visibleUserIds || []}
+                onChange={() => {}}
+                ownerId={project.ownerId}
+                currentUserId={currentUserId}
+                disabled={true}
+                size="sm"
+              />
             </div>
             {project.description && (
               <p className="text-sm text-muted-foreground mt-1">{project.description}</p>
@@ -196,12 +215,21 @@ export function ProjectDetail() {
           {project.tagIds && project.tagIds.length > 0 && (
             <TagBadges tagIds={project.tagIds} max={3} size="sm" />
           )}
-          <Button variant="outline" size="sm" onClick={handleEdit}>
-            <Edit2 className="size-4 mr-1" /> Edit
-          </Button>
-          <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
-            <Trash2 className="size-4 mr-1" /> Delete
-          </Button>
+          {isReadOnly ? (
+            <>
+              <Badge variant="secondary" className="text-xs">Read-only</Badge>
+              <OwnerIndicator ownerId={project.ownerId} currentUserId={currentUserId} />
+            </>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={handleEdit}>
+                <Edit2 className="size-4 mr-1" /> Edit
+              </Button>
+              <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
+                <Trash2 className="size-4 mr-1" /> Delete
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -310,7 +338,17 @@ export function ProjectDetail() {
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
+            <div className="flex items-center gap-2">
+              <DialogTitle>Edit Project</DialogTitle>
+              <VisibilityLock
+                value={editVisibility}
+                visibleUserIds={editVisibleUserIds}
+                onChange={(v, ids) => { setEditVisibility(v); setEditVisibleUserIds(ids); }}
+                ownerId={project.ownerId}
+                currentUserId={currentUserId}
+                size="sm"
+              />
+            </div>
             <DialogDescription>Update the project details.</DialogDescription>
           </DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }}>

@@ -3,6 +3,13 @@ import { db } from "@/lib/db";
 import { parseJsonFields } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
 import { fireWebhookEvent, buildProjectContext, computeChanges } from "@/lib/webhook-engine";
+import {
+  resolveEffectiveVisibility,
+  canReadEntity,
+  canWriteEntity,
+  parseVisibleUserIds,
+  sanitizeRelation,
+} from "@/lib/visibility";
 
 // GET /api/projects/[id] - Get single project with tasks and notes
 export async function GET(
@@ -11,11 +18,11 @@ export async function GET(
 ) {
   try {
     const userId = await getCurrentUserId();
-    if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    const isAuthenticated = !!userId;
 
     const { id } = await params;
     const project = await db.project.findFirst({
-      where: { id, ownerId: userId },
+      where: { id },
       include: {
         tasks: {
           orderBy: { sortOrder: "asc" },
@@ -28,7 +35,7 @@ export async function GET(
         notes: {
           orderBy: { updatedAt: "desc" },
         },
-        area: { select: { id: true, name: true, color: true } },
+        area: { select: { id: true, name: true, color: true, visibility: true, ownerId: true, visibleUserIds: true } },
       },
     });
 
@@ -36,9 +43,28 @@ export async function GET(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    const { tasks, notes, ...rest } = project;
+    const parentChain = project.areaId && project.area
+      ? [{ visibility: project.area.visibility, ownerId: project.area.ownerId }]
+      : [];
+    const effectiveVis = resolveEffectiveVisibility(project.visibility, parentChain);
+    const parsedUserIds = parseVisibleUserIds(project.visibleUserIds);
+
+    if (!canReadEntity(userId, project.ownerId, effectiveVis, parsedUserIds, isAuthenticated)) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    const sanitizedArea = sanitizeRelation(
+      project.area,
+      project.area?.ownerId ?? "",
+      userId,
+      isAuthenticated,
+      [],
+    );
+
+    const { tasks, notes, area: _area, ...rest } = project;
     const result = {
       ...parseJsonFields(rest, "project"),
+      area: sanitizedArea,
       _count: { tasks: tasks.length, notes: notes.length },
       tasks: tasks.map((task) => {
         const { subtasks, ...taskRest } = task;
@@ -70,10 +96,14 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, description, color, icon, status, areaId, sortOrder, metadata, tagIds } = body;
+    const { name, description, color, icon, status, areaId, sortOrder, metadata, tagIds, visibility, visibleUserIds } = body;
 
-    const existing = await db.project.findFirst({ where: { id, ownerId: userId } });
+    const existing = await db.project.findFirst({ where: { id } });
     if (!existing) {
+      return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
+    }
+
+    if (!canWriteEntity(userId, existing.ownerId)) {
       return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
     }
 
@@ -87,6 +117,8 @@ export async function PUT(
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
     if (metadata !== undefined) updateData.metadata = JSON.stringify(metadata);
     if (tagIds !== undefined) updateData.tagIds = JSON.stringify(tagIds);
+    if (visibility !== undefined) updateData.visibility = visibility;
+    if (visibleUserIds !== undefined) updateData.visibleUserIds = JSON.stringify(visibleUserIds);
 
     const project = await db.project.update({
       where: { id },
@@ -139,8 +171,12 @@ export async function DELETE(
 
     const { id } = await params;
 
-    const existing = await db.project.findFirst({ where: { id, ownerId: userId } });
+    const existing = await db.project.findFirst({ where: { id } });
     if (!existing) {
+      return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
+    }
+
+    if (!canWriteEntity(userId, existing.ownerId)) {
       return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
     }
 

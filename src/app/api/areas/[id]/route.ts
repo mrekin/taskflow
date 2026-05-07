@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { parseJsonFields } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+import { resolveEffectiveVisibility, canReadEntity, canWriteEntity, parseVisibleUserIds } from "@/lib/visibility";
 
 // GET /api/areas/[id] - Get single area with projects
 export async function GET(
@@ -10,11 +11,12 @@ export async function GET(
 ) {
   try {
     const userId = await getCurrentUserId();
-    if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    const isAuthenticated = !!userId;
+    if (!isAuthenticated) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
 
     const { id } = await params;
     const area = await db.area.findFirst({
-      where: { id, ownerId: userId },
+      where: { id },
       include: {
         projects: {
           orderBy: { sortOrder: "asc" },
@@ -29,10 +31,22 @@ export async function GET(
       return NextResponse.json({ error: "Area not found" }, { status: 404 });
     }
 
+    const effectiveVis = resolveEffectiveVisibility(area.visibility, []);
+    const visibleUserIds = parseVisibleUserIds(area.visibleUserIds);
+    if (!canReadEntity(userId, area.ownerId, effectiveVis, visibleUserIds, isAuthenticated)) {
+      return NextResponse.json({ error: "Area not found" }, { status: 404 });
+    }
+
+    const filteredProjects = area.projects.filter((project) => {
+      const projEffectiveVis = resolveEffectiveVisibility(project.visibility, [{ visibility: area.visibility, ownerId: area.ownerId }]);
+      const projVisibleUserIds = parseVisibleUserIds(project.visibleUserIds);
+      return canReadEntity(userId, project.ownerId, projEffectiveVis, projVisibleUserIds, isAuthenticated);
+    });
+
     const result = {
       ...parseJsonFields(area, "area"),
-      _count: { projects: area.projects.length },
-      projects: area.projects.map((project) => ({
+      _count: { projects: filteredProjects.length },
+      projects: filteredProjects.map((project) => ({
         ...parseJsonFields(project, "project"),
         _count: { tasks: project._count.tasks },
       })),
@@ -57,10 +71,10 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, description, color, icon, sortOrder, metadata, tagIds } = body;
+    const { name, description, color, icon, sortOrder, metadata, tagIds, visibility, visibleUserIds } = body;
 
-    const existing = await db.area.findFirst({ where: { id, ownerId: userId } });
-    if (!existing) {
+    const existing = await db.area.findFirst({ where: { id } });
+    if (!existing || !canWriteEntity(userId, existing.ownerId)) {
       return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
     }
 
@@ -72,6 +86,8 @@ export async function PUT(
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
     if (metadata !== undefined) updateData.metadata = JSON.stringify(metadata);
     if (tagIds !== undefined) updateData.tagIds = JSON.stringify(tagIds);
+    if (visibility !== undefined) updateData.visibility = visibility;
+    if (visibleUserIds !== undefined) updateData.visibleUserIds = JSON.stringify(visibleUserIds);
 
     const area = await db.area.update({
       where: { id },
@@ -103,8 +119,8 @@ export async function DELETE(
 
     const { id } = await params;
 
-    const existing = await db.area.findFirst({ where: { id, ownerId: userId } });
-    if (!existing) {
+    const existing = await db.area.findFirst({ where: { id } });
+    if (!existing || !canWriteEntity(userId, existing.ownerId)) {
       return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
     }
 

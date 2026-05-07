@@ -1,17 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+import { buildVisibilityWhereClause } from "@/lib/visibility";
 
-// GET /api/tags - List all tags for owner
+// GET /api/tags - List all tags for owner + tags from visible entities
 export async function GET() {
   try {
     const userId = await getCurrentUserId();
-    if (!userId) return NextResponse.json([]);
+    const isAuthenticated = !!userId;
+    if (!isAuthenticated) return NextResponse.json([]);
 
-    const tags = await db.tag.findMany({
+    const ownTags = await db.tag.findMany({
       where: { ownerId: userId },
-      orderBy: { name: "asc" },
     });
+
+    const visibleProjects = await db.project.findMany({
+      where: buildVisibilityWhereClause(userId, isAuthenticated),
+      select: { tagIds: true },
+    });
+    const visibleAreas = await db.area.findMany({
+      where: buildVisibilityWhereClause(userId, isAuthenticated),
+      select: { tagIds: true },
+    });
+
+    const tagIdSet = new Set(ownTags.map((t) => t.id));
+    for (const entity of [...visibleProjects, ...visibleAreas]) {
+      try {
+        const ids: string[] = JSON.parse(entity.tagIds || "[]");
+        for (const id of ids) {
+          if (typeof id === "string") tagIdSet.add(id);
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+
+    const tags = tagIdSet.size > 0
+      ? await db.tag.findMany({
+          where: { id: { in: [...tagIdSet] } },
+          orderBy: { name: "asc" },
+        })
+      : [];
 
     return NextResponse.json(tags);
   } catch (error) {

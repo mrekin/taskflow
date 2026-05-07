@@ -70,6 +70,8 @@ import { TagBadges } from '@/components/tag-badges';
 import { UserPicker } from '@/components/user-picker';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { EntityIdBadge } from '@/components/entity-id-badge';
+import { VisibilityLock } from '@/components/visibility-lock';
+import { OwnerIndicator } from '@/components/owner-indicator';
 import { toast } from 'sonner';
 
 export function TaskDetailDialog() {
@@ -87,6 +89,7 @@ export function TaskDetailDialog() {
     createWebhookTrigger,
     updateWebhookTrigger,
     deleteWebhookTrigger,
+    currentUserId,
   } = useAppStore();
 
   const task = tasks.find((t) => t.id === selectedTaskId);
@@ -109,6 +112,8 @@ export function TaskDetailDialog() {
   const [editingSubtaskTitle, setEditingSubtaskTitle] = useState('');
   const [localTagIds, setLocalTagIds] = useState<string[]>([]);
   const [localAssigneeId, setLocalAssigneeId] = useState<string | null>(null);
+  const [localVisibility, setLocalVisibility] = useState<string | null>(null);
+  const [localVisibleUserIds, setLocalVisibleUserIds] = useState<string[]>([]);
 
   const navigatedFromParentRef = useRef(false);
 
@@ -131,6 +136,8 @@ export function TaskDetailDialog() {
       setProjectId(task.projectId ?? null);
       setLocalTagIds(task.tagIds || []);
       setLocalAssigneeId(task.assigneeId ?? null);
+      setLocalVisibility(task.visibility);
+      setLocalVisibleUserIds(task.visibleUserIds || []);
       setIsEditing(false);
       setEditingSubtaskId(null);
       setWebhookBindings([]);
@@ -177,6 +184,8 @@ export function TaskDetailDialog() {
         projectId,
         tagIds: localTagIds,
         assigneeId: localAssigneeId,
+        visibility: localVisibility,
+        visibleUserIds: localVisibleUserIds,
       });
       setIsEditing(false);
     } finally {
@@ -334,6 +343,7 @@ export function TaskDetailDialog() {
 
   const isOverdue =
     task?.dueDate && isPast(parseISO(task.dueDate)) && task.status !== 'done' && task.status !== 'cancelled';
+  const isOwner = task?.ownerId === currentUserId;
   const project = task?.projectId ? projects.find((p) => p.id === task.projectId) : null;
   const parentTask = task?.parentId ? tasks.find((t) => t.id === task.parentId) : null;
   const subtasks = task?.subtasks ?? tasks.filter((t) => t.parentId === task?.id);
@@ -376,9 +386,27 @@ export function TaskDetailDialog() {
                       {task.parentId ? 'Subtask Details' : isEditing ? 'Edit Task' : 'Task Details'}
                     </SheetTitle>
                     <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" />
+                    <VisibilityLock
+                      value={localVisibility}
+                      visibleUserIds={localVisibleUserIds}
+                      onChange={(v, ids) => { setLocalVisibility(v); setLocalVisibleUserIds(ids); }}
+                      ownerId={task.ownerId}
+                      currentUserId={currentUserId}
+                      disabled={!isEditing}
+                      size="sm"
+                    />
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {!isEditing ? (
+                    <OwnerIndicator
+                      ownerId={task.ownerId}
+                      currentUserId={currentUserId}
+                      ownerName={task.assignee?.name}
+                    />
+                    {!isOwner ? (
+                      <Badge variant="outline" className="text-xs text-muted-foreground">
+                        Read-only
+                      </Badge>
+                    ) : !isEditing ? (
                       <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                         Edit
                       </Button>
@@ -399,6 +427,8 @@ export function TaskDetailDialog() {
                             setProjectId(task.projectId ?? null);
                             setLocalTagIds(task.tagIds || []);
                             setLocalAssigneeId(task.assigneeId ?? null);
+                            setLocalVisibility(task.visibility);
+                            setLocalVisibleUserIds(task.visibleUserIds || []);
                           }}
                         >
                           Cancel
@@ -718,7 +748,7 @@ export function TaskDetailDialog() {
                         )}
                       </div>
                     </>
-                  )}
+                   )}
 
                   {/* Subtasks - only show for top-level tasks */}
                   {!task.parentId && (
@@ -1188,7 +1218,7 @@ export function TaskDetailDialog() {
                   </>
 
                   {/* Delete button */}
-                  {!isEditing && (
+                  {!isEditing && isOwner && (
                     <>
                       <Separator />
                       <Button

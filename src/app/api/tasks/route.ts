@@ -4,12 +4,14 @@ import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
 import { fireWebhookEvent, buildTaskContext, resolveTaskAreaId } from "@/lib/webhook-engine";
 import { createScheduledJob } from "@/lib/scheduler";
+import { buildVisibilityWhereClause } from "@/lib/visibility";
 
 // GET /api/tasks - List tasks with optional filters
 export async function GET(request: NextRequest) {
   try {
     const userId = await getCurrentUserId();
     if (!userId) return NextResponse.json([]);
+    const isAuthenticated = !!userId;
 
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId") ?? undefined;
@@ -18,8 +20,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") ?? undefined;
     const assigneeId = searchParams.get("assigneeId") ?? undefined;
 
-    const baseWhere: Record<string, unknown> = {
-      ownerId: userId,
+    const visibilityClause = buildVisibilityWhereClause(userId, isAuthenticated);
+    const filterWhere: Record<string, unknown> = {
       ...(projectId ? { projectId } : {}),
       ...(status ? { status } : {}),
       ...(assigneeId ? { assigneeId } : {}),
@@ -66,14 +68,20 @@ export async function GET(request: NextRequest) {
       taskConditions.push({ assignee: { OR: [{ name: { contains: search } }, { email: { contains: search } }] } });
 
       where = {
-        ...baseWhere,
-        parentId: null,
-        OR: taskConditions,
+        AND: [
+          visibilityClause,
+          filterWhere,
+          { parentId: null },
+          { OR: taskConditions },
+        ],
       };
     } else {
       where = {
-        ...baseWhere,
-        ...(parentId !== undefined ? { parentId: parentId || null } : {}),
+        AND: [
+          visibilityClause,
+          filterWhere,
+          ...(parentId !== undefined ? [{ parentId: parentId || null }] : []),
+        ],
       };
     }
 
@@ -128,6 +136,8 @@ export async function POST(request: NextRequest) {
       assigneeId,
       metadata,
       tagIds,
+      visibility,
+      visibleUserIds,
     } = body;
 
     if (!title || typeof title !== "string" || title.trim() === "") {
@@ -170,6 +180,8 @@ export async function POST(request: NextRequest) {
         assigneeId: assigneeId ?? null,
         metadata: metadata ? JSON.stringify(metadata) : "{}",
         tagIds: tagIds ? JSON.stringify(tagIds) : "[]",
+        visibility: visibility ?? null,
+        visibleUserIds: JSON.stringify(visibleUserIds || []),
         shortIdNum,
         ownerId: userId,
         sortOrder: (maxSortTask?.sortOrder ?? -1) + 1,

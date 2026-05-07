@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ColorPicker } from '@/components/color-picker';
+import { VisibilityLock } from '@/components/visibility-lock';
 
 interface CreateProjectDialogProps {
   open: boolean;
@@ -35,11 +36,13 @@ export function CreateProjectDialog({
   onOpenChange,
   defaultAreaId,
 }: CreateProjectDialogProps) {
-  const { createProject, areas, selectedAreaId } = useAppStore();
+  const { createProject, areas, selectedAreaId, currentUserId } = useAppStore();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(() => getRandomColor());
   const [areaId, setAreaId] = useState(defaultAreaId ?? selectedAreaId ?? '');
+  const [visibility, setVisibility] = useState<string | null>(null);
+  const [visibleUserIds, setVisibleUserIds] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,12 +56,16 @@ export function CreateProjectDialog({
         description: description.trim() || null,
         color,
         areaId: areaId || null,
+        visibility,
+        visibleUserIds,
       });
       // Reset form
       setName('');
       setDescription('');
       setColor(getRandomColor());
       setAreaId(defaultAreaId ?? selectedAreaId ?? '');
+      setVisibility(null);
+      setVisibleUserIds([]);
       onOpenChange(false);
     } finally {
       setIsCreating(false);
@@ -71,6 +78,8 @@ export function CreateProjectDialog({
       setDescription('');
       setColor(getRandomColor());
       setAreaId(defaultAreaId ?? selectedAreaId ?? '');
+      setVisibility(null);
+      setVisibleUserIds([]);
     }
     onOpenChange(newOpen);
   };
@@ -132,9 +141,24 @@ export function CreateProjectDialog({
             )}
 
             {/* Color Picker */}
-            <div className="flex flex-col gap-2">
-              <Label>Color</Label>
-              <ColorPicker value={color} onChange={setColor} />
+            <div className="flex items-end gap-3">
+              <div className="flex flex-col gap-2">
+                <Label>Color</Label>
+                <ColorPicker value={color} onChange={setColor} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Visibility</Label>
+                <div className="flex items-center h-9">
+                  <VisibilityLock
+                    value={visibility}
+                    visibleUserIds={visibleUserIds}
+                    onChange={(v, ids) => { setVisibility(v); setVisibleUserIds(ids); }}
+                    ownerId={currentUserId ?? ''}
+                    currentUserId={currentUserId}
+                    size="sm"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

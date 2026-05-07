@@ -54,6 +54,7 @@ import {
 } from '@/lib/constants';
 import { TagPicker } from '@/components/tag-picker';
 import { UserPicker } from '@/components/user-picker';
+import { VisibilityLock } from '@/components/visibility-lock';
 import { toast } from 'sonner';
 
 const TASK_WEBHOOK_EVENTS = [
@@ -83,7 +84,7 @@ export function CreateTaskDialog({
   defaultProjectId,
   parentId,
 }: CreateTaskDialogProps) {
-  const { createTask, projects, tasks, selectedProjectId, statuses, webhooks, fetchWebhooks, createWebhookTrigger } = useAppStore();
+  const { createTask, projects, tasks, selectedProjectId, statuses, webhooks, fetchWebhooks, createWebhookTrigger, currentUserId } = useAppStore();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -95,6 +96,8 @@ export function CreateTaskDialog({
   const [parentTaskId, setParentTaskId] = useState<string>(parentId || 'none');
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
+  const [visibility, setVisibility] = useState<string | null>(null);
+  const [visibleUserIds, setVisibleUserIds] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [parentTaskOpen, setParentTaskOpen] = useState(false);
@@ -118,6 +121,8 @@ export function CreateTaskDialog({
       setParentTaskId(parentId || 'none');
       setTagIds([]);
       setAssigneeId(null);
+      setVisibility(null);
+      setVisibleUserIds([]);
       setIsCreating(false);
       setWebhookBindings([]);
       setWebhooksExpanded(false);
@@ -147,6 +152,8 @@ export function CreateTaskDialog({
         parentId: parentTaskId === 'none' ? null : parentTaskId,
         tagIds,
         assigneeId,
+        visibility,
+        visibleUserIds,
       });
 
       if (newTask && webhookBindings.length > 0) {
@@ -183,6 +190,8 @@ export function CreateTaskDialog({
       setParentTaskId(parentId || 'none');
       setTagIds([]);
       setAssigneeId(null);
+      setVisibility(null);
+      setVisibleUserIds([]);
       setWebhookBindings([]);
       setWebhooksExpanded(false);
     }
@@ -373,15 +382,32 @@ export function CreateTaskDialog({
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <Label className="text-muted-foreground text-xs uppercase tracking-wider">
-                Assignee
-              </Label>
-              <UserPicker
-                assigneeId={assigneeId}
-                assignee={null}
-                onAssigneeChange={setAssigneeId}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                  Assignee
+                </Label>
+                <UserPicker
+                  assigneeId={assigneeId}
+                  assignee={null}
+                  onAssigneeChange={setAssigneeId}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                  Visibility
+                </Label>
+                <div className="flex items-center h-9">
+                  <VisibilityLock
+                    value={visibility}
+                    visibleUserIds={visibleUserIds}
+                    onChange={(v, ids) => { setVisibility(v); setVisibleUserIds(ids); }}
+                    ownerId={currentUserId ?? ''}
+                    currentUserId={currentUserId}
+                    size="sm"
+                  />
+                </div>
+              </div>
             </div>
 
             {!parentId && (

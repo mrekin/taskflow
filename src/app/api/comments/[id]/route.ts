@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth-utils";
+import { canDeleteComment } from "@/lib/visibility";
 
 // PUT /api/comments/[id] - Update comment content
 export async function PUT(
@@ -24,10 +25,25 @@ export async function PUT(
     }
 
     const existing = await db.comment.findFirst({
-      where: { id, ownerId: userId },
+      where: { id },
     });
 
     if (!existing) {
+      return NextResponse.json(
+        { error: "Not found or access denied" },
+        { status: 404 }
+      );
+    }
+
+    const task = await db.task.findFirst({
+      where: { id: existing.taskId },
+      select: { ownerId: true },
+    });
+
+    const isCommentAuthor = existing.ownerId === userId;
+    const isTaskOwner = task?.ownerId === userId;
+
+    if (!isCommentAuthor && !isTaskOwner) {
       return NextResponse.json(
         { error: "Not found or access denied" },
         { status: 404 }
@@ -65,10 +81,22 @@ export async function DELETE(
     const { id } = await params;
 
     const existing = await db.comment.findFirst({
-      where: { id, ownerId: userId },
+      where: { id },
     });
 
     if (!existing) {
+      return NextResponse.json(
+        { error: "Not found or access denied" },
+        { status: 404 }
+      );
+    }
+
+    const task = await db.task.findFirst({
+      where: { id: existing.taskId },
+      select: { ownerId: true },
+    });
+
+    if (!canDeleteComment(userId, existing.ownerId, task?.ownerId ?? "")) {
       return NextResponse.json(
         { error: "Not found or access denied" },
         { status: 404 }

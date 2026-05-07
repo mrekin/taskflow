@@ -30,6 +30,7 @@ import {
   LogIn,
   LogOut,
   Folder,
+  Share2,
 } from 'lucide-react';
 
 import { cn, findByShortId } from '@/lib/utils';
@@ -51,6 +52,8 @@ import { TagBadges } from '@/components/tag-badges';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { useAppStore } from '@/store/app-store';
 import type { NoteFolder, Note } from '@/lib/types';
+import { OwnerIndicator } from '@/components/owner-indicator';
+import { VisibilityBadge } from '@/components/visibility-badge';
 import {
   STATUS_LABELS,
   STATUS_COLORS,
@@ -255,6 +258,10 @@ function HomeContent() {
     updateProject,
     updateFolder,
     updateNote,
+    currentUserId,
+    setCurrentUserId,
+    users,
+    fetchUsers,
   } = useAppStore();
 
   const { setTheme } = useTheme();
@@ -325,6 +332,10 @@ function HomeContent() {
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   useEffect(() => {
+    setCurrentUserId((session?.user as { id?: string })?.id ?? null);
+  }, [session?.user, setCurrentUserId]);
+
+  useEffect(() => {
     Promise.all([
       fetchAreas(),
       fetchProjects(),
@@ -334,8 +345,9 @@ function HomeContent() {
       fetchTags(),
       fetchUserPreferences(),
       fetchStatuses(),
+      fetchUsers(),
     ]).finally(() => setInitialLoadDone(true));
-  }, [fetchAreas, fetchProjects, fetchTasks, fetchNotes, fetchFolders, fetchTags, fetchUserPreferences, fetchStatuses]);
+  }, [fetchAreas, fetchProjects, fetchTasks, fetchNotes, fetchFolders, fetchTags, fetchUserPreferences, fetchStatuses, fetchUsers]);
 
   // Handle deep links from URL query params
   const searchParams = useSearchParams();
@@ -920,6 +932,7 @@ function HomeContent() {
                 <div className="flex flex-wrap gap-1 px-3 max-h-28 overflow-y-auto custom-scrollbar">
                   {projects.map((project) => {
                     const isSelected = projectFilter.includes(project.id);
+                    const isShared = currentUserId ? project.ownerId !== currentUserId : false;
                     return (
                       <button
                         key={project.id}
@@ -935,11 +948,12 @@ function HomeContent() {
                           'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium transition-all border',
                           isSelected
                             ? 'border-foreground/20 shadow-sm'
-                            : 'border-transparent opacity-50 hover:opacity-100'
+                            : 'border-transparent opacity-50 hover:opacity-100',
+                          isShared && 'italic'
                         )}
                         style={{
                           backgroundColor: isSelected ? `${project.color}20` : `${project.color}10`,
-                          color: project.color,
+                          color: isShared ? `${project.color}aa` : project.color,
                         }}
                       >
                         <span
@@ -947,6 +961,7 @@ function HomeContent() {
                           style={{ backgroundColor: project.color }}
                         />
                         {project.name}
+                        {isShared && <Share2 className="size-2.5 ml-0.5 opacity-60" />}
                       </button>
                     );
                   })}
@@ -1046,7 +1061,7 @@ function HomeContent() {
             })}
 
             {/* Unassigned projects */}
-            {projects.filter((p) => !p.areaId).length > 0 && (
+            {projects.filter((p) => !p.areaId && (currentUserId ? p.ownerId === currentUserId : true)).length > 0 && (
               <>
                 <Separator className="my-2" />
                 <p className="text-xs font-medium text-muted-foreground px-3 mb-1">
@@ -1056,7 +1071,7 @@ function HomeContent() {
                   )}
                 </p>
                 {projects
-                  .filter((p) => !p.areaId)
+                  .filter((p) => !p.areaId && (currentUserId ? p.ownerId === currentUserId : true))
                   .map((project) => (
                     <div
                       key={project.id}
@@ -1082,6 +1097,45 @@ function HomeContent() {
                       </Button>
                     </div>
                   ))}
+              </>
+            )}
+
+            {/* Shared with me */}
+            {currentUserId && projects.filter((p) => p.ownerId !== currentUserId).length > 0 && (
+              <>
+                <Separator className="my-2" />
+                <p className="text-xs font-medium text-muted-foreground px-3 mb-1 flex items-center gap-1">
+                  <Share2 className="size-3" />
+                  Shared with me
+                </p>
+                {projects
+                  .filter((p) => p.ownerId !== currentUserId)
+                  .map((project) => {
+                    const ownerName = users.find((u) => u.id === project.ownerId)?.name;
+                    return (
+                      <div key={project.id}>
+                        <Button
+                          variant={selectedProjectId === project.id ? 'secondary' : 'ghost'}
+                          className="w-full justify-start h-8 text-xs"
+                          onClick={() => handleProjectClick(project.id)}
+                        >
+                          <Share2 className="size-3 mr-1.5 text-muted-foreground/60 shrink-0" />
+                          <span
+                            className="w-2 h-2 rounded-full mr-1.5 shrink-0"
+                            style={{ backgroundColor: project.color }}
+                          />
+                          <span className="truncate">{project.name}</span>
+                        </Button>
+                        <div className="pl-9 -mt-0.5 mb-0.5">
+                          <OwnerIndicator
+                            ownerId={project.ownerId}
+                            currentUserId={currentUserId}
+                            ownerName={ownerName}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
               </>
             )}
           </div>

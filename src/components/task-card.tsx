@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EntityIdBadge } from '@/components/entity-id-badge';
+import { VisibilityBadge } from '@/components/visibility-badge';
+import { OwnerIndicator } from '@/components/owner-indicator';
 import type { Task } from '@/lib/types';
 import { PRIORITY_LABELS, PRIORITY_COLORS, getColumnLabelAndColor } from '@/lib/constants';
 import { useAppStore } from '@/store/app-store';
@@ -23,7 +25,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: TaskCardProps) {
-  const { selectTask, selectedTaskId, projects, statuses } = useAppStore();
+  const { selectTask, selectedTaskId, projects, statuses, currentUserId } = useAppStore();
   const tags = useAppStore((s) => s.tags);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -144,12 +146,16 @@ export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: Tas
               {task.title}
             </span>
             <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" className="shrink-0" />
+            <VisibilityBadge visibility={task.visibility} />
             <span
               className="shrink-0 w-2.5 h-2.5 rounded-full mt-1"
               style={{ backgroundColor: PRIORITY_COLORS[task.priority] || '#94a3b8' }}
               title={PRIORITY_LABELS[task.priority] || task.priority}
             />
           </div>
+
+          {/* Owner indicator */}
+          <OwnerIndicator ownerId={task.ownerId} currentUserId={currentUserId} />
 
           {/* Meta row */}
           <div className="flex items-center gap-2 flex-wrap pl-0">

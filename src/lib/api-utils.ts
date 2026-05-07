@@ -13,6 +13,7 @@ export function parseJsonFields(item: Record<string, unknown>, entityType?: Enti
     ...item,
     metadata: JSON.parse((item.metadata as string) || "{}"),
     ...(item.tagIds !== undefined ? { tagIds: JSON.parse((item.tagIds as string) || "[]") } : {}),
+    ...(item.visibleUserIds !== undefined ? { visibleUserIds: JSON.parse((item.visibleUserIds as string) || "[]") } : {}),
   };
 
   // Compute shortId if entityType is provided

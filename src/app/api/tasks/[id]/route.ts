@@ -4,6 +4,7 @@ import { parseJsonFields } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
 import { fireWebhookEvent, buildTaskContext, resolveTaskAreaId, computeChanges } from "@/lib/webhook-engine";
 import { createScheduledJob, deleteScheduledJobsForEntity } from "@/lib/scheduler";
+import { resolveEffectiveVisibility, canReadEntity, canWriteEntity, parseVisibleUserIds, sanitizeRelation } from "@/lib/visibility";
 
 // GET /api/tasks/[id] - Get single task with subtasks and comments
 export async function GET(
@@ -12,11 +13,11 @@ export async function GET(
 ) {
   try {
     const userId = await getCurrentUserId();
-    if (!userId) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    const isAuthenticated = !!userId;
 
     const { id } = await params;
     const task = await db.task.findFirst({
-      where: { id, ownerId: userId },
+      where: { id },
       include: {
         subtasks: {
           orderBy: { sortOrder: "asc" },
@@ -42,9 +43,74 @@ export async function GET(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    const { subtasks, comments, ...rest } = task;
+    const parentChain: Array<{ visibility: string | null; ownerId: string }> = [];
+    let projectOwnerId: string | null = null;
+    let areaParentChain: Array<{ visibility: string | null; ownerId: string }> = [];
+    let parentTaskOwnerId: string | null = null;
+    let projectAreaChain: Array<{ visibility: string | null; ownerId: string }> = [];
+
+    if (task.projectId) {
+      const project = await db.project.findUnique({
+        where: { id: task.projectId },
+        select: { visibility: true, ownerId: true, areaId: true },
+      });
+      if (project) {
+        projectOwnerId = project.ownerId;
+        const projectEntry = { visibility: project.visibility, ownerId: project.ownerId };
+        parentChain.push(projectEntry);
+        projectAreaChain.push(projectEntry);
+        if (project.areaId) {
+          const area = await db.area.findUnique({
+            where: { id: project.areaId },
+            select: { visibility: true, ownerId: true },
+          });
+          if (area) {
+            const areaEntry = { visibility: area.visibility, ownerId: area.ownerId };
+            parentChain.push(areaEntry);
+            projectAreaChain.push(areaEntry);
+            areaParentChain.push(areaEntry);
+          }
+        }
+      }
+    }
+
+    if (task.parentId) {
+      const parentTask = await db.task.findUnique({
+        where: { id: task.parentId },
+        select: { visibility: true, ownerId: true },
+      });
+      if (parentTask) {
+        parentTaskOwnerId = parentTask.ownerId;
+        parentChain.push({ visibility: parentTask.visibility, ownerId: parentTask.ownerId });
+      }
+    }
+
+    const effectiveVis = resolveEffectiveVisibility(task.visibility, parentChain);
+    const parsedUserIds = parseVisibleUserIds(task.visibleUserIds);
+    if (!canReadEntity(userId, task.ownerId, effectiveVis, parsedUserIds, isAuthenticated)) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    const sanitizedProject = sanitizeRelation(
+      task.project,
+      projectOwnerId ?? '',
+      userId,
+      isAuthenticated,
+      areaParentChain,
+    );
+    const sanitizedParent = sanitizeRelation(
+      task.parent,
+      parentTaskOwnerId ?? '',
+      userId,
+      isAuthenticated,
+      projectAreaChain,
+    );
+
+    const { subtasks, comments, project, parent, ...rest } = task;
     const result = {
       ...parseJsonFields(rest, "task"),
+      project: sanitizedProject,
+      parent: sanitizedParent,
       _count: { subtasks: subtasks.length },
       completedSubtasks: subtasks.filter((s) => s.status === "done").length,
       subtasks: subtasks.map((sub) => {
@@ -89,10 +155,12 @@ export async function PUT(
       sortOrder,
       metadata,
       tagIds,
+      visibility,
+      visibleUserIds,
     } = body;
 
-    const existing = await db.task.findFirst({ where: { id, ownerId: userId } });
-    if (!existing) {
+    const existing = await db.task.findFirst({ where: { id } });
+    if (!existing || !canWriteEntity(userId, existing.ownerId)) {
       return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
     }
 
@@ -108,6 +176,8 @@ export async function PUT(
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
     if (metadata !== undefined) updateData.metadata = JSON.stringify(metadata);
     if (tagIds !== undefined) updateData.tagIds = JSON.stringify(tagIds);
+    if (visibility !== undefined) updateData.visibility = visibility;
+    if (visibleUserIds !== undefined) updateData.visibleUserIds = JSON.stringify(visibleUserIds);
 
     const task = await db.task.update({
       where: { id },
@@ -194,8 +264,8 @@ export async function DELETE(
 
     const { id } = await params;
 
-    const existing = await db.task.findFirst({ where: { id, ownerId: userId } });
-    if (!existing) {
+    const existing = await db.task.findFirst({ where: { id } });
+    if (!existing || !canWriteEntity(userId, existing.ownerId)) {
       return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
     }
 

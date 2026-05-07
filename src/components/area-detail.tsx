@@ -35,6 +35,8 @@ import { TagPicker } from '@/components/tag-picker';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { CreateProjectDialog } from '@/components/create-project-dialog';
 import { ColorPicker } from '@/components/color-picker';
+import { OwnerIndicator } from '@/components/owner-indicator';
+import { VisibilityLock } from '@/components/visibility-lock';
 
 export function AreaDetail() {
   const {
@@ -47,9 +49,11 @@ export function AreaDetail() {
     setCurrentView,
     updateArea,
     deleteArea,
+    currentUserId,
   } = useAppStore();
 
   const area = areas.find((a) => a.id === selectedAreaId);
+  const isReadOnly = !!area && !!currentUserId && area.ownerId !== currentUserId;
   const areaProjects = projects.filter((p) => p.areaId === selectedAreaId);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -59,6 +63,8 @@ export function AreaDetail() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [editTagIds, setEditTagIds] = useState<string[]>([]);
+  const [editVisibility, setEditVisibility] = useState<string | null>(null);
+  const [editVisibleUserIds, setEditVisibleUserIds] = useState<string[]>([]);
 
   const handleEdit = () => {
     if (!area) return;
@@ -66,6 +72,8 @@ export function AreaDetail() {
     setEditDescription(area.description || '');
     setEditColor(area.color);
     setEditTagIds(area.tagIds || []);
+    setEditVisibility(area.visibility);
+    setEditVisibleUserIds(area.visibleUserIds || []);
     setIsEditing(true);
   };
 
@@ -76,6 +84,8 @@ export function AreaDetail() {
       description: editDescription.trim() || null,
       color: editColor,
       tagIds: editTagIds,
+      visibility: editVisibility,
+      visibleUserIds: editVisibleUserIds,
     });
     setIsEditing(false);
   };
@@ -114,6 +124,15 @@ export function AreaDetail() {
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold">{area.name}</h1>
               <EntityIdBadge id={area.id} shortId={area.shortId || 'A-?'} type="area" />
+              <VisibilityLock
+                value={area.visibility}
+                visibleUserIds={area.visibleUserIds || []}
+                onChange={() => {}}
+                ownerId={area.ownerId}
+                currentUserId={currentUserId}
+                disabled={true}
+                size="sm"
+              />
             </div>
             {area.description && (
               <p className="text-sm text-muted-foreground mt-1">{area.description}</p>
@@ -124,12 +143,21 @@ export function AreaDetail() {
           {area.tagIds && area.tagIds.length > 0 && (
             <TagBadges tagIds={area.tagIds} max={3} size="sm" />
           )}
-          <Button variant="outline" size="sm" onClick={handleEdit}>
-            <Edit2 className="size-4 mr-1" /> Edit
-          </Button>
-          <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
-            <Trash2 className="size-4 mr-1" /> Delete
-          </Button>
+          {isReadOnly ? (
+            <>
+              <Badge variant="secondary" className="text-xs">Read-only</Badge>
+              <OwnerIndicator ownerId={area.ownerId} currentUserId={currentUserId} />
+            </>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={handleEdit}>
+                <Edit2 className="size-4 mr-1" /> Edit
+              </Button>
+              <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
+                <Trash2 className="size-4 mr-1" /> Delete
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -201,7 +229,17 @@ export function AreaDetail() {
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Area</DialogTitle>
+            <div className="flex items-center gap-2">
+              <DialogTitle>Edit Area</DialogTitle>
+              <VisibilityLock
+                value={editVisibility}
+                visibleUserIds={editVisibleUserIds}
+                onChange={(v, ids) => { setEditVisibility(v); setEditVisibleUserIds(ids); }}
+                ownerId={area.ownerId}
+                currentUserId={currentUserId}
+                size="sm"
+              />
+            </div>
             <DialogDescription>Update the area details.</DialogDescription>
           </DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }}>

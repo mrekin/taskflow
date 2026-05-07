@@ -68,6 +68,8 @@ import { shortId } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import type { Note } from '@/lib/types';
 import { EntityIdBadge } from '@/components/entity-id-badge';
+import { OwnerIndicator } from '@/components/owner-indicator';
+import { VisibilityLock } from '@/components/visibility-lock';
 
 type SaveStatus = 'saved' | 'saving' | 'unsaved';
 type EditorMode = 'edit' | 'preview' | 'split';
@@ -91,17 +93,21 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
     selectProject,
     selectArea,
     setCurrentView,
+    currentUserId,
   } = useAppStore();
 
   const autoSaveEnabled = useAppStore((s) => s.userPreferences.noteAutoSave);
 
   const note = notes.find((n) => n.id === noteId);
+  const isReadOnly = !!note && !!currentUserId && note.ownerId !== currentUserId;
 
   // Initialize state from note - noteId is stable (set via key prop on parent)
   const [title, setTitle] = useState(() => note?.title ?? '');
   const [content, setContent] = useState(() => note?.content ?? '');
   const [projectId, setProjectId] = useState<string>(() => note?.projectId ?? 'none');
   const [tagIds, setTagIds] = useState<string[]>(() => note?.tagIds ?? []);
+  const [visibility, setVisibility] = useState<string | null>(() => note?.visibility ?? null);
+  const [visibleUserIds, setVisibleUserIds] = useState<string[]>(() => note?.visibleUserIds ?? []);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [editorMode, setEditorMode] = useState<EditorMode>(initialMode);
 
@@ -110,6 +116,8 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
   const [lastSavedContent, setLastSavedContent] = useState(() => note?.content ?? '');
   const [lastSavedProjectId, setLastSavedProjectId] = useState(() => note?.projectId ?? 'none');
   const [lastSavedTagIds, setLastSavedTagIds] = useState<string[]>(() => note?.tagIds ?? []);
+  const [lastSavedVisibility, setLastSavedVisibility] = useState<string | null>(() => note?.visibility ?? null);
+  const [lastSavedVisibleUserIds, setLastSavedVisibleUserIds] = useState<string[]>(() => note?.visibleUserIds ?? []);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -120,7 +128,9 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
       title !== lastSavedTitle ||
       content !== lastSavedContent ||
       projectId !== lastSavedProjectId ||
-      JSON.stringify(tagIds) !== JSON.stringify(lastSavedTagIds)
+      JSON.stringify(tagIds) !== JSON.stringify(lastSavedTagIds) ||
+      visibility !== lastSavedVisibility ||
+      JSON.stringify(visibleUserIds) !== JSON.stringify(lastSavedVisibleUserIds)
     );
   }, [title, content, projectId, tagIds, lastSavedTitle, lastSavedContent, lastSavedProjectId, lastSavedTagIds]);
 
@@ -134,6 +144,8 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
         content,
         projectId: projectId === 'none' ? null : projectId,
         tagIds,
+        visibility,
+        visibleUserIds,
       };
 
       await updateNote(note.id, data);
@@ -141,12 +153,14 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
       setLastSavedContent(content);
       setLastSavedProjectId(projectId);
       setLastSavedTagIds(tagIds);
+      setLastSavedVisibility(visibility);
+      setLastSavedVisibleUserIds(visibleUserIds);
       setSaveStatus('saved');
     } catch (error) {
       console.error('Save failed:', error);
       setSaveStatus('unsaved');
     }
-  }, [note, title, content, projectId, tagIds, updateNote]);
+  }, [note, title, content, projectId, tagIds, visibility, visibleUserIds, updateNote]);
 
   // Auto-save with debounce (only when enabled)
   useEffect(() => {
@@ -165,7 +179,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [title, content, projectId, tagIds, note, hasUnsavedChanges, autoSaveEnabled, performSave]);
+  }, [title, content, projectId, tagIds, visibility, visibleUserIds, note, hasUnsavedChanges, autoSaveEnabled, performSave]);
 
   const handleBack = () => {
     if (hasUnsavedChanges && note) {
@@ -325,8 +339,14 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
           </Button>
           <Separator orientation="vertical" className="h-5" />
           {getSaveStatusDisplay()}
+          {isReadOnly && (
+            <>
+              <Badge variant="secondary" className="text-xs h-5">Read-only</Badge>
+              <OwnerIndicator ownerId={note.ownerId} currentUserId={currentUserId} />
+            </>
+          )}
           {/* Manual Save button when autosave is off */}
-          {!autoSaveEnabled && hasUnsavedChanges && (
+          {!autoSaveEnabled && hasUnsavedChanges && !isReadOnly && (
             <Button
               variant="outline"
               size="sm"
@@ -345,33 +365,45 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <VisibilityLock
+            value={visibility}
+            visibleUserIds={visibleUserIds}
+            onChange={(v, ids) => { setVisibility(v); setVisibleUserIds(ids); }}
+            ownerId={note.ownerId}
+            currentUserId={currentUserId}
+            disabled={isReadOnly || editorMode === 'preview'}
+            size="sm"
+          />
+
           {/* Mode toggle */}
-          <ToggleGroup
-            type="single"
-            value={editorMode}
-            onValueChange={(value) => {
-              if (value) setEditorMode(value as EditorMode);
-            }}
-            className="gap-0"
-          >
-            <ToggleGroupItem value="preview" className="h-7 px-2.5 text-xs gap-1.5" title="View">
-              <Eye className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">View</span>
-            </ToggleGroupItem>
-            <ToggleGroupItem value="edit" className="h-7 px-2.5 text-xs gap-1.5" title="Edit">
-              <Pencil className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Edit</span>
-            </ToggleGroupItem>
-            <ToggleGroupItem value="split" className="h-7 px-2.5 text-xs gap-1.5" title="Side by side">
-              <Columns2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Split</span>
-            </ToggleGroupItem>
-          </ToggleGroup>
+          {!isReadOnly && (
+            <ToggleGroup
+              type="single"
+              value={editorMode}
+              onValueChange={(value) => {
+                if (value) setEditorMode(value as EditorMode);
+              }}
+              className="gap-0"
+            >
+              <ToggleGroupItem value="preview" className="h-7 px-2.5 text-xs gap-1.5" title="View">
+                <Eye className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">View</span>
+              </ToggleGroupItem>
+              <ToggleGroupItem value="edit" className="h-7 px-2.5 text-xs gap-1.5" title="Edit">
+                <Pencil className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Edit</span>
+              </ToggleGroupItem>
+              <ToggleGroupItem value="split" className="h-7 px-2.5 text-xs gap-1.5" title="Side by side">
+                <Columns2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Split</span>
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
 
           <Separator orientation="vertical" className="h-5" />
 
           {/* Project selector */}
-          {editorMode !== 'preview' && (
+          {editorMode !== 'preview' && !isReadOnly && (
             <Select
               value={projectId}
               onValueChange={(v) => setProjectId(v)}
@@ -396,32 +428,33 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
             </Select>
           )}
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Note</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete &quot;{title}&quot;? This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {!isReadOnly && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Note</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete &quot;{title}&quot;? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
 
-      {/* Markdown toolbar (only in edit/split modes) */}
-      {editorMode !== 'preview' && (
+      {editorMode !== 'preview' && !isReadOnly && (
         <div className="sticky top-0 z-10 flex items-center gap-1 px-3 py-1.5 border-b shrink-0 bg-background">
           {toolbarConfig.map((tool) => (
             <Button
@@ -514,13 +547,14 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
         </div>
       )}
 
-      {/* Tags row - always visible */}
-      <div className="px-3 py-1.5 border-b shrink-0">
-        <TagPicker
-          selectedTagIds={tagIds}
-          onTagIdsChange={setTagIds}
-        />
-      </div>
+      {!isReadOnly && (
+        <div className="px-3 py-1.5 border-b shrink-0">
+          <TagPicker
+            selectedTagIds={tagIds}
+            onTagIdsChange={setTagIds}
+          />
+        </div>
+      )}
 
       {/* Content area - takes most of the screen */}
       <div className="flex-1 overflow-hidden">

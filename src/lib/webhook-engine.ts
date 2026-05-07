@@ -7,18 +7,24 @@ export type WebhookEvent =
   | 'task.due_date_reached'
   | 'task.created'
   | 'project.status_changed'
-  | 'project.created';
+  | 'project.created'
+  | 'entity.access_granted'
+  | 'entity.access_revoked'
+  | 'entity.visibility_changed';
 
 export interface WebhookContext {
   event: WebhookEvent;
-  entityType: 'task' | 'project';
+  entityType: 'task' | 'project' | 'area' | 'note' | 'folder';
   entityId: string;
   entityTitle: string;
   entityShortId: string;
-  changes?: Record<string, { from: unknown; to: unknown }>;
+  changes?: Record<string, { from: unknown; to: unknown } | string[]>;
   projectId?: string | null;
   areaId?: string | null;
   ownerId: string;
+  grantedTo?: { id: string; name: string | null; email: string | null };
+  visibilityFrom?: string;
+  visibilityTo?: string;
 }
 
 interface TriggerRecord {
@@ -42,7 +48,7 @@ interface WebhookRecord {
 }
 
 export function replacePlaceholders(template: string, ctx: WebhookContext): string {
-  const newStatus = ctx.changes?.status?.to;
+  const newStatus = (ctx.changes?.status as { from: unknown; to: unknown } | undefined)?.to;
   return template
     .replace(/\{taskId\}/g, ctx.entityShortId)
     .replace(/\{projectId\}/g, ctx.entityShortId)
@@ -50,7 +56,12 @@ export function replacePlaceholders(template: string, ctx: WebhookContext): stri
     .replace(/\{title\}/g, ctx.entityTitle)
     .replace(/\{entityTitle\}/g, ctx.entityTitle)
     .replace(/\{event\}/g, ctx.event)
-    .replace(/\{status\}/g, typeof newStatus === 'string' ? newStatus : '');
+    .replace(/\{status\}/g, typeof newStatus === 'string' ? newStatus : '')
+    .replace(/\{grantedToId\}/g, ctx.grantedTo?.id || '')
+    .replace(/\{grantedToName\}/g, ctx.grantedTo?.name || '')
+    .replace(/\{grantedToEmail\}/g, ctx.grantedTo?.email || '')
+    .replace(/\{visibilityFrom\}/g, ctx.visibilityFrom || '')
+    .replace(/\{visibilityTo\}/g, ctx.visibilityTo || '');
 }
 
 function triggerMatchesScope(trigger: TriggerRecord, ctx: WebhookContext): boolean {
@@ -266,4 +277,36 @@ export function computeChanges(
     }
   }
   return changes;
+}
+
+export function buildAccessContext(
+  entity: { id: string; title?: string; name?: string; shortIdNum: number; projectId?: string | null; ownerId: string },
+  entityType: 'task' | 'project' | 'area' | 'note' | 'folder',
+  event: WebhookEvent,
+  changes: {
+    visibility?: { from: string | null; to: string | null };
+    addedUsers?: string[];
+    removedUsers?: string[];
+  },
+  grantedTo?: { id: string; name: string | null; email: string | null },
+  areaId?: string | null,
+): WebhookContext {
+  return {
+    event,
+    entityType: entityType === 'area' || entityType === 'note' || entityType === 'folder' ? 'task' : entityType,
+    entityId: entity.id,
+    entityTitle: entity.title || entity.name || '',
+    entityShortId: formatShortId('task', entity.shortIdNum),
+    changes: {
+      ...(changes.visibility ? { visibility: changes.visibility } : {}),
+      ...(changes.addedUsers?.length ? { addedUsers: changes.addedUsers } : {}),
+      ...(changes.removedUsers?.length ? { removedUsers: changes.removedUsers } : {}),
+    },
+    projectId: entity.projectId ?? null,
+    areaId: areaId ?? null,
+    ownerId: entity.ownerId,
+    grantedTo,
+    visibilityFrom: changes.visibility?.from ?? undefined,
+    visibilityTo: changes.visibility?.to ?? undefined,
+  };
 }

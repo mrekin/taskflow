@@ -1,3 +1,17 @@
+export const VISIBILITY_OWNER = 'owner';
+export const VISIBILITY_USERS = 'users';
+export const VISIBILITY_SITE = 'site';
+export const VISIBILITY_WORLD = 'world';
+
+export const VISIBILITY_OPTIONS = [
+  { value: VISIBILITY_OWNER, label: 'Owner only' },
+  { value: VISIBILITY_USERS, label: 'Specific users' },
+  { value: VISIBILITY_SITE, label: 'Authenticated users' },
+  { value: VISIBILITY_WORLD, label: 'Everyone' },
+] as const;
+
+export const DEFAULT_VISIBILITY = VISIBILITY_OWNER;
+
 export interface StatusConfig {
   id: string;
   label: string;

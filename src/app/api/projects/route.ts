@@ -3,19 +3,20 @@ import { db } from "@/lib/db";
 import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
 import { fireWebhookEvent, buildProjectContext } from "@/lib/webhook-engine";
+import { buildVisibilityWhereClause } from "@/lib/visibility";
 
 // GET /api/projects - List projects with task counts
 export async function GET(request: NextRequest) {
   try {
     const userId = await getCurrentUserId();
-    if (!userId) return NextResponse.json([]);
+    const isAuthenticated = !!userId;
 
     const { searchParams } = new URL(request.url);
     const areaId = searchParams.get("areaId") ?? undefined;
 
     const projects = await db.project.findMany({
       where: {
-        ownerId: userId,
+        ...buildVisibilityWhereClause(userId, isAuthenticated),
         ...(areaId ? { areaId } : {}),
       },
       orderBy: { sortOrder: "asc" },
@@ -27,15 +28,15 @@ export async function GET(request: NextRequest) {
 
     // Also count top-level tasks (without parentId) for each project
     const projectIds = projects.map((p) => p.id);
-    const topLevelTaskCounts = await db.task.groupBy({
+    const topLevelTaskCounts = projectIds.length > 0 ? await db.task.groupBy({
       by: ["projectId"],
       where: {
-        ownerId: userId,
+        ...buildVisibilityWhereClause(userId, isAuthenticated),
         projectId: { in: projectIds },
         parentId: null,
       },
       _count: true,
-    });
+    }) : [];
     const topLevelMap = new Map(
       topLevelTaskCounts.map((r) => [r.projectId, r._count])
     );
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
     const { userId } = authResult;
 
     const body = await request.json();
-    const { name, description, color, icon, areaId, status, metadata, tagIds } = body;
+    const { name, description, color, icon, areaId, status, metadata, tagIds, visibility, visibleUserIds } = body;
 
     if (!name || typeof name !== "string" || name.trim() === "") {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -88,6 +89,8 @@ export async function POST(request: NextRequest) {
         areaId: areaId ?? null,
         metadata: metadata ? JSON.stringify(metadata) : "{}",
         tagIds: tagIds ? JSON.stringify(tagIds) : "[]",
+        visibility: visibility ?? null,
+        visibleUserIds: JSON.stringify(visibleUserIds || []),
         shortIdNum,
         ownerId: userId,
         sortOrder: (maxSortProject?.sortOrder ?? -1) + 1,

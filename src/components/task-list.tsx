@@ -26,6 +26,8 @@ import { Input } from '@/components/ui/input';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { TagBadges } from '@/components/tag-badges';
 import { EntityIdBadge } from '@/components/entity-id-badge';
+import { VisibilityBadge } from '@/components/visibility-badge';
+import { OwnerIndicator } from '@/components/owner-indicator';
 import { useAppStore } from '@/store/app-store';
 import {
   Popover,
@@ -99,6 +101,7 @@ export function TaskList() {
     tasks, selectedProjectId, selectTask, deleteTask, projects,
     taskStatusFilter, setTaskStatusFilter, tagFilter, projectFilter, assigneeFilter, setAssigneeFilter, userPreferences,
     fetchTasks, taskSearchQuery, setTaskSearchQuery,
+    currentUserId, ownershipFilter, setOwnershipFilter,
   } = useAppStore();
   const [sortField, setSortField] = useState<SortField>('priority');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -190,8 +193,15 @@ export function TaskList() {
       });
     }
 
+    // Filter by ownership
+    if (ownershipFilter === 'mine') {
+      filtered = filtered.filter((t) => t.ownerId === currentUserId);
+    } else if (ownershipFilter === 'shared') {
+      filtered = filtered.filter((t) => t.ownerId !== currentUserId);
+    }
+
     return filtered;
-  }, [tasks, projectFilter, taskStatusFilter, tagFilter, assigneeFilter]);
+  }, [tasks, projectFilter, taskStatusFilter, tagFilter, assigneeFilter, ownershipFilter, currentUserId]);
 
   // Sort tasks
   const sortedTasks = useMemo(() => {
@@ -469,6 +479,32 @@ export function TaskList() {
         )}
 
         <div className="flex-1" />
+        <div className="flex items-center gap-1">
+          <Button
+            variant={ownershipFilter === 'all' ? 'default' : 'outline'}
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={() => setOwnershipFilter('all')}
+          >
+            All
+          </Button>
+          <Button
+            variant={ownershipFilter === 'mine' ? 'default' : 'outline'}
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={() => setOwnershipFilter('mine')}
+          >
+            Mine
+          </Button>
+          <Button
+            variant={ownershipFilter === 'shared' ? 'default' : 'outline'}
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={() => setOwnershipFilter('shared')}
+          >
+            Shared
+          </Button>
+        </div>
         <div className="relative w-56">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
           <Input
@@ -560,6 +596,8 @@ export function TaskList() {
                             {task.title}
                           </span>
                           <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" />
+                          <VisibilityBadge visibility={task.visibility} />
+                          <OwnerIndicator ownerId={task.ownerId} currentUserId={currentUserId} />
                         </div>
                         {task.tagIds && task.tagIds.length > 0 && (
                           <div className="mt-0.5">

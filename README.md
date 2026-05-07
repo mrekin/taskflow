@@ -56,6 +56,11 @@ or
 docker pull ghcr.io/mrekin/taskflow:<tag>
 ```
 
+Tags:
+* test - builds after each commit, contains all features but may be unstable/buggy and so on
+* dev - more recent and stable build, with most fixes.
+* prod/latest - stable build, after additional tests applied for dev build.
+
 The app will be available at `http://localhost:3000`.
 
 > Change `NEXTAUTH_SECRET` in `docker-compose.yml` before deploying to production:

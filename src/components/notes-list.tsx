@@ -42,6 +42,9 @@ import { CreateNoteDialog } from '@/components/create-note-dialog';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { TagBadges } from '@/components/tag-badges';
 import { EntityIdBadge } from '@/components/entity-id-badge';
+import { VisibilityBadge } from '@/components/visibility-badge';
+import { VisibilityLock } from '@/components/visibility-lock';
+import { OwnerIndicator } from '@/components/owner-indicator';
 import { cn } from '@/lib/utils';
 import {
   Popover,
@@ -100,6 +103,9 @@ export function NotesList() {
     folderSearchResults,
     searchNotes,
     clearNoteSearch,
+    currentUserId,
+    ownershipFilter,
+    setOwnershipFilter,
   } = useAppStore();
 
   const [searchInput, setSearchInput] = useState(noteSearchQuery);
@@ -222,6 +228,12 @@ export function NotesList() {
       );
     }
 
+    if (ownershipFilter === 'mine') {
+      result = result.filter((note) => note.ownerId === currentUserId);
+    } else if (ownershipFilter === 'shared') {
+      result = result.filter((note) => note.ownerId !== currentUserId);
+    }
+
     result.sort((a, b) => {
       switch (sortBy) {
         case 'id':
@@ -248,7 +260,7 @@ export function NotesList() {
     });
 
     return result;
-  }, [notes, noteSearchResults, isSearching, sortBy, tagFilter, projectFilter, currentFolderId]);
+  }, [notes, noteSearchResults, isSearching, sortBy, tagFilter, projectFilter, currentFolderId, ownershipFilter, currentUserId]);
 
   const handleNoteClick = (note: Note) => {
     selectNote(note.id);
@@ -445,6 +457,32 @@ export function NotesList() {
 
         {/* Search, Tag filter, and Sort */}
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <Button
+              variant={ownershipFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              className="h-9 text-xs px-2"
+              onClick={() => setOwnershipFilter('all')}
+            >
+              All
+            </Button>
+            <Button
+              variant={ownershipFilter === 'mine' ? 'default' : 'outline'}
+              size="sm"
+              className="h-9 text-xs px-2"
+              onClick={() => setOwnershipFilter('mine')}
+            >
+              Mine
+            </Button>
+            <Button
+              variant={ownershipFilter === 'shared' ? 'default' : 'outline'}
+              size="sm"
+              className="h-9 text-xs px-2"
+              onClick={() => setOwnershipFilter('shared')}
+            >
+              Shared
+            </Button>
+          </div>
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -638,9 +676,20 @@ export function NotesList() {
                             <h3 className="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-primary transition-colors">
                               {folder.name}
                             </h3>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {itemCount} item{itemCount !== 1 ? 's' : ''}
-                            </p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <p className="text-xs text-muted-foreground">
+                                {itemCount} item{itemCount !== 1 ? 's' : ''}
+                              </p>
+                              <VisibilityLock
+                                value={folder.visibility}
+                                visibleUserIds={folder.visibleUserIds || []}
+                                onChange={() => {}}
+                                ownerId={folder.ownerId}
+                                currentUserId={currentUserId}
+                                disabled={true}
+                                size="sm"
+                              />
+                            </div>
                           </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -710,6 +759,10 @@ export function NotesList() {
                             {note.title}
                           </h3>
                           <EntityIdBadge id={note.id} shortId={note.shortId || 'N-?'} type="note" className="mt-1" />
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <VisibilityBadge visibility={note.visibility} />
+                            <OwnerIndicator ownerId={note.ownerId} currentUserId={currentUserId} />
+                          </div>
                         </div>
                         <Button
                           variant="ghost"

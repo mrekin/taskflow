@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+import {
+  canReadEntity,
+  resolveEffectiveVisibility,
+  parseVisibleUserIds,
+} from "@/lib/visibility";
 
 // GET /api/comments?taskId=xxx - List comments for a task
 export async function GET(request: NextRequest) {
@@ -18,11 +23,45 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const task = await db.task.findFirst({
+      where: { id: taskId },
+      select: { id: true, ownerId: true, visibility: true, visibleUserIds: true, projectId: true },
+    });
+
+    if (!task) {
+      return NextResponse.json([]);
+    }
+
+    const parentChain: Array<{ visibility: string | null; ownerId: string }> = [];
+
+    if (task.projectId) {
+      const project = await db.project.findFirst({
+        where: { id: task.projectId },
+        select: { visibility: true, ownerId: true, areaId: true },
+      });
+      if (project) {
+        parentChain.push({ visibility: project.visibility, ownerId: project.ownerId });
+        if (project.areaId) {
+          const area = await db.area.findFirst({
+            where: { id: project.areaId },
+            select: { visibility: true, ownerId: true },
+          });
+          if (area) {
+            parentChain.push({ visibility: area.visibility, ownerId: area.ownerId });
+          }
+        }
+      }
+    }
+
+    const effectiveVisibility = resolveEffectiveVisibility(task.visibility, parentChain);
+    const taskVisibleUserIds = parseVisibleUserIds(task.visibleUserIds);
+
+    if (!canReadEntity(userId, task.ownerId, effectiveVisibility, taskVisibleUserIds, !!userId)) {
+      return NextResponse.json([]);
+    }
+
     const comments = await db.comment.findMany({
-      where: {
-        taskId,
-        ownerId: userId,
-      },
+      where: { taskId },
       orderBy: { createdAt: "asc" },
       include: {
         owner: { select: { id: true, name: true, email: true, image: true } },
@@ -61,6 +100,43 @@ export async function POST(request: NextRequest) {
         { error: "taskId is required" },
         { status: 400 }
       );
+    }
+
+    const task = await db.task.findFirst({
+      where: { id: taskId },
+      select: { id: true, ownerId: true, visibility: true, visibleUserIds: true, projectId: true },
+    });
+
+    if (!task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    const parentChain: Array<{ visibility: string | null; ownerId: string }> = [];
+
+    if (task.projectId) {
+      const project = await db.project.findFirst({
+        where: { id: task.projectId },
+        select: { visibility: true, ownerId: true, areaId: true },
+      });
+      if (project) {
+        parentChain.push({ visibility: project.visibility, ownerId: project.ownerId });
+        if (project.areaId) {
+          const area = await db.area.findFirst({
+            where: { id: project.areaId },
+            select: { visibility: true, ownerId: true },
+          });
+          if (area) {
+            parentChain.push({ visibility: area.visibility, ownerId: area.ownerId });
+          }
+        }
+      }
+    }
+
+    const effectiveVisibility = resolveEffectiveVisibility(task.visibility, parentChain);
+    const taskVisibleUserIds = parseVisibleUserIds(task.visibleUserIds);
+
+    if (!canReadEntity(userId, task.ownerId, effectiveVisibility, taskVisibleUserIds, !!userId)) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
     const comment = await db.comment.create({

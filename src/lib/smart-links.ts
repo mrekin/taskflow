@@ -117,6 +117,14 @@ export interface UserMentionItem {
   label: string;
 }
 
+export interface MentionItem {
+  type: 'task' | 'project' | 'note' | 'area';
+  id: string;
+  shortId: string;
+  label: string;
+  shortIdNum: number | null;
+}
+
 export function filterEntities(
   query: string,
   tasks: Task[],

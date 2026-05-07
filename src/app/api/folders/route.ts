@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+import { buildVisibilityWhereClause } from "@/lib/visibility";
 
 // GET /api/folders - List folders with optional filters
 export async function GET(request: NextRequest) {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const folders = await db.noteFolder.findMany({
       where: {
-        ownerId: userId,
+        ...buildVisibilityWhereClause(userId, !!userId),
         ...(projectId ? { projectId } : {}),
         ...(parentId !== undefined ? { parentId: parentId || null } : {}),
       },
@@ -43,13 +44,12 @@ export async function POST(request: NextRequest) {
     const { userId } = authResult;
 
     const body = await request.json();
-    const { name, projectId, parentId } = body;
+    const { name, projectId, parentId, visibility, visibleUserIds } = body;
 
     if (!name || typeof name !== "string" || name.trim() === "") {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
-    // Check duplicate folder name at same level
     const duplicate = await db.noteFolder.findFirst({
       where: {
         name: name.trim(),
@@ -61,7 +61,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "A folder with this name already exists in this location" }, { status: 409 });
     }
 
-    // Check max nesting depth (3 levels)
     if (parentId) {
       let depth = 1;
       let currentParentId: string | null = parentId;
@@ -74,7 +73,7 @@ export async function POST(request: NextRequest) {
           );
         }
         const parent = await db.noteFolder.findFirst({
-          where: { id: currentParentId, ownerId: userId },
+          where: { id: currentParentId },
           select: { parentId: true },
         });
         currentParentId = parent?.parentId ?? null;
@@ -97,6 +96,8 @@ export async function POST(request: NextRequest) {
         shortIdNum,
         ownerId: userId,
         sortOrder: (maxSortFolder?.sortOrder ?? -1) + 1,
+        visibility: visibility ?? null,
+        visibleUserIds: JSON.stringify(visibleUserIds || []),
       },
       include: {
         parent: { select: { id: true, name: true, parentId: true } },

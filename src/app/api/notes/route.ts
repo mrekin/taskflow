@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+import { buildVisibilityWhereClause } from "@/lib/visibility";
 
 // GET /api/notes - List notes with optional filters
 export async function GET(request: NextRequest) {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const notes = await db.note.findMany({
       where: {
-        ownerId: userId,
+        ...buildVisibilityWhereClause(userId, !!userId),
         ...(projectId ? { projectId } : {}),
         ...(folderId ? { folderId } : {}),
       },
@@ -43,13 +44,12 @@ export async function POST(request: NextRequest) {
     const { userId } = authResult;
 
     const body = await request.json();
-    const { title, content, projectId, folderId, metadata, tagIds } = body;
+    const { title, content, projectId, folderId, metadata, tagIds, visibility, visibleUserIds } = body;
 
     if (!title || typeof title !== "string" || title.trim() === "") {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
     }
 
-    // Check duplicate note title in same folder/project scope
     const noteProjectId = projectId ?? null;
     const noteFolderId = folderId ?? null;
     const duplicateNote = await db.note.findFirst({
@@ -83,6 +83,8 @@ export async function POST(request: NextRequest) {
         shortIdNum,
         ownerId: userId,
         sortOrder: (maxSortNote?.sortOrder ?? -1) + 1,
+        visibility: visibility ?? null,
+        visibleUserIds: JSON.stringify(visibleUserIds || []),
       },
       include: {
         project: { select: { id: true, name: true, color: true } },

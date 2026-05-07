@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { parseJsonFields } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+import {
+  canReadEntity,
+  canWriteEntity,
+  resolveEffectiveVisibility,
+  parseVisibleUserIds,
+  sanitizeRelation,
+} from "@/lib/visibility";
 
 // GET /api/folders/[id] - Get single folder
 export async function GET(
@@ -14,9 +21,9 @@ export async function GET(
 
     const { id } = await params;
     const folder = await db.noteFolder.findFirst({
-      where: { id, ownerId: userId },
+      where: { id },
       include: {
-        parent: { select: { id: true, name: true, parentId: true } },
+        parent: { select: { id: true, name: true, parentId: true, visibility: true, visibleUserIds: true, ownerId: true } },
         _count: { select: { children: true, notes: true } },
       },
     });
@@ -25,7 +32,61 @@ export async function GET(
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }
 
-    return NextResponse.json(parseJsonFields(folder, "folder"));
+    const parentChain: Array<{ visibility: string | null; ownerId: string }> = [];
+
+    let currentParent = folder.parent as { id: string; parentId: string | null; visibility: string | null; ownerId: string } | null;
+    while (currentParent) {
+      parentChain.push({ visibility: currentParent.visibility, ownerId: currentParent.ownerId });
+      if (currentParent.parentId) {
+        const parent = await db.noteFolder.findFirst({
+          where: { id: currentParent.parentId },
+          select: { id: true, parentId: true, visibility: true, ownerId: true },
+        });
+        currentParent = parent;
+      } else {
+        currentParent = null;
+      }
+    }
+
+    if (folder.projectId) {
+      const project = await db.project.findFirst({
+        where: { id: folder.projectId },
+        select: { visibility: true, ownerId: true, areaId: true },
+      });
+      if (project) {
+        parentChain.push({ visibility: project.visibility, ownerId: project.ownerId });
+        if (project.areaId) {
+          const area = await db.area.findFirst({
+            where: { id: project.areaId },
+            select: { visibility: true, ownerId: true },
+          });
+          if (area) {
+            parentChain.push({ visibility: area.visibility, ownerId: area.ownerId });
+          }
+        }
+      }
+    }
+
+    const effectiveVisibility = resolveEffectiveVisibility(folder.visibility, parentChain);
+    const folderVisibleUserIds = parseVisibleUserIds(folder.visibleUserIds);
+
+    if (!canReadEntity(userId, folder.ownerId, effectiveVisibility, folderVisibleUserIds, !!userId)) {
+      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+    }
+
+    const response: Record<string, unknown> = { ...parseJsonFields(folder, "folder") };
+
+    if (folder.parent) {
+      response.parent = sanitizeRelation(
+        folder.parent as any,
+        (folder.parent as any).ownerId,
+        userId,
+        !!userId,
+        parentChain,
+      );
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Failed to fetch folder:", error);
     return NextResponse.json({ error: "Failed to fetch folder" }, { status: 500 });
@@ -44,17 +105,22 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, parentId } = body;
+    const { name, parentId, visibility, visibleUserIds } = body;
 
-    const existing = await db.noteFolder.findFirst({ where: { id, ownerId: userId } });
+    const existing = await db.noteFolder.findFirst({ where: { id } });
     if (!existing) {
+      return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
+    }
+
+    if (!canWriteEntity(userId, existing.ownerId)) {
       return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
     }
 
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name.trim();
+    if (visibility !== undefined) updateData.visibility = visibility;
+    if (visibleUserIds !== undefined) updateData.visibleUserIds = JSON.stringify(visibleUserIds);
 
-    // Check duplicate name after rename or move
     const newName = name !== undefined ? name.trim() : existing.name;
     const newParentId = parentId !== undefined ? (parentId || null) : existing.parentId;
     if (name !== undefined || parentId !== undefined) {
@@ -72,7 +138,6 @@ export async function PUT(
     }
 
     if (parentId !== undefined) {
-      // Prevent circular reference: a folder can't be its own ancestor
       if (parentId === id) {
         return NextResponse.json(
           { error: "A folder cannot be its own parent" },
@@ -80,7 +145,6 @@ export async function PUT(
         );
       }
 
-      // Walk up from the proposed parent to check for cycles and depth
       if (parentId) {
         let depth = 1;
         let currentId: string | null = parentId;
@@ -102,7 +166,7 @@ export async function PUT(
             );
           }
           const parent = await db.noteFolder.findFirst({
-            where: { id: currentId, ownerId: userId },
+            where: { id: currentId },
             select: { parentId: true },
           });
           currentId = parent?.parentId ?? null;
@@ -139,11 +203,13 @@ export async function DELETE(
 
     const { id } = await params;
 
-    const existing = await db.noteFolder.findFirst({
-      where: { id, ownerId: userId },
-    });
+    const existing = await db.noteFolder.findFirst({ where: { id } });
 
     if (!existing) {
+      return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
+    }
+
+    if (!canWriteEntity(userId, existing.ownerId)) {
       return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
     }
 

@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { VisibilityLock } from '@/components/visibility-lock';
 
 interface CreateNoteDialogProps {
   open: boolean;
@@ -32,12 +33,14 @@ interface CreateNoteDialogProps {
 }
 
 export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, defaultFolderId }: CreateNoteDialogProps) {
-  const { projects, folders, createNote, selectNote, setCurrentView, selectedProjectId } = useAppStore();
+  const { projects, folders, createNote, selectNote, setCurrentView, selectedProjectId, currentUserId } = useAppStore();
 
   const [title, setTitle] = useState('');
   const [projectId, setProjectId] = useState<string>('none');
   const [folderId, setFolderId] = useState<string>('none');
   const [content, setContent] = useState('');
+  const [visibility, setVisibility] = useState<string | null>(null);
+  const [visibleUserIds, setVisibleUserIds] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
 
   // Sync state when dialog opens (component stays mounted between opens)
@@ -48,6 +51,8 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
       setFolderId(defaultFolderId ?? 'none');
       setTitle('');
       setContent('');
+      setVisibility(null);
+      setVisibleUserIds([]);
     }
   }, [open, defaultProjectId, defaultFolderId, selectedProjectId]);
 
@@ -59,6 +64,8 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
     setProjectId(defaultProjectId ?? selectedProjectId ?? 'none');
     setFolderId(defaultFolderId ?? 'none');
     setContent('');
+    setVisibility(null);
+    setVisibleUserIds([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,6 +79,8 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
         content: content,
         projectId: projectId === 'none' ? null : projectId,
         folderId: folderId === 'none' ? null : folderId,
+        visibility,
+        visibleUserIds,
       };
 
       await createNote(data);
@@ -158,24 +167,39 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
               </div>
             )}
 
-            {(folders.length > 0 || folderId !== 'none') && (
+            <div className="grid grid-cols-2 gap-3">
+              {(folders.length > 0 || folderId !== 'none') && (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="note-folder">Folder</Label>
+                  <Select value={folderId} onValueChange={setFolderId}>
+                    <SelectTrigger id="note-folder">
+                      <SelectValue placeholder="Select a folder" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No folder</SelectItem>
+                      {folders.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="flex flex-col gap-2">
-                <Label htmlFor="note-folder">Folder</Label>
-                <Select value={folderId} onValueChange={setFolderId}>
-                  <SelectTrigger id="note-folder">
-                    <SelectValue placeholder="Select a folder" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No folder</SelectItem>
-                    {folders.map((f) => (
-                      <SelectItem key={f.id} value={f.id}>
-                        {f.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Visibility</Label>
+                <div className="flex items-center h-9">
+                  <VisibilityLock
+                    value={visibility}
+                    visibleUserIds={visibleUserIds}
+                    onChange={(v, ids) => { setVisibility(v); setVisibleUserIds(ids); }}
+                    ownerId={currentUserId ?? ''}
+                    currentUserId={currentUserId}
+                    size="sm"
+                  />
+                </div>
               </div>
-            )}
+            </div>
           </div>
 
           <DialogFooter className="mt-4 pt-3 border-t sticky bottom-0 bg-background shrink-0">

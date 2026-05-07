@@ -43,6 +43,8 @@ import {
 import { TaskCard } from '@/components/task-card';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { useAppStore } from '@/store/app-store';
+import { VisibilityBadge } from '@/components/visibility-badge';
+import { OwnerIndicator } from '@/components/owner-indicator';
 import { INVALID_STATE_COLUMN, TASK_PRIORITIES, type StatusConfig } from '@/lib/constants';
 import type { Task } from '@/lib/types';
 
@@ -152,7 +154,7 @@ function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInva
 }
 
 export function KanbanBoard() {
-  const { tasks, selectedProjectId, tagFilter, projectFilter, assigneeFilter, setAssigneeFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery, statuses } = useAppStore();
+  const { tasks, selectedProjectId, tagFilter, projectFilter, assigneeFilter, setAssigneeFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery, statuses, currentUserId, ownershipFilter, setOwnershipFilter } = useAppStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -211,8 +213,14 @@ export function KanbanBoard() {
       });
     }
 
+    if (ownershipFilter === 'mine') {
+      filtered = filtered.filter((t) => t.ownerId === currentUserId);
+    } else if (ownershipFilter === 'shared') {
+      filtered = filtered.filter((t) => t.ownerId !== currentUserId);
+    }
+
     return filtered;
-  }, [tasks, projectFilter, tagFilter, assigneeFilter]);
+  }, [tasks, projectFilter, tagFilter, assigneeFilter, ownershipFilter, currentUserId]);
 
   const uniqueAssignees = useMemo(() => {
     const map = new Map<string, { id: string; name: string | null; email: string | null }>();
@@ -403,6 +411,32 @@ export function KanbanBoard() {
   return (
     <div className="h-full space-y-4">
       <div className="flex items-center gap-2 justify-end">
+        <div className="flex items-center gap-1">
+          <Button
+            variant={ownershipFilter === 'all' ? 'default' : 'outline'}
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={() => setOwnershipFilter('all')}
+          >
+            All
+          </Button>
+          <Button
+            variant={ownershipFilter === 'mine' ? 'default' : 'outline'}
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={() => setOwnershipFilter('mine')}
+          >
+            Mine
+          </Button>
+          <Button
+            variant={ownershipFilter === 'shared' ? 'default' : 'outline'}
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={() => setOwnershipFilter('shared')}
+          >
+            Shared
+          </Button>
+        </div>
         {uniqueAssignees.length > 0 && (
           <Popover open={assigneeFilterOpen} onOpenChange={setAssigneeFilterOpen}>
             <PopoverTrigger asChild>
