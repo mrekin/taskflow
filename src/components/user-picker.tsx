@@ -33,9 +33,9 @@ export function UserPicker({ assigneeId, assignee, onAssigneeChange }: UserPicke
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (assignee && assigneeId) {
+    if (assignee) {
       setSelectedUser(assignee);
-    } else {
+    } else if (!assigneeId) {
       setSelectedUser(null);
     }
   }, [assignee, assigneeId]);

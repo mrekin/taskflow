@@ -176,9 +176,11 @@ export function TaskList() {
 
     // Filter by assignee
     if (assigneeFilter && assigneeFilter.length > 0) {
-      filtered = filtered.filter((t) =>
-        t.assigneeId != null && assigneeFilter.includes(t.assigneeId)
-      );
+      filtered = filtered.filter((t) => {
+        if (t.assigneeId != null && assigneeFilter.includes(t.assigneeId)) return true;
+        const childTasks = tasks.filter((st) => st.parentId === t.id);
+        return childTasks.some((st) => st.assigneeId != null && assigneeFilter.includes(st.assigneeId));
+      });
     }
 
     return filtered;
