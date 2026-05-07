@@ -678,10 +678,27 @@ export function TaskList() {
                         >
                           {STATUS_LABELS[subtask.status] || subtask.status}
                         </Badge>
+                        {subtask.dueDate ? (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Calendar className="size-2.5" />
+                            {format(parseISO(subtask.dueDate), 'MMM d')}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">—</span>
+                        )}
                         <span className="text-[10px] text-muted-foreground">—</span>
-                        <span className="text-[10px] text-muted-foreground">—</span>
-                        <span className="text-[10px] text-muted-foreground">—</span>
-                        <span className="text-[10px] text-muted-foreground">—</span>
+                        {subtask.assignee ? (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
+                            {subtask.assignee.image ? (
+                              <img src={subtask.assignee.image} alt="" className="size-2.5 rounded-full shrink-0" />
+                            ) : (
+                              <User className="size-2.5 shrink-0" />
+                            )}
+                            <span className="truncate">{subtask.assignee.name || subtask.assignee.email}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">—</span>
+                        )}
                         <span className="text-[10px] text-muted-foreground">—</span>
                         <span className="text-[10px] text-muted-foreground">—</span>
                       </motion.div>
