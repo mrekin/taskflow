@@ -32,6 +32,7 @@ interface AppState {
   taskStatusFilter: string;
   tagFilter: string[];
   projectFilter: string[];
+  assigneeFilter: string[];
   taskSearchQuery: string;
   noteSearchQuery: string;
   noteSearchResults: Note[];
@@ -58,6 +59,7 @@ interface AppState {
   setTaskStatusFilter: (filter: string) => void;
   setTagFilter: (tagIds: string[]) => void;
   setProjectFilter: (projectIds: string[]) => void;
+  setAssigneeFilter: (userIds: string[]) => void;
   setTaskSearchQuery: (query: string) => void;
   setNoteSearchQuery: (query: string) => void;
   searchNotes: (projectId?: string, search?: string, folderId?: string) => Promise<void>;
@@ -155,6 +157,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   taskStatusFilter: 'all',
   tagFilter: [],
   projectFilter: [],
+  assigneeFilter: [],
   taskSearchQuery: '',
   noteSearchQuery: '',
   noteSearchResults: [],
@@ -181,6 +184,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTaskStatusFilter: (filter) => set({ taskStatusFilter: filter }),
   setTagFilter: (tagIds) => set({ tagFilter: tagIds }),
   setProjectFilter: (projectIds) => set({ projectFilter: projectIds }),
+  setAssigneeFilter: (userIds) => set({ assigneeFilter: userIds }),
   setTaskSearchQuery: (query) => set({ taskSearchQuery: query }),
   setNoteSearchQuery: (query) => set({ noteSearchQuery: query }),
   searchNotes: async (projectId?: string, search?: string, folderId?: string) => {

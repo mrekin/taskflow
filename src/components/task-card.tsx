@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
-import { Calendar, GripVertical, ListChecks, FolderOpen, Tag } from 'lucide-react';
+import { Calendar, GripVertical, ListChecks, FolderOpen, User } from 'lucide-react';
 import { format, isPast, parseISO } from 'date-fns';
 
 import { cn } from '@/lib/utils';
@@ -180,6 +180,18 @@ export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: Tas
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 gap-1 font-normal">
                 <FolderOpen className="size-3" />
                 {project.name}
+              </Badge>
+            )}
+
+            {/* Assignee */}
+            {task.assignee && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 gap-1 font-normal">
+                {task.assignee.image ? (
+                  <img src={task.assignee.image} alt="" className="size-3 rounded-full" />
+                ) : (
+                  <User className="size-3" />
+                )}
+                {task.assignee.name || task.assignee.email}
               </Badge>
             )}
 

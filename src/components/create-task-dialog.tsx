@@ -53,6 +53,7 @@ import {
   type StatusConfig,
 } from '@/lib/constants';
 import { TagPicker } from '@/components/tag-picker';
+import { UserPicker } from '@/components/user-picker';
 import { toast } from 'sonner';
 
 const TASK_WEBHOOK_EVENTS = [
@@ -93,6 +94,7 @@ export function CreateTaskDialog({
   const [projectId, setProjectId] = useState<string>(defaultProjectId || selectedProjectId || 'none');
   const [parentTaskId, setParentTaskId] = useState<string>(parentId || 'none');
   const [tagIds, setTagIds] = useState<string[]>([]);
+  const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [parentTaskOpen, setParentTaskOpen] = useState(false);
@@ -115,6 +117,7 @@ export function CreateTaskDialog({
       setProjectId(defaultProjectId || selectedProjectId || 'none');
       setParentTaskId(parentId || 'none');
       setTagIds([]);
+      setAssigneeId(null);
       setIsCreating(false);
       setWebhookBindings([]);
       setWebhooksExpanded(false);
@@ -143,6 +146,7 @@ export function CreateTaskDialog({
         projectId: projectId === 'none' ? null : projectId,
         parentId: parentTaskId === 'none' ? null : parentTaskId,
         tagIds,
+        assigneeId,
       });
 
       if (newTask && webhookBindings.length > 0) {
@@ -178,6 +182,7 @@ export function CreateTaskDialog({
       setProjectId(defaultProjectId || selectedProjectId || 'none');
       setParentTaskId(parentId || 'none');
       setTagIds([]);
+      setAssigneeId(null);
       setWebhookBindings([]);
       setWebhooksExpanded(false);
     }
@@ -367,6 +372,17 @@ export function CreateTaskDialog({
                 <TagPicker selectedTagIds={tagIds} onTagIdsChange={setTagIds} />
               </div>
             )}
+
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                Assignee
+              </Label>
+              <UserPicker
+                assigneeId={assigneeId}
+                assignee={null}
+                onAssigneeChange={setAssigneeId}
+              />
+            </div>
 
             {!parentId && (
               <div className="space-y-1.5">

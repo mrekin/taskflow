@@ -57,6 +57,7 @@ export interface Task {
   ownerId: string;
   createdAt: string;
   updatedAt: string;
+  assignee?: { id: string; name: string | null; email: string; image: string | null } | null;
   project?: Project;
   parent?: Task;
   subtasks?: Task[];

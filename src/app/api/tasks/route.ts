@@ -16,11 +16,13 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") ?? undefined;
     const parentId = searchParams.get("parentId") ?? undefined;
     const search = searchParams.get("search") ?? undefined;
+    const assigneeId = searchParams.get("assigneeId") ?? undefined;
 
     const baseWhere: Record<string, unknown> = {
       ownerId: userId,
       ...(projectId ? { projectId } : {}),
       ...(status ? { status } : {}),
+      ...(assigneeId ? { assigneeId } : {}),
     };
 
     let where: Record<string, unknown>;
@@ -61,6 +63,7 @@ export async function GET(request: NextRequest) {
       }
 
       taskConditions.push({ subtasks: { some: { OR: subtaskConditions } } });
+      taskConditions.push({ assignee: { OR: [{ name: { contains: search } }, { email: { contains: search } }] } });
 
       where = {
         ...baseWhere,

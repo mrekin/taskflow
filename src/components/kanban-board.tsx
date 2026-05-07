@@ -15,7 +15,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Search, X, ArrowUpDown, AlertTriangle } from 'lucide-react';
+import { Plus, Search, X, ArrowUpDown, AlertTriangle, User, Filter, Check, ChevronsUpDown } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { TaskCard } from '@/components/task-card';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { useAppStore } from '@/store/app-store';
@@ -139,7 +152,7 @@ function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInva
 }
 
 export function KanbanBoard() {
-  const { tasks, selectedProjectId, tagFilter, projectFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery, statuses } = useAppStore();
+  const { tasks, selectedProjectId, tagFilter, projectFilter, assigneeFilter, setAssigneeFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery, statuses } = useAppStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -148,6 +161,7 @@ export function KanbanBoard() {
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sortField, setSortField] = useState<KanbanSortField>('id');
   const [sortDirection, setSortDirection] = useState<KanbanSortDirection>('asc');
+  const [assigneeFilterOpen, setAssigneeFilterOpen] = useState(false);
 
   const visibleColumns = useMemo(() => statuses.filter((c) => c.visible), [statuses]);
   const allColumnIds = useMemo(() => new Set(statuses.map((c) => c.id)), [statuses]);
@@ -189,8 +203,24 @@ export function KanbanBoard() {
       );
     }
 
+    if (assigneeFilter && assigneeFilter.length > 0) {
+      filtered = filtered.filter((t) =>
+        t.assigneeId != null && assigneeFilter.includes(t.assigneeId)
+      );
+    }
+
     return filtered;
-  }, [tasks, projectFilter, tagFilter]);
+  }, [tasks, projectFilter, tagFilter, assigneeFilter]);
+
+  const uniqueAssignees = useMemo(() => {
+    const map = new Map<string, { id: string; name: string | null; email: string | null }>();
+    for (const t of tasks) {
+      if (t.assigneeId && t.assignee && !map.has(t.assigneeId)) {
+        map.set(t.assigneeId, { id: t.assigneeId, name: t.assignee.name, email: t.assignee.email });
+      }
+    }
+    return Array.from(map.values());
+  }, [tasks]);
 
   const tasksByStatus = useMemo(() => {
     const grouped: Record<string, Task[]> = {};
@@ -364,6 +394,52 @@ export function KanbanBoard() {
   return (
     <div className="h-full space-y-4">
       <div className="flex items-center gap-2 justify-end">
+        {uniqueAssignees.length > 0 && (
+          <Popover open={assigneeFilterOpen} onOpenChange={setAssigneeFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={assigneeFilter.length > 0 ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs gap-1"
+              >
+                <User className="size-3" />
+                Assignee
+                {assigneeFilter.length > 0 && ` (${assigneeFilter.length})`}
+                <ChevronsUpDown className="size-3 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search assignee..." />
+                <CommandList onWheel={(e) => e.stopPropagation()}>
+                  <CommandEmpty>No assignee found.</CommandEmpty>
+                  <CommandGroup>
+                    {uniqueAssignees.map((assignee) => (
+                      <CommandItem
+                        key={assignee.id}
+                        value={`${assignee.name || ''} ${assignee.email || ''}`}
+                        onSelect={() => {
+                          const next = assigneeFilter.includes(assignee.id)
+                            ? assigneeFilter.filter((id) => id !== assignee.id)
+                            : [...assigneeFilter, assignee.id];
+                          setAssigneeFilter(next);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            'mr-2 size-4 shrink-0',
+                            assigneeFilter.includes(assignee.id) ? 'opacity-100' : 'opacity-0',
+                          )}
+                        />
+                        <span className="truncate">{assignee.name || assignee.email}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        )}
         <div className="relative w-56">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
           <Input

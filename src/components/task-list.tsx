@@ -13,6 +13,8 @@ import {
   XSquare,
   Search,
   X,
+  User,
+  Filter,
 } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 
@@ -25,6 +27,20 @@ import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { TagBadges } from '@/components/tag-badges';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { useAppStore } from '@/store/app-store';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Check, ChevronsUpDown } from 'lucide-react';
 import {
   TASK_STATUSES,
   STATUS_LABELS,
@@ -81,7 +97,7 @@ function SortButton({
 export function TaskList() {
   const {
     tasks, selectedProjectId, selectTask, deleteTask, projects,
-    taskStatusFilter, setTaskStatusFilter, tagFilter, projectFilter, userPreferences,
+    taskStatusFilter, setTaskStatusFilter, tagFilter, projectFilter, assigneeFilter, setAssigneeFilter, userPreferences,
     fetchTasks, taskSearchQuery, setTaskSearchQuery,
   } = useAppStore();
   const [sortField, setSortField] = useState<SortField>('priority');
@@ -90,6 +106,7 @@ export function TaskList() {
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchInput, setSearchInput] = useState(taskSearchQuery);
+  const [assigneeFilterOpen, setAssigneeFilterOpen] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -121,6 +138,16 @@ export function TaskList() {
     };
   }, [tasks]);
 
+  const uniqueAssignees = useMemo(() => {
+    const map = new Map<string, { id: string; name: string | null; email: string | null }>();
+    for (const t of tasks) {
+      if (t.assigneeId && t.assignee && !map.has(t.assigneeId)) {
+        map.set(t.assigneeId, { id: t.assigneeId, name: t.assignee.name, email: t.assignee.email });
+      }
+    }
+    return Array.from(map.values());
+  }, [tasks]);
+
   // Filter tasks
   const filteredTasks = useMemo(() => {
     let filtered = tasks;
@@ -147,8 +174,15 @@ export function TaskList() {
       );
     }
 
+    // Filter by assignee
+    if (assigneeFilter && assigneeFilter.length > 0) {
+      filtered = filtered.filter((t) =>
+        t.assigneeId != null && assigneeFilter.includes(t.assigneeId)
+      );
+    }
+
     return filtered;
-  }, [tasks, projectFilter, taskStatusFilter, tagFilter]);
+  }, [tasks, projectFilter, taskStatusFilter, tagFilter, assigneeFilter]);
 
   // Sort tasks
   const sortedTasks = useMemo(() => {
@@ -376,6 +410,55 @@ export function TaskList() {
             </Button>
           );
         })}
+
+        {/* Assignee filter */}
+        {uniqueAssignees.length > 0 && (
+          <Popover open={assigneeFilterOpen} onOpenChange={setAssigneeFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={assigneeFilter.length > 0 ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs gap-1"
+              >
+                <User className="size-3" />
+                Assignee
+                {assigneeFilter.length > 0 && ` (${assigneeFilter.length})`}
+                <ChevronsUpDown className="size-3 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search assignee..." />
+                <CommandList onWheel={(e) => e.stopPropagation()}>
+                  <CommandEmpty>No assignee found.</CommandEmpty>
+                  <CommandGroup>
+                    {uniqueAssignees.map((assignee) => (
+                      <CommandItem
+                        key={assignee.id}
+                        value={`${assignee.name || ''} ${assignee.email || ''}`}
+                        onSelect={() => {
+                          const next = assigneeFilter.includes(assignee.id)
+                            ? assigneeFilter.filter((id) => id !== assignee.id)
+                            : [...assigneeFilter, assignee.id];
+                          setAssigneeFilter(next);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            'mr-2 size-4 shrink-0',
+                            assigneeFilter.includes(assignee.id) ? 'opacity-100' : 'opacity-0',
+                          )}
+                        />
+                        <span className="truncate">{assignee.name || assignee.email}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        )}
+
         <div className="flex-1" />
         <div className="relative w-56">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
@@ -401,7 +484,7 @@ export function TaskList() {
 
       {/* Table header */}
       <div className="border rounded-lg overflow-hidden">
-        <div className="grid grid-cols-[auto_1fr_90px_90px_110px_110px_90px_90px] gap-2 px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground">
+        <div className="grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_80px_80px] gap-2 px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground">
           <div className="w-8 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
             <Checkbox
               checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
@@ -419,6 +502,7 @@ export function TaskList() {
           <SortButton field="status" currentSortField={sortField} onSort={handleSort}>Status</SortButton>
           <SortButton field="dueDate" currentSortField={sortField} onSort={handleSort}>Due Date</SortButton>
           <SortButton field="project" currentSortField={sortField} onSort={handleSort}>Project</SortButton>
+          <span className="text-xs font-medium text-muted-foreground">Assignee</span>
           <SortButton field="createdAt" currentSortField={sortField} onSort={handleSort}>Created</SortButton>
           <SortButton field="updatedAt" currentSortField={sortField} onSort={handleSort}>Updated</SortButton>
         </div>
@@ -448,7 +532,7 @@ export function TaskList() {
                       exit={{ opacity: 0, y: -5 }}
                       transition={{ duration: 0.15 }}
                       className={cn(
-                        'grid grid-cols-[auto_1fr_90px_90px_110px_110px_90px_90px] gap-2 px-4 py-3 border-b items-center',
+                        'grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_80px_80px] gap-2 px-4 py-3 border-b items-center',
                         'hover:bg-muted/30 cursor-pointer transition-colors',
                         isSelected && 'bg-primary/5 border-l-2 border-l-primary',
                         subtasks.length === 0 && 'last:border-b-0',
@@ -514,6 +598,18 @@ export function TaskList() {
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
+                      {task.assignee ? (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                          {task.assignee.image ? (
+                            <img src={task.assignee.image} alt="" className="size-3 rounded-full shrink-0" />
+                          ) : (
+                            <User className="size-3 shrink-0" />
+                          )}
+                          <span className="truncate">{task.assignee.name || task.assignee.email}</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                       <span className="text-xs text-muted-foreground">
                         {format(parseISO(task.createdAt), 'MMM d')}
                       </span>
@@ -531,7 +627,7 @@ export function TaskList() {
                         exit={{ opacity: 0, x: -8 }}
                         transition={{ duration: 0.12 }}
                         className={cn(
-                          'grid grid-cols-[auto_1fr_90px_90px_110px_110px_90px_90px] gap-2 pl-10 pr-4 py-2 border-b items-center',
+                          'grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_80px_80px] gap-2 pl-10 pr-4 py-2 border-b items-center',
                           'hover:bg-muted/20 cursor-pointer transition-colors',
                           'bg-muted/10',
                           idx === subtasks.length - 1 && 'last:border-b-0',
@@ -573,6 +669,8 @@ export function TaskList() {
                         >
                           {STATUS_LABELS[subtask.status] || subtask.status}
                         </Badge>
+                        <span className="text-[10px] text-muted-foreground">—</span>
+                        <span className="text-[10px] text-muted-foreground">—</span>
                         <span className="text-[10px] text-muted-foreground">—</span>
                         <span className="text-[10px] text-muted-foreground">—</span>
                         <span className="text-[10px] text-muted-foreground">—</span>

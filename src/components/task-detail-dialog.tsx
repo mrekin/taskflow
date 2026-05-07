@@ -67,6 +67,7 @@ import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { TaskComments } from '@/components/task-comments';
 import { TagPicker } from '@/components/tag-picker';
 import { TagBadges } from '@/components/tag-badges';
+import { UserPicker } from '@/components/user-picker';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { toast } from 'sonner';
@@ -107,6 +108,7 @@ export function TaskDetailDialog() {
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
   const [editingSubtaskTitle, setEditingSubtaskTitle] = useState('');
   const [localTagIds, setLocalTagIds] = useState<string[]>([]);
+  const [localAssigneeId, setLocalAssigneeId] = useState<string | null>(null);
 
   const navigatedFromParentRef = useRef(false);
 
@@ -128,6 +130,7 @@ export function TaskDetailDialog() {
       setDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
       setProjectId(task.projectId ?? null);
       setLocalTagIds(task.tagIds || []);
+      setLocalAssigneeId(task.assigneeId ?? null);
       setIsEditing(false);
       setEditingSubtaskId(null);
       setWebhookBindings([]);
@@ -173,6 +176,7 @@ export function TaskDetailDialog() {
         })() : null,
         projectId,
         tagIds: localTagIds,
+        assigneeId: localAssigneeId,
       });
       setIsEditing(false);
     } finally {
@@ -393,6 +397,8 @@ export function TaskDetailDialog() {
       setDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
       setDueTime(task.dueDate ? format(parseISO(task.dueDate), 'HH:mm') : '09:00');
                             setProjectId(task.projectId ?? null);
+                            setLocalTagIds(task.tagIds || []);
+                            setLocalAssigneeId(task.assigneeId ?? null);
                           }}
                         >
                           Cancel
@@ -669,6 +675,47 @@ export function TaskDetailDialog() {
                           Tags
                         </Label>
                         <TagBadges tagIds={localTagIds} max={10} />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Assignee */}
+                  {isEditing ? (
+                    <div className="space-y-1.5">
+                      <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                        Assignee
+                      </Label>
+                      <UserPicker
+                        assigneeId={localAssigneeId}
+                        assignee={task.assignee ? { id: task.assignee.id, name: task.assignee.name, email: task.assignee.email, label: task.assignee.name || task.assignee.email } : null}
+                        onAssigneeChange={setLocalAssigneeId}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <Separator />
+                      <div className="space-y-2">
+                        <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                          Assignee
+                        </Label>
+                        {task.assignee ? (
+                          <div className="flex items-center gap-2">
+                            {task.assignee.image ? (
+                              <img
+                                src={task.assignee.image}
+                                alt=""
+                                className="size-5 rounded-full"
+                              />
+                            ) : (
+                              <span className="size-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium">
+                                {(task.assignee.name || task.assignee.email || '?')[0].toUpperCase()}
+                              </span>
+                            )}
+                            <span className="text-sm">{task.assignee.name || task.assignee.email}</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">Unassigned</span>
+                        )}
                       </div>
                     </>
                   )}
