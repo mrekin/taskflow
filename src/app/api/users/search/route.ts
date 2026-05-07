@@ -21,21 +21,12 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get('q')?.trim().toLowerCase() || '';
 
-  const where: any = {
-    NOT: { id: userId },
-  };
-
-  if (q) {
-    where.OR = [
-      { name: { contains: q } },
-      { email: { contains: q } },
-    ];
-  }
-
   const users = await db.user.findMany({
-    where,
+    where: {
+      NOT: { id: userId },
+    },
     select: { id: true, name: true, email: true, metadata: true },
-    take: 10,
+    take: 50,
   });
 
   const results = users
