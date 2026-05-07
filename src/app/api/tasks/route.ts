@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
       orderBy: { sortOrder: "asc" },
       include: {
         _count: { select: { subtasks: true } },
-        subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true } },
+        subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true, assigneeId: true, assignee: { select: { id: true, name: true, email: true, image: true } } } },
         assignee: { select: { id: true, name: true, email: true, image: true } },
         project: { select: { id: true, name: true, color: true } },
       },

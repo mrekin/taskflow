@@ -220,6 +220,13 @@ export function KanbanBoard() {
       if (t.assigneeId && t.assignee && !map.has(t.assigneeId)) {
         map.set(t.assigneeId, { id: t.assigneeId, name: t.assignee.name, email: t.assignee.email });
       }
+      if (t.subtasks) {
+        for (const s of t.subtasks) {
+          if (s.assigneeId && s.assignee && !map.has(s.assigneeId)) {
+            map.set(s.assigneeId, { id: s.assigneeId, name: s.assignee.name, email: s.assignee.email });
+          }
+        }
+      }
     }
     return Array.from(map.values());
   }, [tasks]);
