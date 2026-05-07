@@ -27,9 +27,18 @@ export function UserPicker({ assigneeId, assignee, onAssigneeChange }: UserPicke
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [suggestions, setSuggestions] = useState<UserOption[]>([]);
+  const [selectedUser, setSelectedUser] = useState<UserOption | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (assignee && assigneeId) {
+      setSelectedUser(assignee);
+    } else {
+      setSelectedUser(null);
+    }
+  }, [assignee, assigneeId]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -41,19 +50,16 @@ export function UserPicker({ assigneeId, assignee, onAssigneeChange }: UserPicke
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (inputValue.trim().length === 0) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
+  const fetchUsers = (query: string) => {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
     setIsSearching(true);
-    fetch(api(`/api/users/search?q=${encodeURIComponent(inputValue.trim())}`), { signal: controller.signal })
+    const url = query
+      ? api(`/api/users/search?q=${encodeURIComponent(query)}`)
+      : api('/api/users/search');
+    fetch(url, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : []))
       .then((users: UserOption[]) => {
         if (controller.signal.aborted) return;
@@ -72,21 +78,30 @@ export function UserPicker({ assigneeId, assignee, onAssigneeChange }: UserPicke
           setIsSearching(false);
         }
       });
+  };
 
+  useEffect(() => {
+    if (inputValue.trim().length > 0) {
+      fetchUsers(inputValue.trim());
+    }
     return () => {
-      controller.abort();
+      abortRef.current?.abort();
     };
   }, [inputValue]);
 
   const displayLabel = useMemo(() => {
     if (!assigneeId) return null;
+    if (selectedUser) {
+      return selectedUser.name || selectedUser.email || selectedUser.label;
+    }
     if (assignee) {
       return assignee.name || assignee.email || assignee.label;
     }
     return null;
-  }, [assigneeId, assignee]);
+  }, [assigneeId, selectedUser, assignee]);
 
   const handleSelect = (user: UserOption) => {
+    setSelectedUser(user);
     onAssigneeChange(user.id);
     setInputValue('');
     setShowSuggestions(false);
@@ -94,6 +109,7 @@ export function UserPicker({ assigneeId, assignee, onAssigneeChange }: UserPicke
   };
 
   const handleClear = () => {
+    setSelectedUser(null);
     onAssigneeChange(null);
     setInputValue('');
     setShowSuggestions(false);
@@ -164,7 +180,11 @@ export function UserPicker({ assigneeId, assignee, onAssigneeChange }: UserPicke
             }
           }}
           onFocus={() => {
-            if (inputValue.trim()) setShowSuggestions(true);
+            if (inputValue.trim()) {
+              setShowSuggestions(true);
+            } else {
+              fetchUsers('');
+            }
           }}
           onKeyDown={handleKeyDown}
           placeholder={assigneeId && displayLabel ? '' : 'Assign user...'}
@@ -193,7 +213,7 @@ export function UserPicker({ assigneeId, assignee, onAssigneeChange }: UserPicke
         </div>
       )}
 
-      {isSearching && inputValue.trim() && (
+      {isSearching && (
         <Loader2 className="size-3 animate-spin text-muted-foreground" />
       )}
     </div>

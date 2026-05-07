@@ -22,9 +22,6 @@ export async function GET(request: NextRequest) {
   const q = searchParams.get('q')?.trim().toLowerCase() || '';
 
   const users = await db.user.findMany({
-    where: {
-      NOT: { id: userId },
-    },
     select: { id: true, name: true, email: true, metadata: true },
     take: 50,
   });
