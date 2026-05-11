@@ -22,9 +22,17 @@ export async function GET() {
       where: buildVisibilityWhereClause(userId, isAuthenticated),
       select: { tagIds: true },
     });
+    const visibleTasks = await db.task.findMany({
+      where: buildVisibilityWhereClause(userId, isAuthenticated),
+      select: { tagIds: true },
+    });
+    const visibleNotes = await db.note.findMany({
+      where: buildVisibilityWhereClause(userId, isAuthenticated),
+      select: { tagIds: true },
+    });
 
     const tagIdSet = new Set(ownTags.map((t) => t.id));
-    for (const entity of [...visibleProjects, ...visibleAreas]) {
+    for (const entity of [...visibleProjects, ...visibleAreas, ...visibleTasks, ...visibleNotes]) {
       try {
         const ids: string[] = JSON.parse(entity.tagIds || "[]");
         for (const id of ids) {
