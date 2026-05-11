@@ -492,11 +492,11 @@ export function TaskDetailDialog() {
                               </SelectItem>
                             ))}
                             {(() => {
-                              const { isValid } = getColumnLabelAndColor(statuses, task.status);
+                              const { isValid, label } = getColumnLabelAndColor(statuses, task.status);
                               if (!isValid && task.status) {
                                 return (
                                   <SelectItem value={task.status}>
-                                    Invalid status ({task.status})
+                                    {label}
                                   </SelectItem>
                                 );
                               }

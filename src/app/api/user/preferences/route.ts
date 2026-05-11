@@ -62,7 +62,9 @@ export async function PUT(request: Request) {
   const notesTree = typeof body.notesTree === 'boolean' ? body.notesTree : undefined;
   const showSubtasks = typeof body.showSubtasks === 'boolean' ? body.showSubtasks : undefined;
   const defaultPage = validDefaultPages.includes(body.defaultPage) ? body.defaultPage : undefined;
-  const customStatuses = body.customStatuses === null ? null : parseStatuses(body.customStatuses);
+  const customStatuses = body.customStatuses !== undefined
+    ? (body.customStatuses === null ? null : parseStatuses(body.customStatuses))
+    : undefined;
   const entityShortLinks = typeof body.entityShortLinks === 'boolean' ? body.entityShortLinks : undefined;
   const profileVisibility = body.profileVisibility ? parseProfileVisibility(body.profileVisibility) : undefined;
 

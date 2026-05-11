@@ -143,5 +143,5 @@ export function parseStatusesEnv(envValue: string | undefined): StatusConfig[] |
 export function getColumnLabelAndColor(columns: StatusConfig[], status: string): { label: string; color: string; isValid: boolean } {
   const col = columns.find((c) => c.id === status);
   if (col) return { label: col.label, color: col.color, isValid: true };
-  return { label: 'Invalid status', color: '#dc2626', isValid: false };
+  return { label: `Invalid status (${status})`, color: '#dc2626', isValid: false };
 }
