@@ -336,7 +336,7 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
         } else {
           const entityShortLinks = useAppStore.getState().userPreferences.entityShortLinks;
           insertion = entityShortLinks
-            ? `#${item.shortId} `
+            ? `[#${item.shortId}](entity:${item.type[0].toUpperCase()}:${item.id}) `
             : `${window.location.origin}${getEntityLink(item.type, item.shortId)} `;
         }
 

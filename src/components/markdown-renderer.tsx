@@ -19,7 +19,7 @@ interface MarkdownRendererProps {
   stripFirstH1?: boolean;
 }
 
-function EntityMentionBadge({ type, num }: { type: string; num: number }) {
+function EntityMentionBadge({ type, num, id }: { type: string; num?: number; id?: string }) {
   const { tasks, projects, notes, areas } = useAppStore();
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -28,22 +28,31 @@ function EntityMentionBadge({ type, num }: { type: string; num: number }) {
   let entityId: string | null = null;
   let entityName: string | null = null;
   let entityType: 'task' | 'project' | 'note' | 'area' | null = null;
+  let shortId: string | null = null;
 
   if (upperType === 'T') {
-    const task = tasks.find((t) => t.shortIdNum === num);
-    if (task) { entityId = task.id; entityName = task.title; entityType = 'task'; }
+    const task = id
+      ? tasks.find((t) => t.id === id)
+      : (num !== undefined ? tasks.find((t) => t.shortIdNum === num) : undefined);
+    if (task) { entityId = task.id; entityName = task.title; entityType = 'task'; shortId = task.shortId || null; }
   } else if (upperType === 'P') {
-    const project = projects.find((p) => p.shortIdNum === num);
-    if (project) { entityId = project.id; entityName = project.name; entityType = 'project'; }
+    const project = id
+      ? projects.find((p) => p.id === id)
+      : (num !== undefined ? projects.find((p) => p.shortIdNum === num) : undefined);
+    if (project) { entityId = project.id; entityName = project.name; entityType = 'project'; shortId = project.shortId || null; }
   } else if (upperType === 'N') {
-    const note = notes.find((n) => n.shortIdNum === num);
-    if (note) { entityId = note.id; entityName = note.title; entityType = 'note'; }
+    const note = id
+      ? notes.find((n) => n.id === id)
+      : (num !== undefined ? notes.find((n) => n.shortIdNum === num) : undefined);
+    if (note) { entityId = note.id; entityName = note.title; entityType = 'note'; shortId = note.shortId || null; }
   } else if (upperType === 'A') {
-    const area = areas.find((a) => a.shortIdNum === num);
-    if (area) { entityId = area.id; entityName = area.name; entityType = 'area'; }
+    const area = id
+      ? areas.find((a) => a.id === id)
+      : (num !== undefined ? areas.find((a) => a.shortIdNum === num) : undefined);
+    if (area) { entityId = area.id; entityName = area.name; entityType = 'area'; shortId = area.shortId || null; }
   }
 
-  const displayId = `${upperType}-${num}`;
+  const displayId = shortId || `${upperType}-${num ?? '\u2026'}`;
   const paramMap: Record<string, string> = { T: 'task', P: 'project', N: 'note', A: 'area' };
   const param = paramMap[upperType] || 'task';
   const href = `${window.location.origin}${window.location.pathname}?${param}=${displayId}`;
@@ -241,11 +250,18 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
           },
           a({ children, href }) {
             if (href?.startsWith('entity:')) {
-              const parts = href.split(':');
-              const type = parts[1];
-              const num = parseInt(parts[2], 10);
-              if (type && !isNaN(num)) {
-                return <EntityMentionBadge type={type} num={num} />;
+              const colonIndex = href.indexOf(':', 7);
+              if (colonIndex > 7) {
+                const type = href.substring(7, colonIndex);
+                const value = href.substring(colonIndex + 1);
+                if (type && value) {
+                  const num = parseInt(value, 10);
+                  if (!isNaN(num) && /^\d+$/.test(value)) {
+                    return <EntityMentionBadge type={type} num={num} />;
+                  } else {
+                    return <EntityMentionBadge type={type} id={value} />;
+                  }
+                }
               }
             }
 

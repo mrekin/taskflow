@@ -45,11 +45,26 @@ export const entityRefProcessor: ContentProcessor = {
     return parts
       .map((part) => {
         if (part.isCode) return part.text;
-        return part.text.replace(
+
+        const linkPlaceholder = '\x00LINK\x00';
+        const links: string[] = [];
+
+        let result = part.text.replace(/\[([^\]]*)\]\(([^)]*)\)/g, (_m, text: string, url: string) => {
+          links.push(`[${text}](${url})`);
+          return `${linkPlaceholder}${links.length - 1}\x00`;
+        });
+
+        result = result.replace(
           ENTITY_REF_REGEX,
           (_match, type, num) =>
             `[#${type.toUpperCase()}-${num}](entity:${type.toUpperCase()}:${num})`
         );
+
+        result = result.replace(new RegExp(`${linkPlaceholder.replace(/\x00/g, '\\x00')}(\\d+)\\x00`, 'g'), (_m, idx: string) => {
+          return links[parseInt(idx, 10)];
+        });
+
+        return result;
       })
       .join('');
   },
