@@ -3,12 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Send, Pencil, Trash2, Check, X } from 'lucide-react';
+import { MessageSquare, Send, Pencil, Trash2, Check, X, ListTodo } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { MentionTextarea } from '@/components/mention-autocomplete';
+import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { useAppStore } from '@/store/app-store';
 import type { Comment } from '@/lib/types';
 
@@ -19,6 +20,7 @@ interface TaskCommentsProps {
 export function TaskComments({ taskId }: TaskCommentsProps) {
   const {
     comments,
+    tasks,
     fetchComments,
     createComment,
     updateComment,
@@ -29,6 +31,11 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
+
+  const [createTaskOpen, setCreateTaskOpen] = useState(false);
+  const [prefilledTitle, setPrefilledTitle] = useState('');
+  const [prefilledDescription, setPrefilledDescription] = useState('');
+  const [prefilledParentId, setPrefilledParentId] = useState('');
 
   // Fetch comments on mount or when taskId changes
   useEffect(() => {
@@ -75,6 +82,18 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
 
   const handleDelete = async (commentId: string) => {
     await deleteComment(commentId);
+  };
+
+  const handleCreateTaskFromComment = (content: string) => {
+    const lines = content.split('\n');
+    const title = lines[0].trim();
+    const description = lines.slice(1).join('\n').trim();
+    const currentTask = tasks.find((t) => t.id === taskId);
+    const parentForNewTask = currentTask?.parentId || taskId;
+    setPrefilledTitle(title);
+    setPrefilledDescription(description);
+    setPrefilledParentId(parentForNewTask);
+    setCreateTaskOpen(true);
   };
 
   // Keyboard shortcut for inline editing
@@ -214,6 +233,15 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
                         >
                           <Trash2 className="size-2.5" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-5"
+                          onClick={() => handleCreateTaskFromComment(comment.content)}
+                          title="Create task from comment"
+                        >
+                          <ListTodo className="size-2.5" />
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -253,6 +281,14 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
           <Send className="size-3" />
         </Button>
       </div>
+      {/* Create task from comment dialog */}
+      <CreateTaskDialog
+        open={createTaskOpen}
+        onOpenChange={setCreateTaskOpen}
+        defaultParentId={prefilledParentId}
+        defaultTitle={prefilledTitle}
+        defaultDescription={prefilledDescription}
+      />
     </div>
   );
 }

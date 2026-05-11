@@ -75,6 +75,9 @@ interface CreateTaskDialogProps {
   defaultStatus?: string;
   defaultProjectId?: string;
   parentId?: string;
+  defaultTitle?: string;
+  defaultDescription?: string;
+  defaultParentId?: string;
 }
 
 export function CreateTaskDialog({
@@ -83,6 +86,9 @@ export function CreateTaskDialog({
   defaultStatus,
   defaultProjectId,
   parentId,
+  defaultTitle,
+  defaultDescription,
+  defaultParentId,
 }: CreateTaskDialogProps) {
   const { createTask, projects, tasks, selectedProjectId, statuses, webhooks, fetchWebhooks, createWebhookTrigger, currentUserId } = useAppStore();
 
@@ -93,7 +99,7 @@ export function CreateTaskDialog({
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
   const [dueTime, setDueTime] = useState('09:00');
   const [projectId, setProjectId] = useState<string>(defaultProjectId || selectedProjectId || 'none');
-  const [parentTaskId, setParentTaskId] = useState<string>(parentId || 'none');
+  const [parentTaskId, setParentTaskId] = useState<string>(parentId || defaultParentId || 'none');
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [visibility, setVisibility] = useState<string | null>(null);
@@ -111,14 +117,14 @@ export function CreateTaskDialog({
 
   useEffect(() => {
     if (open) {
-      setTitle('');
-      setDescription('');
+      setTitle(defaultTitle || '');
+      setDescription(defaultDescription || '');
       setStatus(defaultStatus || 'todo');
       setPriority('medium');
       setDueDate(undefined);
       setDueTime('09:00');
       setProjectId(defaultProjectId || selectedProjectId || 'none');
-      setParentTaskId(parentId || 'none');
+      setParentTaskId(parentId || defaultParentId || 'none');
       setTagIds([]);
       setAssigneeId(null);
       setVisibility(null);
@@ -127,7 +133,7 @@ export function CreateTaskDialog({
       setWebhookBindings([]);
       setWebhooksExpanded(false);
     }
-  }, [open, defaultStatus, defaultProjectId, selectedProjectId, parentId]);
+  }, [open, defaultStatus, defaultProjectId, selectedProjectId, parentId, defaultTitle, defaultDescription, defaultParentId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,14 +186,14 @@ export function CreateTaskDialog({
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
-      setTitle('');
-      setDescription('');
+      setTitle(defaultTitle || '');
+      setDescription(defaultDescription || '');
       setStatus(defaultStatus || 'todo');
       setPriority('medium');
       setDueDate(undefined);
       setDueTime('09:00');
       setProjectId(defaultProjectId || selectedProjectId || 'none');
-      setParentTaskId(parentId || 'none');
+      setParentTaskId(parentId || defaultParentId || 'none');
       setTagIds([]);
       setAssigneeId(null);
       setVisibility(null);
