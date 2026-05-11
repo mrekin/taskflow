@@ -40,9 +40,10 @@ export function shortId(id: string): string {
  * Build a direct link URL for an entity.
  * Uses shortId format (e.g., ?task=T-7, ?project=P-3) for human-readable URLs.
  */
-export function getEntityLink(type: EntityType, shortId: string): string {
+export function getEntityLink(type: EntityType, shortId: string, entityId?: string): string {
   const base = window.location.pathname;
-  return `${base}?${type}=${shortId}`;
+  const param = `${type}=${shortId}`;
+  return entityId ? `${base}?${param}&id=${entityId}` : `${base}?${param}`;
 }
 
 /**

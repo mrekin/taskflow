@@ -109,7 +109,9 @@ export const entityUrlProcessor: ContentProcessor = {
         result = result.replace(ENTITY_URL_REGEX, (match, type: string, num: string) => {
           if (!isLocalEntityUrl(match)) return match;
           const t = type.toUpperCase();
-          return `[${t}-${num}](entity:${t}:${num})`;
+          const idMatch = match.match(/[?&]id=([a-f0-9-]{36})/i);
+          const ref = idMatch ? idMatch[1] : num;
+          return `[${t}-${num}](entity:${t}:${ref})`;
         });
 
         result = result.replace(new RegExp(`${linkPlaceholder.replace(/\x00/g, '\\x00')}(\\d+)\\x00`, 'g'), (_m, idx: string) => {

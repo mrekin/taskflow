@@ -29,7 +29,7 @@ export function EntityIdBadge({ shortId, id, type, className }: EntityIdBadgePro
 
   const handleCopyLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const link = window.location.origin + getEntityLink(type, shortId);
+    const link = window.location.origin + getEntityLink(type, shortId, id);
     const ok = await copyToClipboard(link);
     if (ok) {
       setCopiedLink(true);

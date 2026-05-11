@@ -15,7 +15,6 @@ import { createPortal } from 'react-dom';
 import { useAppStore } from '@/store/app-store';
 import { api } from '@/lib/api-utils';
 import { filterEntities, isLocalEntityUrl, type MentionItem, type UserMentionItem } from '@/lib/smart-links';
-import { getEntityLink } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 interface MentionTextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
@@ -334,10 +333,7 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
           const displayName = item.name || item.email || item.label;
           insertion = `[@${displayName}](user:${item.id}) `;
         } else {
-          const entityShortLinks = useAppStore.getState().userPreferences.entityShortLinks;
-          insertion = entityShortLinks
-            ? `[#${item.shortId}](entity:${item.type[0].toUpperCase()}:${item.id}) `
-            : `${window.location.origin}${getEntityLink(item.type, item.shortId)} `;
+          insertion = `[#${item.shortId}](entity:${item.type[0].toUpperCase()}:${item.id}) `;
         }
 
         const newValue = before + insertion + after;
