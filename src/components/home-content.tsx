@@ -365,9 +365,12 @@ function HomeContent() {
     const projectId = searchParams.get('project');
     const noteId = searchParams.get('note');
     const areaId = searchParams.get('area');
+    const entityUuid = searchParams.get('id');
 
     if (taskId) {
-      const task = findByShortId(tasks, taskId);
+      const task = entityUuid
+        ? tasks.find((t) => t.id === entityUuid)
+        : findByShortId(tasks, taskId);
       if (task) {
         selectTask(task.id);
       } else {
@@ -375,7 +378,9 @@ function HomeContent() {
       }
       deepLinkHandledRef.current = true;
     } else if (noteId) {
-      const note = findByShortId(notes, noteId);
+      const note = entityUuid
+        ? notes.find((n) => n.id === entityUuid)
+        : findByShortId(notes, noteId);
       if (note) {
         selectNote(note.id);
         setCurrentView('note-editor');
@@ -384,7 +389,9 @@ function HomeContent() {
       }
       deepLinkHandledRef.current = true;
     } else if (projectId) {
-      const project = findByShortId(projects, projectId);
+      const project = entityUuid
+        ? projects.find((p) => p.id === entityUuid)
+        : findByShortId(projects, projectId);
       if (project) {
         selectProject(project.id);
         setCurrentView('projects');
@@ -395,7 +402,9 @@ function HomeContent() {
       }
       deepLinkHandledRef.current = true;
     } else if (areaId) {
-      const area = findByShortId(areas, areaId);
+      const area = entityUuid
+        ? areas.find((a) => a.id === entityUuid)
+        : findByShortId(areas, areaId);
       if (area) {
         selectArea(area.id);
         setCurrentView('areas');
