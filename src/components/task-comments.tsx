@@ -20,6 +20,7 @@ interface TaskCommentsProps {
 export function TaskComments({ taskId }: TaskCommentsProps) {
   const {
     comments,
+    tasks,
     fetchComments,
     createComment,
     updateComment,
@@ -34,6 +35,7 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [prefilledTitle, setPrefilledTitle] = useState('');
   const [prefilledDescription, setPrefilledDescription] = useState('');
+  const [prefilledParentId, setPrefilledParentId] = useState('');
 
   // Fetch comments on mount or when taskId changes
   useEffect(() => {
@@ -86,8 +88,11 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
     const lines = content.split('\n');
     const title = lines[0].trim();
     const description = lines.slice(1).join('\n').trim();
+    const currentTask = tasks.find((t) => t.id === taskId);
+    const parentForNewTask = currentTask?.parentId || taskId;
     setPrefilledTitle(title);
     setPrefilledDescription(description);
+    setPrefilledParentId(parentForNewTask);
     setCreateTaskOpen(true);
   };
 
@@ -280,7 +285,7 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
       <CreateTaskDialog
         open={createTaskOpen}
         onOpenChange={setCreateTaskOpen}
-        defaultParentId={taskId}
+        defaultParentId={prefilledParentId}
         defaultTitle={prefilledTitle}
         defaultDescription={prefilledDescription}
       />
