@@ -681,7 +681,6 @@ export function TaskDetailDialog() {
                           selectedTagIds={localTagIds}
                           onTagIdsChange={(tagIds) => {
                             setLocalTagIds(tagIds);
-                            updateTask(task.id, { tagIds });
                           }}
                         />
                       </div>

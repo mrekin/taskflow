@@ -95,12 +95,6 @@ export function TagPicker({ selectedTagIds, onTagIdsChange }: TagPickerProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !inputValue && selectedTagIds.length > 0) {
-      // Remove last tag on backspace
-      onTagIdsChange(selectedTagIds.slice(0, -1));
-      return;
-    }
-
     if (e.key === 'Escape') {
       setShowSuggestions(false);
       setHighlightedIndex(-1);
