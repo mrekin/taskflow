@@ -35,7 +35,7 @@ interface CreateAreaDialogProps {
 }
 
 export function CreateAreaDialog({ open, onOpenChange }: CreateAreaDialogProps) {
-  const { createArea, areas, currentUserId } = useAppStore();
+  const { createArea, areas, users, currentUserId } = useAppStore();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(() => getRandomColor());
@@ -136,6 +136,7 @@ export function CreateAreaDialog({ open, onOpenChange }: CreateAreaDialogProps) 
                     ownerId={currentUserId ?? ''}
                     currentUserId={currentUserId}
                     size="sm"
+                    users={users}
                   />
                 </div>
               </div>

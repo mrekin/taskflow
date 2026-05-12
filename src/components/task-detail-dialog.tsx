@@ -90,6 +90,7 @@ export function TaskDetailDialog() {
     createWebhookTrigger,
     updateWebhookTrigger,
     deleteWebhookTrigger,
+    users,
     currentUserId,
   } = useAppStore();
 
@@ -446,6 +447,7 @@ export function TaskDetailDialog() {
                       currentUserId={currentUserId}
                       disabled={!isEditing}
                       size="sm"
+                      users={users}
                     />
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

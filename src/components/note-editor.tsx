@@ -93,6 +93,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
     selectProject,
     selectArea,
     setCurrentView,
+    users,
     currentUserId,
   } = useAppStore();
 
@@ -373,6 +374,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
             currentUserId={currentUserId}
             disabled={isReadOnly || editorMode === 'preview'}
             size="sm"
+            users={users}
           />
 
           {/* Mode toggle */}

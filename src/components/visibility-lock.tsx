@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Lock, Users, Globe, Loader2 } from 'lucide-react';
 import {
   Popover,
@@ -24,6 +24,9 @@ import {
   DEFAULT_VISIBILITY,
 } from '@/lib/constants';
 
+type UserItem = { id: string; name: string | null };
+type PopoverUser = { id: string; name: string | null; image: string | null };
+
 interface VisibilityLockProps {
   value: string | null;
   visibleUserIds: string[];
@@ -33,12 +36,7 @@ interface VisibilityLockProps {
   parentVisibility?: string | null;
   disabled?: boolean;
   size?: 'sm' | 'md';
-}
-
-interface UserItem {
-  id: string;
-  name: string | null;
-  image: string | null;
+  users?: UserItem[];
 }
 
 const VISIBILITY_LABEL_MAP: Record<string, string> = {
@@ -78,27 +76,39 @@ export function VisibilityLock({
   parentVisibility,
   disabled,
   size = 'md',
+  users,
 }: VisibilityLockProps) {
   const [open, setOpen] = useState(false);
-  const [users, setUsers] = useState<UserItem[]>([]);
+  const [popoverUsers, setPopoverUsers] = useState<PopoverUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
 
   const effectiveVis = value ?? parentVisibility ?? DEFAULT_VISIBILITY;
   const Icon = getIcon(effectiveVis);
   const iconSize = size === 'sm' ? 'size-3.5' : 'size-4';
 
+  const tooltipContent = useMemo(() => {
+    const label = VISIBILITY_LABEL_MAP[effectiveVis] ?? effectiveVis;
+    if (effectiveVis === VISIBILITY_USERS && visibleUserIds.length && users?.length) {
+      const names = visibleUserIds
+        .map((id) => users.find((u) => u.id === id)?.name)
+        .filter(Boolean) as string[];
+      if (names.length) return `${label}: ${names.join(', ')}`;
+    }
+    return label;
+  }, [effectiveVis, visibleUserIds, users]);
+
   useEffect(() => {
     if (!open || value !== VISIBILITY_USERS) return;
-    if (users.length > 0) return;
+    if (popoverUsers.length > 0) return;
     let cancelled = false;
     setUsersLoading(true);
     fetch(api('/api/users'))
       .then((r) => r.json())
-      .then((data: UserItem[]) => { if (!cancelled) setUsers(data.filter((u) => u.id !== ownerId)); })
+      .then((data: PopoverUser[]) => { if (!cancelled) setPopoverUsers(data.filter((u) => u.id !== ownerId)); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setUsersLoading(false); });
     return () => { cancelled = true; };
-  }, [open, value, ownerId, users.length]);
+  }, [open, value, ownerId, popoverUsers.length]);
 
   if (currentUserId !== ownerId) {
     return (
@@ -108,7 +118,7 @@ export function VisibilityLock({
             <Icon className={cn(iconSize, 'text-muted-foreground')} />
           </span>
         </TooltipTrigger>
-        <TooltipContent side="top">{VISIBILITY_LABEL_MAP[effectiveVis] ?? effectiveVis}</TooltipContent>
+        <TooltipContent side="top">{tooltipContent}</TooltipContent>
       </Tooltip>
     );
   }
@@ -129,7 +139,7 @@ export function VisibilityLock({
     return (
       <Tooltip>
         <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-        <TooltipContent side="top">{VISIBILITY_LABEL_MAP[effectiveVis] ?? effectiveVis}</TooltipContent>
+        <TooltipContent side="top">{tooltipContent}</TooltipContent>
       </Tooltip>
     );
   }
@@ -173,11 +183,11 @@ export function VisibilityLock({
               <div className="flex items-center justify-center py-3">
                 <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
               </div>
-            ) : users.length === 0 ? (
+            ) : popoverUsers.length === 0 ? (
               <p className="text-[11px] text-muted-foreground py-2 px-2.5 text-center">No users</p>
             ) : (
               <div className="max-h-[160px] overflow-y-auto">
-                {users.map((user) => (
+                {popoverUsers.map((user) => (
                   <label
                     key={user.id}
                     className="flex items-center gap-2 px-2.5 py-1 rounded-sm text-xs cursor-pointer hover:bg-accent transition-colors"

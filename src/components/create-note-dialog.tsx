@@ -44,7 +44,7 @@ interface CreateNoteDialogProps {
 }
 
 export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, defaultFolderId }: CreateNoteDialogProps) {
-  const { projects, folders, createNote, selectNote, setCurrentView, selectedProjectId, currentUserId } = useAppStore();
+  const { projects, folders, createNote, selectNote, setCurrentView, selectedProjectId, users, currentUserId } = useAppStore();
 
   const [title, setTitle] = useState('');
   const [projectId, setProjectId] = useState<string>('none');
@@ -213,6 +213,7 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
                     ownerId={currentUserId ?? ''}
                     currentUserId={currentUserId}
                     size="sm"
+                    users={users}
                   />
                 </div>
               </div>

@@ -101,7 +101,7 @@ export function CreateTaskDialog({
   defaultDescription,
   defaultParentId,
 }: CreateTaskDialogProps) {
-  const { createTask, projects, tasks, selectedProjectId, statuses, webhooks, fetchWebhooks, createWebhookTrigger, currentUserId } = useAppStore();
+  const { createTask, projects, tasks, selectedProjectId, statuses, webhooks, fetchWebhooks, createWebhookTrigger, users, currentUserId } = useAppStore();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -426,6 +426,7 @@ export function CreateTaskDialog({
                     ownerId={currentUserId ?? ''}
                     currentUserId={currentUserId}
                     size="sm"
+                    users={users}
                   />
                 </div>
               </div>

@@ -83,6 +83,7 @@ export function ProjectDetail() {
     notes,
     fetchNotes,
     tasks,
+    users,
     currentUserId,
   } = useAppStore();
 
@@ -226,6 +227,7 @@ export function ProjectDetail() {
                 currentUserId={currentUserId}
                 disabled={true}
                 size="sm"
+                users={users}
               />
             </div>
             {project.description && (
@@ -372,6 +374,7 @@ export function ProjectDetail() {
                 ownerId={project.ownerId}
                 currentUserId={currentUserId}
                 size="sm"
+                users={users}
               />
             </div>
             <DialogDescription>Update the project details.</DialogDescription>

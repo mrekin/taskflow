@@ -50,6 +50,7 @@ export function AreaDetail() {
     setCurrentView,
     updateArea,
     deleteArea,
+    users,
     currentUserId,
   } = useAppStore();
 
@@ -155,6 +156,7 @@ export function AreaDetail() {
                 currentUserId={currentUserId}
                 disabled={true}
                 size="sm"
+                users={users}
               />
             </div>
             {area.description && (
@@ -261,6 +263,7 @@ export function AreaDetail() {
                 ownerId={area.ownerId}
                 currentUserId={currentUserId}
                 size="sm"
+                users={users}
               />
             </div>
             <DialogDescription>Update the area details.</DialogDescription>

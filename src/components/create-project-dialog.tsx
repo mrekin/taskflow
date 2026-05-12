@@ -47,7 +47,7 @@ export function CreateProjectDialog({
   onOpenChange,
   defaultAreaId,
 }: CreateProjectDialogProps) {
-  const { createProject, areas, selectedAreaId, currentUserId } = useAppStore();
+  const { createProject, areas, selectedAreaId, users, currentUserId } = useAppStore();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(() => getRandomColor());
@@ -171,6 +171,7 @@ export function CreateProjectDialog({
                     ownerId={currentUserId ?? ''}
                     currentUserId={currentUserId}
                     size="sm"
+                    users={users}
                   />
                 </div>
               </div>
