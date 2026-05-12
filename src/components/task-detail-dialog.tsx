@@ -101,6 +101,8 @@ export function TaskDetailDialog() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showDeleteSubtaskDialog, setShowDeleteSubtaskDialog] = useState(false);
+  const [pendingDeleteSubtaskId, setPendingDeleteSubtaskId] = useState<string | null>(null);
   const [showCreateSubtask, setShowCreateSubtask] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
@@ -281,12 +283,7 @@ export function TaskDetailDialog() {
     await updateTask(subtaskId, {
       status: checked ? 'done' : 'todo',
     });
-    // Refresh to get updated subtasks
-    if (task?.projectId) {
-      fetchTasks(task.projectId);
-    } else {
-      fetchTasks();
-    }
+    fetchTasks();
   };
 
   const handleSubtaskClick = (subtaskId: string) => {
@@ -318,12 +315,7 @@ export function TaskDetailDialog() {
 
   const handleSubtaskDelete = async (subtaskId: string) => {
     await deleteTask(subtaskId);
-    // Refresh tasks
-    if (task?.projectId) {
-      fetchTasks(task.projectId);
-    } else {
-      fetchTasks();
-    }
+    fetchTasks();
   };
 
   const handleBackToParent = () => {
@@ -853,7 +845,8 @@ export function TaskDetailDialog() {
                                         className="size-6 text-muted-foreground hover:text-destructive"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleSubtaskDelete(subtask.id);
+                                          setPendingDeleteSubtaskId(subtask.id);
+                                          setShowDeleteSubtaskDialog(true);
                                         }}
                                         title="Delete subtask"
                                       >
@@ -1221,6 +1214,31 @@ export function TaskDetailDialog() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete subtask confirmation */}
+      <AlertDialog open={showDeleteSubtaskDialog} onOpenChange={setShowDeleteSubtaskDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Subtask</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &quot;{subtasks.find((s) => s.id === pendingDeleteSubtaskId)?.title}&quot;? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDeleteSubtaskId) {
+                  handleSubtaskDelete(pendingDeleteSubtaskId);
+                  setPendingDeleteSubtaskId(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
