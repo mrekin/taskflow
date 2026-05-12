@@ -32,6 +32,20 @@ async function resetDatabase(): Promise<void> {
 
     if (demoUser) {
       await db.$executeRawUnsafe(`DELETE FROM User WHERE id != '${demoUser.id}'`);
+
+      // Reset custom statuses for demo user
+      try {
+        const meta = JSON.parse(demoUser.metadata || '{}');
+        if (meta.customStatuses) {
+          delete meta.customStatuses;
+          await db.user.update({
+            where: { id: demoUser.id },
+            data: { metadata: JSON.stringify(meta) },
+          });
+        }
+      } catch {
+        // ignore metadata parse errors
+      }
     }
   } catch (error) {
     console.error('[DemoReset] Error during reset:', error);

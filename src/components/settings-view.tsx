@@ -34,6 +34,7 @@ import {
   X,
   Check,
 } from 'lucide-react';
+import { GitHubIcon } from '@/components/github-icon';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -535,9 +536,19 @@ export function SettingsView() {
                 <span className="text-sm font-medium font-mono">{appVersion} - {buildType}</span>
               </div>
               <Separator />
-              <div>
-                <span className="text-sm text-muted-foreground">Description</span>
-                <p className="text-sm mt-1">A lightweight task manager and notes application</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm text-muted-foreground">Description</span>
+                  <p className="text-sm mt-1">A lightweight task manager and notes application</p>
+                </div>
+                <a
+                  href="https://github.com/mrekin/taskflow"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <GitHubIcon className="size-4" />
+                </a>
               </div>
             </div>
           </CardContent>

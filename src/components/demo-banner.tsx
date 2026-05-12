@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Timer, AlertTriangle } from 'lucide-react';
+import { GitHubIcon } from '@/components/github-icon';
 
 type DemoConfig = {
   demoMode: boolean;
@@ -63,12 +64,20 @@ export function DemoBanner() {
   if (!config.demoMode) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-amber-950 px-4 py-2 text-center text-sm font-medium">
-      <div className="flex items-center justify-center gap-2">
+    <div className="fixed top-0 inset-x-0 z-50 flex justify-center pointer-events-none px-4 py-2">
+      <div className="bg-amber-500 text-amber-950 px-4 py-1.5 rounded-b-lg text-sm font-medium flex items-center gap-2 pointer-events-auto shadow-md">
         <Timer className="size-4" />
         <span>
           Demo mode &mdash; all data will be erased in <strong>{remaining || '...'}</strong>
         </span>
+        <a
+          href="https://github.com/mrekin/taskflow"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-1 hover:text-amber-800 transition-colors"
+        >
+          <GitHubIcon className="size-4" />
+        </a>
       </div>
     </div>
   );
