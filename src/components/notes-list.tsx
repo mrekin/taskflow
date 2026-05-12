@@ -71,6 +71,7 @@ import {
   Trash2,
   Home,
 } from 'lucide-react';
+import JSZip from 'jszip';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -325,8 +326,7 @@ export function NotesList() {
     setRenameFolderName(folder.name);
   };
 
-  function downloadFile(filename: string, content: string) {
-    const blob = new Blob([content], { type: 'text/markdown' });
+  function downloadBlob(filename: string, blob: Blob) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -336,30 +336,58 @@ export function NotesList() {
   }
 
   const handleExportSingle = (note: Note) => {
-    const filename = `${note.title}.md`;
-    downloadFile(filename, note.content || '');
+    const blob = new Blob([note.content || ''], { type: 'text/markdown' });
+    downloadBlob(`${note.title}.md`, blob);
     toast.success(`Exported "${note.title}"`);
   };
 
-  const handleExportAll = () => {
-    const visibleNotes = filteredAndSortedNotes;
-    if (visibleNotes.length === 0) {
+  const addNotesToZip = (zip: JSZip, folderId: string | null) => {
+    const folderNotes = notes.filter((n) => n.folderId === folderId);
+    for (const note of folderNotes) {
+      zip.file(`${note.title}.md`, note.content || '');
+    }
+    const subfolders = folders.filter((f) => f.parentId === folderId);
+    for (const sub of subfolders) {
+      const subZip = zip.folder(sub.name);
+      if (subZip) addNotesToZip(subZip, sub.id);
+    }
+  };
+
+  const handleExportFolderAsZip = async (folderId: string) => {
+    const folder = folders.find((f) => f.id === folderId);
+    if (!folder) return;
+    const folderNotes = notes.filter((n) => n.folderId === folderId);
+    const subfolders = folders.filter((f) => f.parentId === folderId);
+    if (folderNotes.length === 0 && subfolders.length === 0) {
+      toast.error('Folder is empty');
+      return;
+    }
+    const zip = new JSZip();
+    const root = zip.folder(folder.name);
+    if (root) addNotesToZip(root, folderId);
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(`${folder.name}.zip`, blob);
+    toast.success(`Exported folder "${folder.name}"`);
+  };
+
+  const handleExportAll = async () => {
+    const rootNotes = notes.filter((n) => n.folderId === currentFolderId);
+    const rootSubfolders = folders.filter((f) => f.parentId === currentFolderId);
+    if (rootNotes.length === 0 && rootSubfolders.length === 0) {
       toast.error('No notes to export');
       return;
     }
-    if (visibleNotes.length === 1) {
-      handleExportSingle(visibleNotes[0]);
+    const currentFolder = currentFolderId ? folders.find((f) => f.id === currentFolderId) : null;
+    const zipName = currentFolder ? currentFolder.name : 'notes';
+    const zip = new JSZip();
+    addNotesToZip(zip, currentFolderId);
+    if ([...rootNotes, ...rootSubfolders].length === 1 && rootNotes.length === 1 && rootSubfolders.length === 0) {
+      handleExportSingle(rootNotes[0]);
       return;
     }
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const parts = visibleNotes.map((note) => {
-      const projectName = note.project?.name ?? 'No Project';
-      const updatedDate = new Date(note.updatedAt).toLocaleDateString();
-      return `# ${note.title}\n\n> Project: ${projectName} | Updated: ${updatedDate}\n\n${note.content || ''}`;
-    });
-    const content = parts.join('\n\n---\n\n');
-    downloadFile(`notes-export-${timestamp}.md`, content);
-    toast.success(`Exported ${visibleNotes.length} notes`);
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(`${zipName}.zip`, blob);
+    toast.success(`Exported ${rootNotes.length} note${rootNotes.length !== 1 ? 's' : ''}`);
   };
 
   const handleImport = () => {
@@ -712,6 +740,15 @@ export function NotesList() {
                               >
                                 <Pencil className="h-4 w-4 mr-2" />
                                 Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleExportFolderAsZip(folder.id);
+                                }}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Download as ZIP
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
