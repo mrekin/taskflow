@@ -120,19 +120,6 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Delete untagged images from GHCR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          IMAGE_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]' | cut -d'/' -f2)
-          UNTAGGED=$(gh api -H "Accept: application/vnd.github+json" \
-            /user/packages/container/${IMAGE_NAME}/versions --paginate \
-            | jq -r '.[] | select(.metadata.container.tags | length == 0) | .id')
-          if [ -z "$UNTAGGED" ]; then
-            echo "No untagged images found."
-            exit 0
-          fi
-          for ID in $UNTAGGED; do
-            echo "Deleting untagged image version: $ID"
-            gh api -X DELETE -H "Accept: application/vnd.github+json" \
-              /user/packages/container/${IMAGE_NAME}/versions/$ID
-          done
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          keep-n-untagged: 1
