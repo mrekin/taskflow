@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import {
   CalendarIcon,
@@ -35,7 +35,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -65,6 +64,8 @@ import {
 import { TagPicker } from '@/components/tag-picker';
 import { UserPicker } from '@/components/user-picker';
 import { VisibilityLock } from '@/components/visibility-lock';
+import { MarkdownToolbar } from '@/components/markdown-toolbar';
+import { MentionTextarea } from '@/components/mention-autocomplete';
 import { toast } from 'sonner';
 import { useConfirmClose } from '@/hooks/use-confirm-close';
 
@@ -120,6 +121,7 @@ export function CreateTaskDialog({
   const [parentTaskOpen, setParentTaskOpen] = useState(false);
   const [webhookBindings, setWebhookBindings] = useState<WebhookBinding[]>([]);
   const [webhooksExpanded, setWebhooksExpanded] = useState(false);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   const isDirty = !!(title.trim() || description.trim() || dueDate || tagIds.length > 0 || assigneeId || webhookBindings.length > 0);
 
@@ -253,7 +255,7 @@ export function CreateTaskDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={confirmOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{parentId ? 'Create Subtask' : 'Create Task'}</DialogTitle>
@@ -277,11 +279,19 @@ export function CreateTaskDialog({
               <Label className="text-muted-foreground text-xs uppercase tracking-wider">
                 Description
               </Label>
-              <Textarea
-                placeholder="What needs to be done?"
+              <MarkdownToolbar
+                textareaRef={descriptionRef}
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
+                onChange={setDescription}
+                className="rounded-md border border-b-0 px-1.5 py-1 bg-muted/30"
+              />
+              <MentionTextarea
+                ref={descriptionRef}
+                placeholder="What needs to be done? (Markdown supported)"
+                value={description}
+                onChange={setDescription}
+                rows={8}
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
             </div>
 

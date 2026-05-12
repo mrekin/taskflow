@@ -31,6 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { MentionTextarea } from '@/components/mention-autocomplete';
+import { MarkdownToolbar } from '@/components/markdown-toolbar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -120,6 +121,7 @@ export function TaskDetailDialog() {
   const [localVisibleUserIds, setLocalVisibleUserIds] = useState<string[]>([]);
 
   const navigatedFromParentRef = useRef(false);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   const isDirty = isEditing && !!task && (
     title !== task.title ||
@@ -417,7 +419,7 @@ export function TaskDetailDialog() {
   return (
     <>
       <Sheet open={!!selectedTaskId} onOpenChange={handleSheetOpenChange}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl p-0">
+        <SheetContent side="right" className="w-full sm:max-w-3xl p-0">
           {task && (
             <div className="flex flex-col h-full">
               {/* Header */}
@@ -524,13 +526,22 @@ export function TaskDetailDialog() {
                       Description
                     </Label>
                     {isEditing ? (
-                      <MentionTextarea
-                        value={description}
-                        onChange={(val) => setDescription(val)}
-                        placeholder="Add a description... (Markdown supported)"
-                        rows={isEditing ? 18 : 6}
-                        className="font-mono text-sm w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      />
+                      <>
+                        <MarkdownToolbar
+                          textareaRef={descriptionRef}
+                          value={description}
+                          onChange={setDescription}
+                          className="rounded-md border border-b-0 px-1.5 py-1 bg-muted/30"
+                        />
+                        <MentionTextarea
+                          ref={descriptionRef}
+                          value={description}
+                          onChange={(val) => setDescription(val)}
+                          placeholder="Add a description... (Markdown supported)"
+                          rows={18}
+                          className="font-mono text-sm w-full rounded-t-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        />
+                      </>
                     ) : (
                       task.description ? (
                         <div className="text-sm">
