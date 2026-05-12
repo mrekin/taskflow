@@ -23,6 +23,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ColorPicker } from '@/components/color-picker';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useConfirmClose } from '@/hooks/use-confirm-close';
 
 interface CreateProjectDialogProps {
   open: boolean;
@@ -41,6 +52,21 @@ export function CreateProjectDialog({
   const [color, setColor] = useState(() => getRandomColor());
   const [areaId, setAreaId] = useState(defaultAreaId ?? selectedAreaId ?? '');
   const [isCreating, setIsCreating] = useState(false);
+
+  const isDirty = !!(name.trim() || description.trim());
+
+  const handleClose = () => {
+    setName('');
+    setDescription('');
+    setColor(getRandomColor());
+    setAreaId(defaultAreaId ?? selectedAreaId ?? '');
+    onOpenChange(false);
+  };
+
+  const { handleOpenChange: confirmOpenChange, showConfirm, handleConfirmDiscard, handleCancelDiscard } = useConfirmClose({
+    isDirty,
+    onClose: handleClose,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,18 +91,9 @@ export function CreateProjectDialog({
     }
   };
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      setName('');
-      setDescription('');
-      setColor(getRandomColor());
-      setAreaId(defaultAreaId ?? selectedAreaId ?? '');
-    }
-    onOpenChange(newOpen);
-  };
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={confirmOpenChange}>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
@@ -142,7 +159,7 @@ export function CreateProjectDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => handleOpenChange(false)}
+              onClick={() => confirmOpenChange(false)}
               disabled={isCreating}
             >
               Cancel
@@ -154,5 +171,21 @@ export function CreateProjectDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={showConfirm} onOpenChange={(open) => !open && handleCancelDiscard()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+          <AlertDialogDescription>
+            You have unsaved changes. Are you sure you want to close? All entered data will be lost.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={handleCancelDiscard}>Continue editing</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmDiscard}>Discard</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Edit2,
@@ -66,6 +66,7 @@ import { TagPicker } from '@/components/tag-picker';
 import { TagBadges } from '@/components/tag-badges';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { ColorPicker } from '@/components/color-picker';
+import { useConfirmClose } from '@/hooks/use-confirm-close';
 
 export function ProjectDetail() {
   const {
@@ -95,6 +96,30 @@ export function ProjectDetail() {
   const [showCreateNote, setShowCreateNote] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [editTagIds, setEditTagIds] = useState<string[]>([]);
+
+  const isEditDirty = isEditing && !!project && (
+    editName !== project.name ||
+    editDescription !== (project.description || '') ||
+    editColor !== project.color ||
+    editStatus !== project.status ||
+    editTagIds.join(',') !== (project.tagIds || []).join(',')
+  );
+
+  const handleEditClose = useCallback(() => {
+    setIsEditing(false);
+    if (project) {
+      setEditName(project.name);
+      setEditDescription(project.description || '');
+      setEditColor(project.color);
+      setEditStatus(project.status);
+      setEditTagIds(project.tagIds || []);
+    }
+  }, [project]);
+
+  const { handleOpenChange: confirmEditOpenChange, showConfirm, handleConfirmDiscard, handleCancelDiscard } = useConfirmClose({
+    isDirty: !!isEditDirty,
+    onClose: handleEditClose,
+  });
 
   // Fetch notes for this project
   useEffect(() => {
@@ -307,7 +332,7 @@ export function ProjectDetail() {
       </Tabs>
 
       {/* Edit Project Dialog */}
-      <Dialog open={isEditing} onOpenChange={setIsEditing}>
+      <Dialog open={isEditing} onOpenChange={confirmEditOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
@@ -362,7 +387,7 @@ export function ProjectDetail() {
             </div>
           </div>
           <DialogFooter className="mt-6">
-            <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
+            <Button type="button" variant="outline" onClick={() => confirmEditOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={!editName.trim()}>
@@ -372,6 +397,22 @@ export function ProjectDetail() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Discard unsaved changes confirmation */}
+      <AlertDialog open={showConfirm} onOpenChange={(open) => !open && handleCancelDiscard()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Are you sure you want to close? All unsaved edits will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDiscard}>Continue editing</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDiscard}>Discard</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

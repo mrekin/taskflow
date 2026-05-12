@@ -16,6 +16,17 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ColorPicker } from '@/components/color-picker';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useConfirmClose } from '@/hooks/use-confirm-close';
 
 interface CreateAreaDialogProps {
   open: boolean;
@@ -28,6 +39,20 @@ export function CreateAreaDialog({ open, onOpenChange }: CreateAreaDialogProps) 
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(() => getRandomColor());
   const [isCreating, setIsCreating] = useState(false);
+
+  const isDirty = !!(name.trim() || description.trim());
+
+  const handleClose = () => {
+    setName('');
+    setDescription('');
+    setColor(getRandomColor());
+    onOpenChange(false);
+  };
+
+  const { handleOpenChange: confirmOpenChange, showConfirm, handleConfirmDiscard, handleCancelDiscard } = useConfirmClose({
+    isDirty,
+    onClose: handleClose,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,18 +75,9 @@ export function CreateAreaDialog({ open, onOpenChange }: CreateAreaDialogProps) 
     }
   };
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      // Reset form on close
-      setName('');
-      setDescription('');
-      setColor(getRandomColor());
-    }
-    onOpenChange(newOpen);
-  };
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={confirmOpenChange}>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
@@ -108,7 +124,7 @@ export function CreateAreaDialog({ open, onOpenChange }: CreateAreaDialogProps) 
             <Button
               type="button"
               variant="outline"
-              onClick={() => handleOpenChange(false)}
+              onClick={() => confirmOpenChange(false)}
               disabled={isCreating}
             >
               Cancel
@@ -120,5 +136,21 @@ export function CreateAreaDialog({ open, onOpenChange }: CreateAreaDialogProps) 
         </form>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={showConfirm} onOpenChange={(open) => !open && handleCancelDiscard()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+          <AlertDialogDescription>
+            You have unsaved changes. Are you sure you want to close? All entered data will be lost.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={handleCancelDiscard}>Continue editing</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmDiscard}>Discard</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
