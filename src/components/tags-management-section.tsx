@@ -154,7 +154,8 @@ function TagChip({ tag, usage, onRename, onColorChange, onDelete }: TagChipProps
 }
 
 export function TagsManagementSection() {
-  const { tags, createTag, updateTag, deleteTag } = useAppStore();
+  const { tags, createTag, updateTag, deleteTag, currentUserId } = useAppStore();
+  const ownTags = tags.filter((t) => t.ownerId === currentUserId);
   const [tagUsage, setTagUsage] = useState<Record<string, number>>({});
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -226,7 +227,7 @@ export function TagsManagementSection() {
     }
   }, [deleteTarget, deleteTag, fetchUsage]);
 
-  const isDuplicate = newName.trim().length > 0 && tags.some(
+  const isDuplicate = newName.trim().length > 0 && ownTags.some(
     (t) => t.name.toLowerCase() === newName.trim().toLowerCase(),
   );
 
@@ -242,7 +243,7 @@ export function TagsManagementSection() {
         </div>
 
         <div className="flex flex-wrap gap-1.5">
-          {tags.map((tag) => (
+          {ownTags.map((tag) => (
             <TagChip
               key={tag.id}
               tag={tag}
@@ -252,7 +253,7 @@ export function TagsManagementSection() {
               onDelete={setDeleteTarget}
             />
           ))}
-          {tags.length === 0 && (
+          {ownTags.length === 0 && (
             <span className="text-xs text-muted-foreground">No tags yet.</span>
           )}
         </div>
