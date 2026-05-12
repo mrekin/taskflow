@@ -6,6 +6,7 @@ export type WebhookEvent =
   | 'task.priority_changed'
   | 'task.due_date_reached'
   | 'task.created'
+  | 'task.assigned_to_me'
   | 'project.status_changed'
   | 'project.created'
   | 'entity.access_granted'

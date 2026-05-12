@@ -201,7 +201,7 @@ export async function PUT(
       const changes = computeChanges(
         existing as unknown as Record<string, unknown>,
         updateData,
-        ['status', 'priority']
+        ['status', 'priority', 'assigneeId']
       );
 
       if (changes.status) {
@@ -220,6 +220,18 @@ export async function PUT(
           { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: task.ownerId },
           'task.priority_changed',
           changes,
+          areaId
+        ));
+      }
+
+      // Fire "assigned to me" webhook when assignee changes to a specific user
+      if (changes.assigneeId && changes.assigneeId.to) {
+        const newAssigneeId = changes.assigneeId.to as string;
+        const areaId = task.project?.areaId ?? await resolveTaskAreaId(task.projectId);
+        await fireWebhookEvent(buildTaskContext(
+          { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: newAssigneeId },
+          'task.assigned_to_me',
+          { assigneeId: changes.assigneeId },
           areaId
         ));
       }

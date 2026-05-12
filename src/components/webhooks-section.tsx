@@ -50,6 +50,7 @@ const WEBHOOK_EVENTS = [
   { value: 'task.priority_changed', label: 'Task Priority Changed', description: 'When a task priority is updated' },
   { value: 'task.due_date_reached', label: 'Task Due Date Reached', description: 'When a task reaches its due date' },
   { value: 'task.created', label: 'Task Created', description: 'When a new task is created' },
+  { value: 'task.assigned_to_me', label: 'Assigned to Me', description: 'When a task is assigned to me' },
   { value: 'project.status_changed', label: 'Project Status Changed', description: 'When a project status is updated' },
   { value: 'project.created', label: 'Project Created', description: 'When a new project is created' },
   { value: 'entity.access_granted', label: 'Access Granted', description: 'When a user is granted access to an entity' },

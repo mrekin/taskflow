@@ -203,6 +203,16 @@ export async function POST(request: NextRequest) {
         undefined,
         areaId
       ));
+
+      // Fire "assigned to me" webhook if task is created with an assignee different from creator
+      if (task.assigneeId && task.assigneeId !== userId) {
+        fireWebhookEvent(buildTaskContext(
+          { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: task.assigneeId },
+          'task.assigned_to_me',
+          { assigneeId: { from: null, to: task.assigneeId } },
+          areaId
+        ));
+      }
     } catch (webhookError) {
       console.error('[Webhook] Error in task create webhook:', webhookError);
     }

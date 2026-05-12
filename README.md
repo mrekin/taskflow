@@ -13,7 +13,7 @@ Self-hosted task and notes management application for individual use or small te
 - **Hierarchical organization** — Areas > Projects > Tasks with subtasks
 - **Kanban board** — Drag-and-drop task board with status columns
 - **Markdown notes** — Full editor with live preview, tagging, and import/export
-- **Comments** — Threaded comments on tasks with inline editing
+- **Comments** — Comments on tasks with inline editing
 - **Tags** — Cross-entity tagging with color coding
 - **Quick create** — Streamlined entity creation from a single text input
 - **Entity links & mentions** — Reference tasks, projects, and notes with short IDs (T-5, P-2, N-3) and `#mentions` in Markdown
