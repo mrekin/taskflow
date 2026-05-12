@@ -122,13 +122,22 @@ export function resolveStatuses(
   return DEFAULT_STATUSES;
 }
 
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return (hash >>> 0).toString(36);
+}
+
 export function slugifyLabel(label: string): string {
-  return label
+  const slug = label
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, '')
     .replace(/[\s_]+/g, '_')
     .replace(/^_+|_+$/g, '');
+  return slug || `_col_${simpleHash(label)}`;
 }
 
 export function parseStatusesEnv(envValue: string | undefined): StatusConfig[] | null {
