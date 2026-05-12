@@ -9,6 +9,7 @@ import {
   canWriteEntity,
   parseVisibleUserIds,
   sanitizeRelation,
+  sanitizeUserProfile,
 } from "@/lib/visibility";
 
 // GET /api/projects/[id] - Get single project with tasks and notes
@@ -29,7 +30,7 @@ export async function GET(
           include: {
             _count: { select: { subtasks: true } },
             subtasks: { select: { id: true, title: true, status: true, shortIdNum: true } },
-            assignee: { select: { id: true, name: true, email: true, image: true } },
+            assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
           },
         },
         notes: {
@@ -70,6 +71,7 @@ export async function GET(
         const { subtasks, ...taskRest } = task;
         return {
           ...parseJsonFields(taskRest, "task"),
+          assignee: task.assignee ? sanitizeUserProfile(task.assignee) : null,
           _count: { subtasks: task._count.subtasks },
           completedSubtasks: subtasks.filter((s) => s.status === "done").length,
         };

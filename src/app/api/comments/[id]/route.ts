@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth-utils";
-import { canDeleteComment } from "@/lib/visibility";
+import { canDeleteComment, sanitizeUserProfile } from "@/lib/visibility";
 
 // PUT /api/comments/[id] - Update comment content
 export async function PUT(
@@ -54,11 +54,14 @@ export async function PUT(
       where: { id },
       data: { content: content.trim() },
       include: {
-        owner: { select: { id: true, name: true, email: true, image: true } },
+        owner: { select: { id: true, name: true, email: true, image: true, metadata: true } },
       },
     });
 
-    return NextResponse.json(comment);
+    return NextResponse.json({
+      ...comment,
+      owner: sanitizeUserProfile(comment.owner) ?? { id: comment.owner.id, name: null, image: null },
+    });
   } catch (error) {
     console.error("Failed to update comment:", error);
     return NextResponse.json(

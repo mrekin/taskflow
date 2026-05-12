@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Lock, Users, Globe } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -10,9 +11,13 @@ import {
   VISIBILITY_WORLD,
 } from '@/lib/constants';
 
+type UserItem = { id: string; name: string | null };
+
 interface VisibilityBadgeProps {
   visibility: string | null;
   effectiveVisibility?: string;
+  visibleUserIds?: string[];
+  users?: UserItem[];
   className?: string;
 }
 
@@ -44,10 +49,27 @@ function getIconAndLabel(vis: string | null | undefined): {
 export function VisibilityBadge({
   visibility,
   effectiveVisibility,
+  visibleUserIds,
+  users,
   className,
 }: VisibilityBadgeProps) {
   const displayVisibility = visibility ?? effectiveVisibility;
   const { Icon, label } = getIconAndLabel(displayVisibility);
+
+  const tooltipContent = useMemo(() => {
+    if (
+      displayVisibility === VISIBILITY_USERS &&
+      visibleUserIds?.length &&
+      users?.length
+    ) {
+      const names = visibleUserIds
+        .map((id) => users.find((u) => u.id === id)?.name)
+        .filter(Boolean) as string[];
+      if (!names.length) return label;
+      return `${label}: ${names.join(', ')}`;
+    }
+    return label;
+  }, [displayVisibility, label, visibleUserIds, users]);
 
   return (
     <Tooltip>
@@ -56,9 +78,7 @@ export function VisibilityBadge({
           <Icon className="size-4 text-muted-foreground" />
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top">
-        {label}
-      </TooltipContent>
+      <TooltipContent side="top">{tooltipContent}</TooltipContent>
     </Tooltip>
   );
 }

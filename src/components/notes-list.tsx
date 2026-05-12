@@ -106,6 +106,7 @@ export function NotesList() {
     currentUserId,
     ownershipFilter,
     setOwnershipFilter,
+    users,
   } = useAppStore();
 
   const [searchInput, setSearchInput] = useState(noteSearchQuery);
@@ -760,7 +761,7 @@ export function NotesList() {
                           </h3>
                           <EntityIdBadge id={note.id} shortId={note.shortId || 'N-?'} type="note" className="mt-1" />
                           <div className="flex items-center gap-1.5 mt-1">
-                            <VisibilityBadge visibility={note.visibility} />
+                            <VisibilityBadge visibility={note.visibility} visibleUserIds={note.visibleUserIds} users={users} />
                             <OwnerIndicator ownerId={note.ownerId} currentUserId={currentUserId} />
                           </div>
                         </div>

@@ -25,7 +25,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: TaskCardProps) {
-  const { selectTask, selectedTaskId, projects, statuses, currentUserId } = useAppStore();
+  const { selectTask, selectedTaskId, projects, statuses, currentUserId, users } = useAppStore();
   const tags = useAppStore((s) => s.tags);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -146,7 +146,7 @@ export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: Tas
               {task.title}
             </span>
             <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" className="shrink-0" />
-            <VisibilityBadge visibility={task.visibility} />
+            <VisibilityBadge visibility={task.visibility} visibleUserIds={task.visibleUserIds} users={users} />
             <span
               className="shrink-0 w-2.5 h-2.5 rounded-full mt-1"
               style={{ backgroundColor: PRIORITY_COLORS[task.priority] || '#94a3b8' }}

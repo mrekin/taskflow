@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserId } from '@/lib/auth-utils';
 import { db } from '@/lib/db';
 import { DEFAULT_PREFERENCES, type ProfileVisibility } from '@/lib/constants';
+import { sanitizeUserProfile } from '@/lib/visibility';
 
 function parseProfileVisibility(value: unknown): ProfileVisibility {
   if (!value || typeof value !== 'object') return DEFAULT_PREFERENCES.profileVisibility;
@@ -47,11 +48,13 @@ export async function GET(request: NextRequest) {
         if (!nameMatch && !emailMatch) return null;
       }
 
+      const sanitized = sanitizeUserProfile(u);
+      if (!sanitized) return null;
+
       return {
-        id: u.id,
-        name: showName ? u.name : null,
+        ...sanitized,
         email: showEmail ? u.email : null,
-        label: showName ? u.name : u.email,
+        label: sanitized.name || u.email,
       };
     })
     .filter(Boolean);

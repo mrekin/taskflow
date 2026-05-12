@@ -4,7 +4,7 @@ import { parseJsonFields } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
 import { fireWebhookEvent, buildTaskContext, resolveTaskAreaId, computeChanges } from "@/lib/webhook-engine";
 import { createScheduledJob, deleteScheduledJobsForEntity } from "@/lib/scheduler";
-import { resolveEffectiveVisibility, canReadEntity, canWriteEntity, parseVisibleUserIds, sanitizeRelation } from "@/lib/visibility";
+import { resolveEffectiveVisibility, canReadEntity, canWriteEntity, parseVisibleUserIds, sanitizeRelation, sanitizeUserProfile } from "@/lib/visibility";
 
 // GET /api/tasks/[id] - Get single task with subtasks and comments
 export async function GET(
@@ -24,16 +24,16 @@ export async function GET(
           include: {
             _count: { select: { subtasks: true } },
             subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true } },
-            assignee: { select: { id: true, name: true, email: true, image: true } },
+            assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
           },
         },
-        assignee: { select: { id: true, name: true, email: true, image: true } },
+        assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
         project: { select: { id: true, name: true, color: true } },
         parent: { select: { id: true, title: true } },
         comments: {
           orderBy: { createdAt: "asc" },
           include: {
-            owner: { select: { id: true, name: true, email: true, image: true } },
+            owner: { select: { id: true, name: true, email: true, image: true, metadata: true } },
           },
         },
       },
@@ -109,6 +109,7 @@ export async function GET(
     const { subtasks, comments, project, parent, ...rest } = task;
     const result = {
       ...parseJsonFields(rest, "task"),
+      assignee: task.assignee ? sanitizeUserProfile(task.assignee) : null,
       project: sanitizedProject,
       parent: sanitizedParent,
       _count: { subtasks: subtasks.length },
@@ -117,11 +118,15 @@ export async function GET(
         const { subtasks: _, ...subRest } = sub;
         return {
           ...parseJsonFields(subRest, "task"),
+          assignee: sub.assignee ? sanitizeUserProfile(sub.assignee) : null,
           _count: { subtasks: sub._count.subtasks },
           completedSubtasks: sub.subtasks.filter((s) => s.status === "done").length,
         };
       }),
-      comments,
+      comments: comments.map((c) => ({
+        ...c,
+        owner: sanitizeUserProfile(c.owner) ?? { id: c.owner.id, name: null, image: null },
+      })),
     };
 
     return NextResponse.json(result);
@@ -183,7 +188,7 @@ export async function PUT(
       where: { id },
       data: updateData,
       include: {
-        assignee: { select: { id: true, name: true, email: true, image: true } },
+        assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
         project: { select: { id: true, name: true, color: true, areaId: true } },
         parent: { select: { id: true, title: true } },
         _count: { select: { subtasks: true } },
@@ -243,6 +248,7 @@ export async function PUT(
     const { subtasks, ...rest } = task;
     return NextResponse.json({
       ...parseJsonFields(rest, "task"),
+      assignee: task.assignee ? sanitizeUserProfile(task.assignee) : null,
       _count: { subtasks: task._count.subtasks },
       completedSubtasks: subtasks.filter((s) => s.status === "done").length,
     });

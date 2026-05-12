@@ -4,7 +4,7 @@ import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
 import { fireWebhookEvent, buildTaskContext, resolveTaskAreaId } from "@/lib/webhook-engine";
 import { createScheduledJob } from "@/lib/scheduler";
-import { buildVisibilityWhereClause } from "@/lib/visibility";
+import { buildVisibilityWhereClause, sanitizeUserProfile } from "@/lib/visibility";
 
 // GET /api/tasks - List tasks with optional filters
 export async function GET(request: NextRequest) {
@@ -90,8 +90,8 @@ export async function GET(request: NextRequest) {
       orderBy: { sortOrder: "asc" },
       include: {
         _count: { select: { subtasks: true } },
-        subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true, assigneeId: true, assignee: { select: { id: true, name: true, email: true, image: true } } } },
-        assignee: { select: { id: true, name: true, email: true, image: true } },
+        subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true, assigneeId: true, assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } } } },
+        assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
         project: { select: { id: true, name: true, color: true } },
       },
     });
@@ -101,11 +101,13 @@ export async function GET(request: NextRequest) {
       const parsed = parseJsonFields(rest, "task");
       return {
         ...parsed,
+        assignee: task.assignee ? sanitizeUserProfile(task.assignee) : null,
         _count: { subtasks: task._count.subtasks },
         completedSubtasks: subtasks.filter((s) => s.status === "done").length,
         subtasks: subtasks.map((s) => ({
           ...s,
           shortId: `T-${s.shortIdNum}`,
+          assignee: s.assignee ? sanitizeUserProfile(s.assignee) : null,
         })),
       };
     });
@@ -187,7 +189,7 @@ export async function POST(request: NextRequest) {
         sortOrder: (maxSortTask?.sortOrder ?? -1) + 1,
       },
       include: {
-        assignee: { select: { id: true, name: true, email: true, image: true } },
+        assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
         project: { select: { id: true, name: true, color: true } },
       },
     });
@@ -228,6 +230,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         ...parseJsonFields(task, "task"),
+        assignee: task.assignee ? sanitizeUserProfile(task.assignee) : null,
         _count: { subtasks: 0 },
         completedSubtasks: 0,
       },

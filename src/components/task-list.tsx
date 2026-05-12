@@ -101,7 +101,7 @@ export function TaskList() {
     tasks, selectedProjectId, selectTask, deleteTask, projects,
     taskStatusFilter, setTaskStatusFilter, tagFilter, projectFilter, assigneeFilter, setAssigneeFilter, userPreferences,
     fetchTasks, taskSearchQuery, setTaskSearchQuery,
-    currentUserId, ownershipFilter, setOwnershipFilter,
+    currentUserId, ownershipFilter, setOwnershipFilter, users,
   } = useAppStore();
   const [sortField, setSortField] = useState<SortField>('priority');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -596,7 +596,7 @@ export function TaskList() {
                             {task.title}
                           </span>
                           <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" />
-                          <VisibilityBadge visibility={task.visibility} />
+                          <VisibilityBadge visibility={task.visibility} visibleUserIds={task.visibleUserIds} users={users} />
                           <OwnerIndicator ownerId={task.ownerId} currentUserId={currentUserId} />
                         </div>
                         {task.tagIds && task.tagIds.length > 0 && (

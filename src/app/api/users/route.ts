@@ -1,16 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUserId } from '@/lib/auth-utils';
 import { db } from '@/lib/db';
-import { DEFAULT_PREFERENCES, type ProfileVisibility } from '@/lib/constants';
-
-function parseProfileVisibility(value: unknown): ProfileVisibility {
-  if (!value || typeof value !== 'object') return DEFAULT_PREFERENCES.profileVisibility;
-  const v = value as Record<string, unknown>;
-  return {
-    nickname: typeof v.nickname === 'boolean' ? v.nickname : DEFAULT_PREFERENCES.profileVisibility.nickname,
-    email: typeof v.email === 'boolean' ? v.email : DEFAULT_PREFERENCES.profileVisibility.email,
-  };
-}
+import { sanitizeUserProfile } from '@/lib/visibility';
 
 export async function GET() {
   try {
@@ -25,26 +16,7 @@ export async function GET() {
     });
 
     const filtered = users
-      .map((u) => {
-        let metadata: Record<string, unknown>;
-        try {
-          metadata = JSON.parse(u.metadata || '{}');
-        } catch {
-          metadata = {};
-        }
-        const visibility = parseProfileVisibility(metadata.profileVisibility);
-
-        const showName = visibility.nickname && u.name;
-        const showEmail = visibility.email;
-
-        if (!showName && !showEmail) return null;
-
-        return {
-          id: u.id,
-          name: showName ? u.name : null,
-          image: u.image,
-        };
-      })
+      .map((u) => sanitizeUserProfile(u))
       .filter(Boolean);
 
     return NextResponse.json(filtered);

@@ -5,6 +5,7 @@ import {
   canReadEntity,
   resolveEffectiveVisibility,
   parseVisibleUserIds,
+  sanitizeUserProfile,
 } from "@/lib/visibility";
 
 // GET /api/comments?taskId=xxx - List comments for a task
@@ -64,11 +65,14 @@ export async function GET(request: NextRequest) {
       where: { taskId },
       orderBy: { createdAt: "asc" },
       include: {
-        owner: { select: { id: true, name: true, email: true, image: true } },
+        owner: { select: { id: true, name: true, email: true, image: true, metadata: true } },
       },
     });
 
-    return NextResponse.json(comments);
+    return NextResponse.json(comments.map((c) => ({
+      ...c,
+      owner: sanitizeUserProfile(c.owner) ?? { id: c.owner.id, name: null, image: null },
+    })));
   } catch (error) {
     console.error("Failed to fetch comments:", error);
     return NextResponse.json(
@@ -146,11 +150,14 @@ export async function POST(request: NextRequest) {
         ownerId: userId,
       },
       include: {
-        owner: { select: { id: true, name: true, email: true, image: true } },
+        owner: { select: { id: true, name: true, email: true, image: true, metadata: true } },
       },
     });
 
-    return NextResponse.json(comment, { status: 201 });
+    return NextResponse.json({
+      ...comment,
+      owner: sanitizeUserProfile(comment.owner) ?? { id: comment.owner.id, name: null, image: null },
+    }, { status: 201 });
   } catch (error) {
     console.error("Failed to create comment:", error);
     return NextResponse.json(

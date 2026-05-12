@@ -1,4 +1,4 @@
-import { DEFAULT_VISIBILITY, VISIBILITY_OWNER, VISIBILITY_USERS, VISIBILITY_SITE, VISIBILITY_WORLD } from './constants';
+import { DEFAULT_VISIBILITY, VISIBILITY_OWNER, VISIBILITY_USERS, VISIBILITY_SITE, VISIBILITY_WORLD, DEFAULT_PREFERENCES, type ProfileVisibility } from './constants';
 
 export function resolveEffectiveVisibility(
   entityVisibility: string | null,
@@ -113,4 +113,44 @@ export function parseVisibleUserIds(raw: unknown): string[] {
     } catch { /* ignore */ }
   }
   return [];
+}
+
+function parseProfileVisibility(value: unknown): ProfileVisibility {
+  if (!value || typeof value !== 'object') return DEFAULT_PREFERENCES.profileVisibility;
+  const v = value as Record<string, unknown>;
+  return {
+    nickname: typeof v.nickname === 'boolean' ? v.nickname : DEFAULT_PREFERENCES.profileVisibility.nickname,
+    email: typeof v.email === 'boolean' ? v.email : DEFAULT_PREFERENCES.profileVisibility.email,
+  };
+}
+
+interface SanitizableUser {
+  id: string;
+  name: string | null;
+  email?: string;
+  image?: string | null;
+  metadata?: string;
+}
+
+export function sanitizeUserProfile<T extends SanitizableUser>(
+  user: T,
+): { id: string; name: string | null; image: string | null } | null {
+  let metadata: Record<string, unknown>;
+  try {
+    metadata = JSON.parse(user.metadata || '{}');
+  } catch {
+    metadata = {};
+  }
+  const visibility = parseProfileVisibility(metadata.profileVisibility);
+
+  const showName = visibility.nickname && user.name;
+  const showEmail = visibility.email && user.email;
+
+  if (!showName && !showEmail) return null;
+
+  return {
+    id: user.id,
+    name: showName ? user.name : showEmail ? user.email! : null,
+    image: user.image ?? null,
+  };
 }
