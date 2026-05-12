@@ -24,6 +24,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { VisibilityLock } from '@/components/visibility-lock';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useConfirmClose } from '@/hooks/use-confirm-close';
 
 interface CreateNoteDialogProps {
   open: boolean;
@@ -42,6 +53,18 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
   const [visibility, setVisibility] = useState<string | null>(null);
   const [visibleUserIds, setVisibleUserIds] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+
+  const isDirty = !!(title.trim() || content.trim());
+
+  const handleClose = () => {
+    resetForm();
+    onOpenChange(false);
+  };
+
+  const { handleOpenChange: confirmOpenChange, showConfirm, handleConfirmDiscard, handleCancelDiscard } = useConfirmClose({
+    isDirty,
+    onClose: handleClose,
+  });
 
   // Sync state when dialog opens (component stays mounted between opens)
   useEffect(() => {
@@ -106,15 +129,9 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
     }
   };
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      resetForm();
-    }
-    onOpenChange(newOpen);
-  };
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={confirmOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
         <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
           <DialogHeader>
@@ -206,7 +223,7 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
             <Button
               type="button"
               variant="outline"
-              onClick={() => handleOpenChange(false)}
+              onClick={() => confirmOpenChange(false)}
               disabled={isCreating}
             >
               Cancel
@@ -218,5 +235,21 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
         </form>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={showConfirm} onOpenChange={(open) => !open && handleCancelDiscard()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+          <AlertDialogDescription>
+            You have unsaved changes. Are you sure you want to close? All entered data will be lost.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={handleCancelDiscard}>Continue editing</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmDiscard}>Discard</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

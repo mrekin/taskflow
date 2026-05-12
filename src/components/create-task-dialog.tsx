@@ -22,6 +22,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -56,6 +66,7 @@ import { TagPicker } from '@/components/tag-picker';
 import { UserPicker } from '@/components/user-picker';
 import { VisibilityLock } from '@/components/visibility-lock';
 import { toast } from 'sonner';
+import { useConfirmClose } from '@/hooks/use-confirm-close';
 
 const TASK_WEBHOOK_EVENTS = [
   { value: 'task.status_changed', label: 'Status Changed' },
@@ -107,9 +118,31 @@ export function CreateTaskDialog({
   const [isCreating, setIsCreating] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [parentTaskOpen, setParentTaskOpen] = useState(false);
-
   const [webhookBindings, setWebhookBindings] = useState<WebhookBinding[]>([]);
   const [webhooksExpanded, setWebhooksExpanded] = useState(false);
+
+  const isDirty = !!(title.trim() || description.trim() || dueDate || tagIds.length > 0 || assigneeId || webhookBindings.length > 0);
+
+  const handleClose = () => {
+    setTitle(defaultTitle || '');
+    setDescription(defaultDescription || '');
+    setStatus(defaultStatus || 'todo');
+    setPriority('medium');
+    setDueDate(undefined);
+    setDueTime('09:00');
+    setProjectId(defaultProjectId || selectedProjectId || 'none');
+    setParentTaskId(parentId || defaultParentId || 'none');
+    setTagIds([]);
+    setAssigneeId(null);
+    setWebhookBindings([]);
+    setWebhooksExpanded(false);
+    onOpenChange(false);
+  };
+
+  const { handleOpenChange: confirmOpenChange, showConfirm, handleConfirmDiscard, handleCancelDiscard } = useConfirmClose({
+    isDirty,
+    onClose: handleClose,
+  });
 
   useEffect(() => {
     if (open) fetchWebhooks();
@@ -184,25 +217,6 @@ export function CreateTaskDialog({
     }
   };
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      setTitle(defaultTitle || '');
-      setDescription(defaultDescription || '');
-      setStatus(defaultStatus || 'todo');
-      setPriority('medium');
-      setDueDate(undefined);
-      setDueTime('09:00');
-      setProjectId(defaultProjectId || selectedProjectId || 'none');
-      setParentTaskId(parentId || defaultParentId || 'none');
-      setTagIds([]);
-      setAssigneeId(null);
-      setVisibility(null);
-      setVisibleUserIds([]);
-      setWebhookBindings([]);
-      setWebhooksExpanded(false);
-    }
-    onOpenChange(newOpen);
-  };
 
   const topLevelTasks = tasks.filter((t) => !t.parentId);
 
@@ -237,7 +251,8 @@ export function CreateTaskDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={confirmOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
@@ -637,7 +652,7 @@ export function CreateTaskDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => handleOpenChange(false)}
+              onClick={() => confirmOpenChange(false)}
               disabled={isCreating}
             >
               Cancel
@@ -649,5 +664,21 @@ export function CreateTaskDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={showConfirm} onOpenChange={(open) => !open && handleCancelDiscard()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+          <AlertDialogDescription>
+            You have unsaved changes. Are you sure you want to close? All entered data will be lost.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={handleCancelDiscard}>Continue editing</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmDiscard}>Discard</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

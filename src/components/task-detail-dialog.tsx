@@ -73,6 +73,7 @@ import { EntityIdBadge } from '@/components/entity-id-badge';
 import { VisibilityLock } from '@/components/visibility-lock';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import { toast } from 'sonner';
+import { useConfirmClose } from '@/hooks/use-confirm-close';
 
 export function TaskDetailDialog() {
   const {
@@ -104,6 +105,8 @@ export function TaskDetailDialog() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showDeleteSubtaskDialog, setShowDeleteSubtaskDialog] = useState(false);
+  const [pendingDeleteSubtaskId, setPendingDeleteSubtaskId] = useState<string | null>(null);
   const [showCreateSubtask, setShowCreateSubtask] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
@@ -116,6 +119,65 @@ export function TaskDetailDialog() {
   const [localVisibleUserIds, setLocalVisibleUserIds] = useState<string[]>([]);
 
   const navigatedFromParentRef = useRef(false);
+
+  const isDirty = isEditing && !!task && (
+    title !== task.title ||
+    description !== (task.description || '') ||
+    status !== task.status ||
+    priority !== task.priority ||
+    (dueDate ? dueDate.toISOString().slice(0, 10) : '') !== (task.dueDate ? parseISO(task.dueDate).toISOString().slice(0, 10) : '') ||
+    (dueDate ? dueTime : '09:00') !== (task.dueDate ? format(parseISO(task.dueDate), 'HH:mm') : '09:00') ||
+    projectId !== (task.projectId ?? null) ||
+    localTagIds.join(',') !== (task.tagIds || []).join(',') ||
+    localAssigneeId !== (task.assigneeId ?? null)
+  );
+
+  const resetEditState = useCallback(() => {
+    if (!task) return;
+    setIsEditing(false);
+    setTitle(task.title);
+    setDescription(task.description || '');
+    setStatus(task.status);
+    setPriority(task.priority);
+    setDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
+    setDueTime(task.dueDate ? format(parseISO(task.dueDate), 'HH:mm') : '09:00');
+    setProjectId(task.projectId ?? null);
+    setLocalTagIds(task.tagIds || []);
+    setLocalAssigneeId(task.assigneeId ?? null);
+  }, [task]);
+
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [discardAction, setDiscardAction] = useState<'cancel-edit' | 'close-sheet'>('close-sheet');
+
+  const handleSheetOpenChange = useCallback((open: boolean) => {
+    if (!open && isDirty) {
+      setDiscardAction('close-sheet');
+      setShowDiscardConfirm(true);
+      return;
+    }
+    if (!open) {
+      selectTask(null);
+    }
+  }, [isDirty, selectTask]);
+
+  const handleCancelEdit = useCallback(() => {
+    if (isDirty) {
+      setDiscardAction('cancel-edit');
+      setShowDiscardConfirm(true);
+      return;
+    }
+    resetEditState();
+  }, [isDirty, resetEditState]);
+
+  const handleConfirmDiscard = useCallback(() => {
+    setShowDiscardConfirm(false);
+    if (discardAction === 'close-sheet') {
+      resetEditState();
+      selectTask(null);
+    } else {
+      resetEditState();
+    }
+  }, [discardAction, resetEditState, selectTask]);
 
   const [webhookBindings, setWebhookBindings] = useState<
     { webhookId: string; events: string[] }[]
@@ -290,12 +352,7 @@ export function TaskDetailDialog() {
     await updateTask(subtaskId, {
       status: checked ? 'done' : 'todo',
     });
-    // Refresh to get updated subtasks
-    if (task?.projectId) {
-      fetchTasks(task.projectId);
-    } else {
-      fetchTasks();
-    }
+    fetchTasks();
   };
 
   const handleSubtaskClick = (subtaskId: string) => {
@@ -327,12 +384,7 @@ export function TaskDetailDialog() {
 
   const handleSubtaskDelete = async (subtaskId: string) => {
     await deleteTask(subtaskId);
-    // Refresh tasks
-    if (task?.projectId) {
-      fetchTasks(task.projectId);
-    } else {
-      fetchTasks();
-    }
+    fetchTasks();
   };
 
   const handleBackToParent = () => {
@@ -363,7 +415,7 @@ export function TaskDetailDialog() {
 
   return (
     <>
-      <Sheet open={!!selectedTaskId} onOpenChange={(open) => !open && selectTask(null)}>
+      <Sheet open={!!selectedTaskId} onOpenChange={handleSheetOpenChange}>
         <SheetContent side="right" className="w-full sm:max-w-2xl p-0">
           {task && (
             <div className="flex flex-col h-full">
@@ -415,21 +467,7 @@ export function TaskDetailDialog() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            setIsEditing(false);
-                            // Reset to original values
-                            setTitle(task.title);
-                            setDescription(task.description || '');
-                            setStatus(task.status);
-                            setPriority(task.priority);
-      setDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
-      setDueTime(task.dueDate ? format(parseISO(task.dueDate), 'HH:mm') : '09:00');
-                            setProjectId(task.projectId ?? null);
-                            setLocalTagIds(task.tagIds || []);
-                            setLocalAssigneeId(task.assigneeId ?? null);
-                            setLocalVisibility(task.visibility);
-                            setLocalVisibleUserIds(task.visibleUserIds || []);
-                          }}
+                          onClick={handleCancelEdit}
                         >
                           Cancel
                         </Button>
@@ -671,7 +709,6 @@ export function TaskDetailDialog() {
                           selectedTagIds={localTagIds}
                           onTagIdsChange={(tagIds) => {
                             setLocalTagIds(tagIds);
-                            updateTask(task.id, { tagIds });
                           }}
                         />
                       </div>
@@ -883,7 +920,8 @@ export function TaskDetailDialog() {
                                         className="size-6 text-muted-foreground hover:text-destructive"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleSubtaskDelete(subtask.id);
+                                          setPendingDeleteSubtaskId(subtask.id);
+                                          setShowDeleteSubtaskDialog(true);
                                         }}
                                         title="Delete subtask"
                                       >
@@ -1255,6 +1293,31 @@ export function TaskDetailDialog() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Delete subtask confirmation */}
+      <AlertDialog open={showDeleteSubtaskDialog} onOpenChange={setShowDeleteSubtaskDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Subtask</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &quot;{subtasks.find((s) => s.id === pendingDeleteSubtaskId)?.title}&quot;? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDeleteSubtaskId) {
+                  handleSubtaskDelete(pendingDeleteSubtaskId);
+                  setPendingDeleteSubtaskId(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Create subtask dialog */}
       <CreateTaskDialog
         open={showCreateSubtask}
@@ -1263,6 +1326,22 @@ export function TaskDetailDialog() {
         defaultProjectId={task?.projectId || undefined}
         defaultStatus="todo"
       />
+
+      {/* Discard unsaved changes confirmation */}
+      <AlertDialog open={showDiscardConfirm} onOpenChange={(open) => !open && setShowDiscardConfirm(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Are you sure you want to {discardAction === 'close-sheet' ? 'close' : 'cancel'}? All unsaved edits will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowDiscardConfirm(false)}>Continue editing</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDiscard}>Discard</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

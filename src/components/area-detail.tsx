@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Edit2, Plus, Trash2, FolderOpen } from 'lucide-react';
 
@@ -37,6 +37,7 @@ import { CreateProjectDialog } from '@/components/create-project-dialog';
 import { ColorPicker } from '@/components/color-picker';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import { VisibilityLock } from '@/components/visibility-lock';
+import { useConfirmClose } from '@/hooks/use-confirm-close';
 
 export function AreaDetail() {
   const {
@@ -65,6 +66,28 @@ export function AreaDetail() {
   const [editTagIds, setEditTagIds] = useState<string[]>([]);
   const [editVisibility, setEditVisibility] = useState<string | null>(null);
   const [editVisibleUserIds, setEditVisibleUserIds] = useState<string[]>([]);
+
+  const isEditDirty = isEditing && !!area && (
+    editName !== area.name ||
+    editDescription !== (area.description || '') ||
+    editColor !== area.color ||
+    editTagIds.join(',') !== (area.tagIds || []).join(',')
+  );
+
+  const handleEditClose = useCallback(() => {
+    setIsEditing(false);
+    if (area) {
+      setEditName(area.name);
+      setEditDescription(area.description || '');
+      setEditColor(area.color);
+      setEditTagIds(area.tagIds || []);
+    }
+  }, [area]);
+
+  const { handleOpenChange: confirmEditOpenChange, showConfirm, handleConfirmDiscard, handleCancelDiscard } = useConfirmClose({
+    isDirty: !!isEditDirty,
+    onClose: handleEditClose,
+  });
 
   const handleEdit = () => {
     if (!area) return;
@@ -226,7 +249,7 @@ export function AreaDetail() {
       </div>
 
       {/* Edit Area Dialog */}
-      <Dialog open={isEditing} onOpenChange={setIsEditing}>
+      <Dialog open={isEditing} onOpenChange={confirmEditOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-2">
@@ -274,7 +297,7 @@ export function AreaDetail() {
             </div>
           </div>
           <DialogFooter className="mt-6">
-            <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
+            <Button type="button" variant="outline" onClick={() => confirmEditOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={!editName.trim()}>
@@ -284,6 +307,22 @@ export function AreaDetail() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Discard unsaved changes confirmation */}
+      <AlertDialog open={showConfirm} onOpenChange={(open) => !open && handleCancelDiscard()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Are you sure you want to close? All unsaved edits will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDiscard}>Continue editing</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDiscard}>Discard</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
