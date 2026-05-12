@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { formatShortId, type EntityType } from './utils';
+import { formatShortId } from './utils';
 
 export type WebhookEvent =
   | 'task.status_changed'
