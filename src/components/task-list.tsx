@@ -46,10 +46,10 @@ import {
 import { Check, ChevronsUpDown } from 'lucide-react';
 import {
   TASK_STATUSES,
-  STATUS_LABELS,
-  STATUS_COLORS,
   PRIORITY_LABELS,
   PRIORITY_COLORS,
+  getColumnLabelAndColor,
+  type StatusConfig,
 } from '@/lib/constants';
 
 type SortField = 'id' | 'title' | 'priority' | 'status' | 'dueDate' | 'project' | 'createdAt' | 'updatedAt';
@@ -102,7 +102,7 @@ export function TaskList() {
     tasks, selectedProjectId, selectTask, deleteTask, projects,
     taskStatusFilter, setTaskStatusFilter, tagFilter, projectFilter, assigneeFilter, setAssigneeFilter, userPreferences,
     fetchTasks, taskSearchQuery, setTaskSearchQuery,
-    currentUserId, ownershipFilter, setOwnershipFilter, users,
+    currentUserId, ownershipFilter, setOwnershipFilter, users, statuses,
   } = useAppStore();
   const [sortField, setSortField] = useState<SortField>('priority');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -303,7 +303,7 @@ export function TaskList() {
           : '';
         const lines = [
           `# ${task.title}`,
-          `**Status**: ${STATUS_LABELS[task.status] || task.status}`,
+          `**Status**: ${getColumnLabelAndColor(statuses, task.status).label}`,
           `**Priority**: ${PRIORITY_LABELS[task.priority] || task.priority}`,
           `**Due**: ${task.dueDate ? format(parseISO(task.dueDate), 'yyyy-MM-dd HH:mm') : 'No due date'}`,
         ];
@@ -424,9 +424,9 @@ export function TaskList() {
             >
               <span
                 className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: STATUS_COLORS[status] }}
+                style={{ backgroundColor: getColumnLabelAndColor(statuses, status).color }}
               />
-              {STATUS_LABELS[status]} ({count})
+              {getColumnLabelAndColor(statuses, status).label} ({count})
             </Button>
           );
         })}
@@ -625,11 +625,11 @@ export function TaskList() {
                         variant="outline"
                         className="text-[10px] px-1.5 h-5 font-normal w-fit"
                         style={{
-                          borderColor: STATUS_COLORS[task.status] + '60',
-                          color: STATUS_COLORS[task.status],
+                          borderColor: getColumnLabelAndColor(statuses, task.status).color + '60',
+                          color: getColumnLabelAndColor(statuses, task.status).color,
                         }}
                       >
-                        {STATUS_LABELS[task.status]}
+                        {getColumnLabelAndColor(statuses, task.status).label}
                       </Badge>
                       {task.dueDate ? (
                         <span
@@ -717,11 +717,11 @@ export function TaskList() {
                           variant="outline"
                           className="text-[9px] px-1 h-4 font-normal w-fit"
                           style={{
-                            borderColor: STATUS_COLORS[subtask.status] + '60',
-                            color: STATUS_COLORS[subtask.status],
+                            borderColor: getColumnLabelAndColor(statuses, subtask.status).color + '60',
+                            color: getColumnLabelAndColor(statuses, subtask.status).color,
                           }}
                         >
-                          {STATUS_LABELS[subtask.status] || subtask.status}
+                          {getColumnLabelAndColor(statuses, subtask.status).label}
                         </Badge>
                         {subtask.dueDate ? (
                           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
