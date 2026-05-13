@@ -1,3 +1,6 @@
+# Copy this file to docker-compose.yml and adjust values.
+# Sensitive values should be set via .env file (see .env.example).
+
 services:
   taskflow:
     build:
@@ -15,15 +18,17 @@ services:
       - NODE_ENV=production
       - BUILD_TYPE=${BUILD_TYPE:-test}
       - DATABASE_URL=${DATABASE_URL:-file:/app/db/taskflow.db}
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-me-in-production}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - SCHEDULER_INTERVAL_MIN=${SCHEDULER_INTERVAL_MIN:-1}
       # - KANBAN_COLUMNS=${KANBAN_COLUMNS}
       # - OIDC_ISSUER=${OIDC_ISSUER}
       # - OIDC_CLIENT_ID=${OIDC_CLIENT_ID}
       # - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
+      - ATTACHMENT_ALLOWED_PATTERNS=*.*
     volumes:
       - ./taskflow-data:/app/db
+      - ./taskflow-files:/app/uploads
 
 volumes:
   taskflow-data:

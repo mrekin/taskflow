@@ -70,6 +70,7 @@ import {
   Pencil,
   Trash2,
   Home,
+  Paperclip,
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { toast } from 'sonner';
@@ -840,6 +841,11 @@ export function NotesList() {
                           <Clock className="h-3 w-3" />
                           {formatDistanceToNow(new Date(note.updatedAt), { addSuffix: true })}
                         </span>
+                        {(note as any)._count?.attachments > 0 && (
+                          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Paperclip className="h-3 w-3" />
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -31,6 +31,8 @@ model User {
   tags          Tag[]
   webhooks      Webhook[]
   scheduledJobs ScheduledJob[]
+  fileBlobs     FileBlob[]
+  attachments   Attachment[]
 }
 
 model Area {
@@ -231,4 +233,36 @@ model ScheduledJob {
   createdAt  DateTime @default(now())
 
   owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+}
+
+model FileBlob {
+  id           String   @id @default(cuid())
+  hash         String   @unique
+  size         Int
+  mimeType     String
+  originalName String
+  storageKey   String
+  ownerId      String
+  createdAt    DateTime @default(now())
+
+  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
+
+  @@index([hash])
+}
+
+model Attachment {
+  id          String   @id @default(cuid())
+  entityId    String
+  entityType  String
+  blobId      String
+  displayName String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+
+  blob  FileBlob @relation(fields: [blobId], references: [id], onDelete: Cascade)
+  owner User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([entityId, entityType, blobId])
+  @@index([entityId, entityType])
 }

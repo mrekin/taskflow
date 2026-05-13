@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { getConfigError, DEMO_USER_EMAIL } from '@/lib/config';
+import { STORAGE_LOCAL_PATH_DEFAULT } from '@/lib/attachment-config';
 
 const DEFAULT_RESET_MIN = 15;
 const INITIAL_DELAY_MS = 30_000;
@@ -24,11 +25,22 @@ async function resetDatabase(): Promise<void> {
     await db.$executeRawUnsafe(`DELETE FROM Webhook`);
     await db.$executeRawUnsafe(`DELETE FROM Comment`);
     await db.$executeRawUnsafe(`DELETE FROM Tag`);
+    await db.$executeRawUnsafe(`DELETE FROM Attachment`);
+    await db.$executeRawUnsafe(`DELETE FROM FileBlob`);
     await db.$executeRawUnsafe(`DELETE FROM Note`);
     await db.$executeRawUnsafe(`DELETE FROM NoteFolder`);
     await db.$executeRawUnsafe(`DELETE FROM Task`);
     await db.$executeRawUnsafe(`DELETE FROM Project`);
     await db.$executeRawUnsafe(`DELETE FROM Area`);
+
+    // Clean up uploaded files
+    try {
+      const { rmSync } = await import('fs');
+      const storagePath = process.env.STORAGE_LOCAL_PATH || STORAGE_LOCAL_PATH_DEFAULT;
+      rmSync(storagePath, { recursive: true, force: true });
+    } catch {
+      // ignore cleanup errors
+    }
 
     if (demoUser) {
       await db.$executeRawUnsafe(`DELETE FROM User WHERE id != '${demoUser.id}'`);

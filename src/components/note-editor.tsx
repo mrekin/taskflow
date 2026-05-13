@@ -58,6 +58,7 @@ import {
   AtSign,
   ChevronRight,
   Table,
+  Paperclip,
 } from 'lucide-react';
 import {
   Popover,
@@ -70,6 +71,8 @@ import type { Note } from '@/lib/types';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import { VisibilityLock } from '@/components/visibility-lock';
+import { AttachmentList } from '@/components/attachment-list';
+import { useInlineFileUpload } from '@/hooks/use-inline-file-upload';
 
 type SaveStatus = 'saved' | 'saving' | 'unsaved';
 type EditorMode = 'edit' | 'preview' | 'split';
@@ -122,6 +125,16 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const inlineUpload = useInlineFileUpload({
+    entityId: note?.id,
+    entityType: note ? 'note' : undefined,
+    textareaRef,
+    value: content,
+    onChange: setContent,
+  });
+
+  // Derived = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Derived: are there unsaved changes?
   const hasUnsavedChanges = useMemo(() => {
@@ -471,6 +484,22 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
             </Button>
           ))}
 
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={inlineUpload.triggerFilePicker}
+            disabled={inlineUpload.uploadingFiles.length > 0}
+            title="Upload file"
+          >
+            {inlineUpload.uploadingFiles.length > 0 ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Paperclip className="h-3.5 w-3.5" />
+            )}
+          </Button>
+          {inlineUpload.fileInputElement}
+
           {/* Entity reference inserter */}
           <Popover>
             <PopoverTrigger asChild>
@@ -671,13 +700,31 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
                 placeholder="Note title..."
               />
             </div>
-            <MentionTextarea
-              ref={textareaRef}
-              value={content}
-              onChange={(val) => setContent(val)}
-              placeholder="Start writing... (Markdown supported)"
-              className="flex-1 min-h-0 resize-none border-none rounded-none px-4 pt-4 pb-8 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
-            />
+            <div className="relative flex-1 min-h-0" {...inlineUpload.dragHandlers}>
+              {inlineUpload.isDragOver && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary/40 rounded-md pointer-events-none">
+                  <p className="text-sm text-primary font-medium">Drop files to upload</p>
+                </div>
+              )}
+              <MentionTextarea
+                ref={textareaRef}
+                value={content}
+                onChange={(val) => setContent(val)}
+                onFilePaste={inlineUpload.onPaste}
+                placeholder="Start writing... (Markdown supported)"
+                data-note-content
+                className="flex-1 min-h-0 resize-none border-none rounded-none px-4 pt-4 pb-8 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
+              />
+            </div>
+            {inlineUpload.uploadingFiles.length > 0 && (
+              <div className="flex items-center gap-2 px-4 py-1.5 text-xs text-muted-foreground bg-muted/50">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Uploading {inlineUpload.uploadingFiles.join(', ')}</span>
+              </div>
+            )}
+            {inlineUpload.uploadError && (
+              <p className="text-xs text-destructive px-4">{inlineUpload.uploadError}</p>
+            )}
           </div>
         )}
 
@@ -695,14 +742,32 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
                   placeholder="Note title..."
                 />
               </div>
-              <MentionTextarea
-                ref={textareaRef}
-                value={content}
-                onChange={(val) => setContent(val)}
-                onScroll={syncPreviewScroll}
-                placeholder="Start writing... (Markdown supported)"
-                className="flex-1 min-h-0 resize-none border-none rounded-none px-4 pt-4 pb-8 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
-              />
+              <div className="relative flex-1 min-h-0" {...inlineUpload.dragHandlers}>
+                {inlineUpload.isDragOver && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary/40 pointer-events-none">
+                    <p className="text-sm text-primary font-medium">Drop files to upload</p>
+                  </div>
+                )}
+                <MentionTextarea
+                  ref={textareaRef}
+                  value={content}
+                  onChange={(val) => setContent(val)}
+                  onFilePaste={inlineUpload.onPaste}
+                  onScroll={syncPreviewScroll}
+                  placeholder="Start writing... (Markdown supported)"
+                  data-note-content
+                  className="flex-1 min-h-0 resize-none border-none rounded-none px-4 pt-4 pb-8 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
+                />
+              </div>
+              {inlineUpload.uploadingFiles.length > 0 && (
+                <div className="flex items-center gap-2 px-4 py-1.5 text-xs text-muted-foreground bg-muted/50">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Uploading {inlineUpload.uploadingFiles.join(', ')}</span>
+                </div>
+              )}
+              {inlineUpload.uploadError && (
+                <p className="text-xs text-destructive px-4">{inlineUpload.uploadError}</p>
+              )}
             </div>
 
             {/* Preview pane */}
@@ -723,6 +788,17 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
           </div>
         )}
       </div>
+
+      {/* Attachments */}
+      {note && (
+        <div className="border-t pt-4 mt-4 px-3 pb-2">
+          <AttachmentList
+            entityId={note.id}
+            entityType="note"
+            ownerId={note.ownerId}
+          />
+        </div>
+      )}
     </div>
   );
 }

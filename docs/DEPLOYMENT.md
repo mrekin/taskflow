@@ -199,6 +199,11 @@ sudo systemctl status taskflow
 | `NEXT_BASE_PATH` | ❌ | `""` | Субпуть для развертывания за прокси (например, `/taskflow`) |
 | `KANBAN_COLUMNS` | ❌ | — | Кастомные колонки канбан по умолчанию для всех пользователей. Формат: `Label:color,Label:color` или JSON-массив |
 | `SCHEDULER_INTERVAL_MIN` | ❌ | `1` | Интервал фонового шедулера в минутах (due date webhooks и др.) |
+| `ATTACHMENT_MAX_SIZE` | ❌ | `10485760` | Максимальный размер файла вложения в байтах (по умолчанию 10 МБ) |
+| `ATTACHMENT_MAX_PER_ENTITY` | ❌ | `10` | Максимальное количество вложений на задачу или заметку |
+| `ATTACHMENT_ALLOWED_PATTERNS` | ❌ | `*` | Разрешённые типы файлов (glob-маски через запятую). `*` = разрешить все |
+| `STORAGE_ADAPTER` | ❌ | `local` | Адаптер хранилища: `local` (другие адаптеры планируются) |
+| `STORAGE_LOCAL_PATH` | ❌ | `/app/uploads` | Путь к директории для загруженных файлов |
 
 **Пример `KANBAN_COLUMNS`:**
 
@@ -311,6 +316,9 @@ docker compose exec taskflow sqlite3 /app/db/taskflow.db ".backup /app/db/backup
 
 # Скопировать backup на хост
 docker compose cp taskflow:/app/db/backup.db ./taskflow-backup-$(date +%Y%m%d).db
+
+# Резервное копирование вложений (загруженные файлы)
+docker compose cp taskflow:/app/uploads ./taskflow-uploads-backup-$(date +%Y%m%d)
 ```
 
 ### Без Docker
@@ -321,6 +329,9 @@ sqlite3 db/taskflow.db ".backup db/taskflow-backup-$(date +%Y%m%d).db"
 
 # Или простое копирование (рекомендуется остановить приложение)
 cp db/taskflow.db "db/taskflow-backup-$(date +%Y%m%d).db"
+
+# Резервное копирование вложений
+cp -r uploads "uploads-backup-$(date +%Y%m%d)"
 ```
 
 ### Автоматический backup (cron)

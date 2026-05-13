@@ -27,7 +27,19 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const result = notes.map((note) => parseJsonFields(note, "note"));
+    // Get attachment counts for all notes
+    const noteIds = notes.map(n => n.id);
+    const attachmentCounts = await db.attachment.groupBy({
+      by: ['entityId'],
+      where: { entityId: { in: noteIds }, entityType: 'note' },
+      _count: { id: true },
+    });
+    const attachmentCountMap = new Map(attachmentCounts.map(a => [a.entityId, a._count.id]));
+
+    const result = notes.map((note) => ({
+      ...parseJsonFields(note, "note"),
+      _count: { attachments: attachmentCountMap.get(note.id) || 0 },
+    }));
 
     return NextResponse.json(result);
   } catch (error) {

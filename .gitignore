@@ -33,6 +33,7 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+docker-compose.yml
 
 # vercel
 .vercel
@@ -70,3 +71,4 @@ tests/
 database.db
 database.db-shm
 database.db-wal
+taskflow-files/
