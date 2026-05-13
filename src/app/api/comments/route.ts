@@ -69,10 +69,12 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(comments.map((c) => ({
+    const sanitized = comments.map((c) => ({
       ...c,
       owner: sanitizeUserProfile(c.owner) ?? { id: c.owner.id, name: null, image: null },
-    })));
+    }));
+
+    return NextResponse.json(sanitized);
   } catch (error) {
     console.error("Failed to fetch comments:", error);
     return NextResponse.json(
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
     const { userId } = authResult;
 
     const body = await request.json();
-    const { content, taskId } = body;
+    const { content, taskId, parentId } = body;
 
     if (!content || typeof content !== "string" || content.trim() === "") {
       return NextResponse.json(
@@ -148,6 +150,7 @@ export async function POST(request: NextRequest) {
         content: content.trim(),
         taskId,
         ownerId: userId,
+        parentId: parentId || null,
       },
       include: {
         owner: { select: { id: true, name: true, email: true, image: true, metadata: true } },

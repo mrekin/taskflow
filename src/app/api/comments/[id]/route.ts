@@ -71,7 +71,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/comments/[id] - Delete comment
+// DELETE /api/comments/[id] - Soft-delete comment (replies preserved)
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -106,9 +106,31 @@ export async function DELETE(
       );
     }
 
+    // Check if comment has replies
+    const replyCount = await db.comment.count({
+      where: { parentId: id },
+    });
+
+    if (replyCount > 0) {
+      // Soft-delete: mark as deleted, clear content, preserve replies
+      const comment = await db.comment.update({
+        where: { id },
+        data: { deleted: true, content: "" },
+        include: {
+          owner: { select: { id: true, name: true, email: true, image: true, metadata: true } },
+        },
+      });
+
+      return NextResponse.json({
+        ...comment,
+        owner: sanitizeUserProfile(comment.owner) ?? { id: comment.owner.id, name: null, image: null },
+      });
+    }
+
+    // No replies — hard delete
     await db.comment.delete({ where: { id } });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, deleted: true });
   } catch (error) {
     console.error("Failed to delete comment:", error);
     return NextResponse.json(

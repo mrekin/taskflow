@@ -114,7 +114,7 @@ interface AppState {
   deleteFolder: (id: string) => Promise<void>;
 
   // Actions - CRUD Comments
-  createComment: (data: { content: string; taskId: string }) => Promise<void>;
+  createComment: (data: { content: string; taskId: string; parentId?: string }) => Promise<void>;
   updateComment: (id: string, data: { content: string }) => Promise<void>;
   deleteComment: (id: string) => Promise<void>;
 
@@ -685,9 +685,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const res = await fetch(api(`/api/comments/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete comment');
-      set((state) => ({
-        comments: state.comments.filter((c) => c.id !== id),
-      }));
+      const data = await res.json();
+      set((state) => {
+        if (data.deleted) {
+          // Hard delete — remove from list
+          return { comments: state.comments.filter((c) => c.id !== id) };
+        }
+        // Soft delete — update in place
+        return {
+          comments: state.comments.map((c) =>
+            c.id === id ? { ...c, deleted: true, content: '' } : c
+          ),
+        };
+      });
     } catch (error) {
       console.error('Failed to delete comment:', error);
     }

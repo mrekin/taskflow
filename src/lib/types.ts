@@ -76,9 +76,12 @@ export interface Comment {
   content: string;
   taskId: string;
   ownerId: string;
+  parentId: string | null;
+  deleted: boolean;
   createdAt: string;
   updatedAt: string;
   owner?: { id: string; name: string | null; email: string; image: string | null };
+  replies?: Comment[];
 }
 
 export interface Tag {
