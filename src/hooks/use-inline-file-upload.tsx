@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
 import { useAppStore } from '@/store/app-store';
 import { computeFileHash, isFilenameAllowed, isImageMime, formatFileSize } from '@/lib/attachment-utils';
+import { api } from '@/lib/api-utils';
 
 interface UseInlineFileUploadOptions {
   entityId: string | undefined;
@@ -74,7 +75,7 @@ export function useInlineFileUpload({
         const attachment = await uploadAttachment(file, entityId, entityType, hash);
         if (attachment?.blob) {
           const name = attachment.displayName || attachment.blob.originalName;
-          const url = `/api/attachments/file/${attachment.blobId}?disposition=inline`;
+          const url = api(`/api/attachments/file/${attachment.blobId}?disposition=inline`);
           return isImageMime(attachment.blob.mimeType)
             ? `![${name}](${url})`
             : `[${name}](${url})`;
@@ -99,14 +100,23 @@ export function useInlineFileUpload({
   }, [entityId, entityType, attachmentConfig, fetchAttachmentConfig, uploadAttachment, fetchAttachments, insertAtCursor]);
 
   const onPaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = e.clipboardData?.items;
-    if (!items) return false;
-
     const files: File[] = [];
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].kind === 'file') {
-        const file = items[i].getAsFile();
-        if (file) files.push(file);
+
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file') {
+          const file = items[i].getAsFile();
+          if (file && file.size > 0) files.push(file);
+        }
+      }
+    }
+
+    // Fallback: clipboardData.files (file manager copies on some OS)
+    if (files.length === 0 && e.clipboardData?.files?.length) {
+      for (let i = 0; i < e.clipboardData.files.length; i++) {
+        const file = e.clipboardData.files[i];
+        if (file.size > 0) files.push(file);
       }
     }
 

@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Paperclip, Upload, Download, Trash2, Copy, FileText, File, Loader2 } from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
+import { api } from '@/lib/api-utils';
 import { formatFileSize, computeFileHash } from '@/lib/attachment-utils';
 import { isFilenameAllowed } from '@/lib/attachment-utils';
 import { Button } from '@/components/ui/button';
@@ -116,7 +117,7 @@ export function AttachmentList({ entityId, entityType, ownerId }: AttachmentList
   };
 
   const handleDownload = (attachment: Attachment) => {
-    const url = `/api/attachments/file/${attachment.blobId}?disposition=attachment`;
+    const url = api(`/api/attachments/file/${attachment.blobId}?disposition=attachment`);
     const a = document.createElement('a');
     a.href = url;
     a.download = attachment.displayName || attachment.blob?.originalName || 'file';
@@ -127,7 +128,7 @@ export function AttachmentList({ entityId, entityType, ownerId }: AttachmentList
 
   const handleCopyLink = (attachment: Attachment) => {
     if (!attachment.blob) return;
-    const url = `${window.location.origin}/api/attachments/file/${attachment.blobId}`;
+    const url = `${window.location.origin}${api(`/api/attachments/file/${attachment.blobId}`)}`;
     navigator.clipboard.writeText(url);
   };
 

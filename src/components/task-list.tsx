@@ -15,6 +15,7 @@ import {
   X,
   User,
   Filter,
+  Paperclip,
 } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 
@@ -596,6 +597,12 @@ export function TaskList() {
                             {task.title}
                           </span>
                           <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" />
+                          {(task._count?.attachments ?? 0) > 0 && (
+                            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                              <Paperclip className="size-3" />
+                              {task._count!.attachments}
+                            </span>
+                          )}
                           <VisibilityBadge visibility={task.visibility} visibleUserIds={task.visibleUserIds} users={users} />
                           <OwnerIndicator ownerId={task.ownerId} currentUserId={currentUserId} />
                         </div>
