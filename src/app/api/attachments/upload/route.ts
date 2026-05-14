@@ -66,39 +66,30 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer);
     const actualHash = crypto.createHash('sha256').update(buffer).digest('hex');
 
-    // Check for duplicate blob (race condition protection)
-    const existingBlob = await db.fileBlob.findUnique({ where: { hash: actualHash } });
+    // Generate storage key: {hash[0:2]}/{hash[2:4]}/{hash}.{ext}
+    const ext = file.name.includes('.')
+      ? file.name.slice(file.name.lastIndexOf('.') + 1)
+      : 'bin';
+    const storageKey = `${actualHash.slice(0, 2)}/${actualHash.slice(2, 4)}/${actualHash}.${ext}`;
 
-    let blobId: string;
-    let storageKey: string;
+    // Store file (idempotent — same hash produces same key, overwrites are safe)
+    const storage = getStorageAdapter();
+    await storage.put(storageKey, buffer, file.type || 'application/octet-stream');
 
-    if (existingBlob) {
-      blobId = existingBlob.id;
-      storageKey = existingBlob.storageKey;
-    } else {
-      // Generate storage key: {hash[0:2]}/{hash[2:4]}/{hash}.{ext}
-      const ext = file.name.includes('.')
-        ? file.name.slice(file.name.lastIndexOf('.') + 1)
-        : 'bin';
-      storageKey = `${actualHash.slice(0, 2)}/${actualHash.slice(2, 4)}/${actualHash}.${ext}`;
-
-      // Store file
-      const storage = getStorageAdapter();
-      await storage.put(storageKey, buffer, file.type || 'application/octet-stream');
-
-      // Create blob record
-      const blob = await db.fileBlob.create({
-        data: {
-          hash: actualHash,
-          size: buffer.length,
-          mimeType: file.type || 'application/octet-stream',
-          originalName: file.name,
-          storageKey,
-          ownerId: userId,
-        },
-      });
-      blobId = blob.id;
-    }
+    // Upsert blob — single atomic operation, eliminates race condition on duplicate hash
+    const blob = await db.fileBlob.upsert({
+      where: { hash: actualHash },
+      update: {},
+      create: {
+        hash: actualHash,
+        size: buffer.length,
+        mimeType: file.type || 'application/octet-stream',
+        originalName: file.name,
+        storageKey,
+        ownerId: userId,
+      },
+    });
+    const blobId = blob.id;
 
     // Create attachment (check unique constraint)
     try {
