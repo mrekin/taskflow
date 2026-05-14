@@ -273,11 +273,8 @@ export function CreateTaskDialog({
       }
 
       if (newTask && pendingFiles.length > 0) {
-        for (const file of pendingFiles) {
+        for (const { file, hash } of pendingFiles) {
           try {
-            const buffer = await file.arrayBuffer();
-            const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-            const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
             await uploadAttachment(file, newTask.id, 'task', hash);
           } catch (e) {
             console.error('Failed to upload attachment:', e);
@@ -654,16 +651,16 @@ export function CreateTaskDialog({
 
               {pendingFiles.length > 0 && (
                 <div className="space-y-1">
-                  {pendingFiles.map((file, idx) => (
+                  {pendingFiles.map((entry, idx) => (
                     <div
-                      key={`${file.name}-${idx}`}
+                      key={`${entry.file.name}-${idx}`}
                       className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
                     >
-                      <span className="flex-1 truncate min-w-0" title={file.name}>
-                        {file.name}
+                      <span className="flex-1 truncate min-w-0" title={entry.file.name}>
+                        {entry.file.name}
                       </span>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {formatFileSize(file.size)}
+                        {formatFileSize(entry.file.size)}
                       </span>
                       <Button
                         type="button"
