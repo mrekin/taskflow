@@ -54,8 +54,11 @@ export function AttachmentList({ entityId, entityType, ownerId }: AttachmentList
 
   useEffect(() => {
     fetchAttachments(entityId, entityType);
+  }, [entityId, entityType, fetchAttachments]);
+
+  useEffect(() => {
     if (!attachmentConfig) fetchAttachmentConfig();
-  }, [entityId, entityType]);
+  }, [attachmentConfig, fetchAttachmentConfig]);
 
   const handleFiles = useCallback(async (files: FileList | File[]) => {
     if (!attachmentConfig) return;
