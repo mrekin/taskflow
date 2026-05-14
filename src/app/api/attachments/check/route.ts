@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth-utils';
 import { canWriteEntity } from '@/lib/visibility';
 import { getAttachmentConfig } from '@/lib/attachment-config';
 import { isFilenameAllowed } from '@/lib/attachment-utils';
+import { getEntity, formatAttachment } from '@/lib/attachment-api-utils';
 
 // POST /api/attachments/check — Step 1: hash check + deduplication
 export async function POST(request: NextRequest) {
@@ -87,49 +88,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // No existing blob — generate upload token
-    const uploadToken = Buffer.from(JSON.stringify({
-      hash,
-      fileName,
-      size,
-      entityId,
-      entityType,
-      userId,
-      exp: Date.now() + 5 * 60 * 1000, // 5 min TTL
-    })).toString('base64url');
-
-    return NextResponse.json({ status: 'upload_needed', uploadToken });
+    // No existing blob — upload needed
+    return NextResponse.json({ status: 'upload_needed' });
   } catch (error) {
     console.error('Failed to check attachment:', error);
     return NextResponse.json({ error: 'Failed to check attachment' }, { status: 500 });
   }
 }
 
-async function getEntity(entityId: string, entityType: string) {
-  if (entityType === 'task') {
-    return db.task.findUnique({ where: { id: entityId }, select: { id: true, ownerId: true } });
-  }
-  if (entityType === 'note') {
-    return db.note.findUnique({ where: { id: entityId }, select: { id: true, ownerId: true } });
-  }
-  return null;
-}
-
-function formatAttachment(a: { id: string; entityId: string; entityType: string; blobId: string; displayName: string | null; ownerId: string; createdAt: Date }, blob: { id: string; hash: string; size: number; mimeType: string; originalName: string }) {
-  return {
-    id: a.id,
-    entityId: a.entityId,
-    entityType: a.entityType,
-    blobId: a.blobId,
-    displayName: a.displayName,
-    ownerId: a.ownerId,
-    createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
-    blob: {
-      id: blob.id,
-      hash: blob.hash,
-      size: blob.size,
-      mimeType: blob.mimeType,
-      originalName: blob.originalName,
-    },
-  };
-}

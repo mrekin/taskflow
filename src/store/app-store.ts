@@ -956,7 +956,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         // Step 2: upload file
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('uploadToken', checkData.uploadToken);
+        formData.append('entityId', entityId);
+        formData.append('entityType', entityType);
         const uploadRes = await fetch(api('/api/attachments/upload'), {
           method: 'POST',
           body: formData,

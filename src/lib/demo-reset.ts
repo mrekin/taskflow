@@ -19,19 +19,19 @@ async function resetDatabase(): Promise<void> {
   const demoUser = await db.user.findUnique({ where: { email: DEMO_USER_EMAIL } });
 
   try {
-    await db.$executeRawUnsafe(`DELETE FROM ScheduledJob`);
-    await db.$executeRawUnsafe(`DELETE FROM WebhookDelivery`);
-    await db.$executeRawUnsafe(`DELETE FROM WebhookTrigger`);
-    await db.$executeRawUnsafe(`DELETE FROM Webhook`);
-    await db.$executeRawUnsafe(`DELETE FROM Comment`);
-    await db.$executeRawUnsafe(`DELETE FROM Tag`);
-    await db.$executeRawUnsafe(`DELETE FROM Attachment`);
-    await db.$executeRawUnsafe(`DELETE FROM FileBlob`);
-    await db.$executeRawUnsafe(`DELETE FROM Note`);
-    await db.$executeRawUnsafe(`DELETE FROM NoteFolder`);
-    await db.$executeRawUnsafe(`DELETE FROM Task`);
-    await db.$executeRawUnsafe(`DELETE FROM Project`);
-    await db.$executeRawUnsafe(`DELETE FROM Area`);
+    await db.$executeRaw`DELETE FROM ScheduledJob`;
+    await db.$executeRaw`DELETE FROM WebhookDelivery`;
+    await db.$executeRaw`DELETE FROM WebhookTrigger`;
+    await db.$executeRaw`DELETE FROM Webhook`;
+    await db.$executeRaw`DELETE FROM Comment`;
+    await db.$executeRaw`DELETE FROM Tag`;
+    await db.$executeRaw`DELETE FROM Attachment`;
+    await db.$executeRaw`DELETE FROM FileBlob`;
+    await db.$executeRaw`DELETE FROM Note`;
+    await db.$executeRaw`DELETE FROM NoteFolder`;
+    await db.$executeRaw`DELETE FROM Task`;
+    await db.$executeRaw`DELETE FROM Project`;
+    await db.$executeRaw`DELETE FROM Area`;
 
     // Clean up uploaded files
     try {
@@ -43,7 +43,7 @@ async function resetDatabase(): Promise<void> {
     }
 
     if (demoUser) {
-      await db.$executeRawUnsafe(`DELETE FROM User WHERE id != '${demoUser.id}'`);
+      await db.$executeRaw`DELETE FROM User WHERE id != ${demoUser.id}`;
 
       // Reset custom statuses for demo user
       try {

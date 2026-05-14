@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getCurrentUserId, requireAuth } from '@/lib/auth-utils';
-import { buildVisibilityWhereClause, canReadEntity, canWriteEntity, resolveEffectiveVisibility } from '@/lib/visibility';
+import { canReadEntity, canWriteEntity, resolveEffectiveVisibility } from '@/lib/visibility';
 import { getAttachmentConfig } from '@/lib/attachment-config';
+import { getEntity, parseVisibility, formatAttachment } from '@/lib/attachment-api-utils';
 
 // GET /api/attachments?entityId=...&entityType=task
 export async function GET(request: NextRequest) {
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check read access to the entity
-    const entity = await getEntity(entityId, entityType);
+    const entity = await getEntity(entityId, entityType, { includeVisibility: true });
     if (!entity) {
       return NextResponse.json({ error: 'Entity not found' }, { status: 404 });
     }
@@ -36,22 +37,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    const result = attachments.map(a => ({
-      id: a.id,
-      entityId: a.entityId,
-      entityType: a.entityType,
-      blobId: a.blobId,
-      displayName: a.displayName,
-      ownerId: a.ownerId,
-      createdAt: a.createdAt.toISOString(),
-      blob: {
-        id: a.blob.id,
-        hash: a.blob.hash,
-        size: a.blob.size,
-        mimeType: a.blob.mimeType,
-        originalName: a.blob.originalName,
-      },
-    }));
+    const result = attachments.map(a => formatAttachment(a, a.blob));
 
     return NextResponse.json(result);
   } catch (error) {
@@ -106,18 +92,3 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-async function getEntity(entityId: string, entityType: string) {
-  if (entityType === 'task') {
-    return db.task.findUnique({ where: { id: entityId }, select: { id: true, ownerId: true, visibility: true, visibleUserIds: true } });
-  }
-  if (entityType === 'note') {
-    return db.note.findUnique({ where: { id: entityId }, select: { id: true, ownerId: true, visibility: true, visibleUserIds: true } });
-  }
-  return null;
-}
-
-function parseVisibility(entity: { visibility: string | null; visibleUserIds: string }) {
-  let visibleUserIds: string[] = [];
-  try { visibleUserIds = JSON.parse(entity.visibleUserIds || '[]'); } catch {}
-  return { visibility: entity.visibility, visibleUserIds };
-}

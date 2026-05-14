@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { getCurrentUserId } from '@/lib/auth-utils';
 import { canReadEntity, resolveEffectiveVisibility } from '@/lib/visibility';
 import { getStorageAdapter } from '@/lib/storage';
+import { getEntity, parseVisibility } from '@/lib/attachment-api-utils';
 
 // GET /api/attachments/file/[blobId] — serve file
 export async function GET(
@@ -24,7 +25,7 @@ export async function GET(
 
     // Check access via first attachment's entity
     const att = blob.attachments[0];
-    const entity = await getEntity(att.entityId, att.entityType);
+    const entity = await getEntity(att.entityId, att.entityType, { includeVisibility: true });
     if (!entity) {
       return NextResponse.json({ error: 'Entity not found' }, { status: 404 });
     }
@@ -59,18 +60,3 @@ export async function GET(
   }
 }
 
-async function getEntity(entityId: string, entityType: string) {
-  if (entityType === 'task') {
-    return db.task.findUnique({ where: { id: entityId }, select: { id: true, ownerId: true, visibility: true, visibleUserIds: true } });
-  }
-  if (entityType === 'note') {
-    return db.note.findUnique({ where: { id: entityId }, select: { id: true, ownerId: true, visibility: true, visibleUserIds: true } });
-  }
-  return null;
-}
-
-function parseVisibility(entity: { visibility: string | null; visibleUserIds: string }) {
-  let visibleUserIds: string[] = [];
-  try { visibleUserIds = JSON.parse(entity.visibleUserIds || '[]'); } catch {}
-  return { visibility: entity.visibility, visibleUserIds };
-}
