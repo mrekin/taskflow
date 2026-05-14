@@ -45,8 +45,8 @@ Self-hosted task and notes management application for individual use or small te
 ```bash
 git clone <repo-url> taskflow
 cd taskflow
-mkdir -p taskflow-data
-chown -R 1001:1001 taskflow-data
+mkdir -p taskflow-data taskflow-files
+chown -R 1001:1001 taskflow-data taskflow-files
 docker compose up -d
 ```
 

@@ -67,7 +67,17 @@ DATABASE_URL=file:./db/taskflow.db
 
 > ⚠️ **Обязательно** замените `NEXTAUTH_SECRET` на уникальный секретный ключ в production!
 
-### 3. Запуск
+### 3. Создание папок данных
+
+```bash
+mkdir -p taskflow-data taskflow-files
+chown -R 1001:1001 taskflow-data taskflow-files
+```
+
+- `taskflow-data` — база данных SQLite
+- `taskflow-files` — загруженные вложения
+
+### 4. Запуск
 
 ```bash
 docker compose up -d
@@ -75,7 +85,7 @@ docker compose up -d
 
 Приложение будет доступно на `http://localhost:3000`.
 
-### 4. Проверка
+### 5. Проверка
 
 ```bash
 # Проверить статус контейнера
