@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth-utils';
 import { canWriteEntity } from '@/lib/visibility';
 import { getStorageAdapter } from '@/lib/storage';
 import { getAttachmentConfig } from '@/lib/attachment-config';
+import { getServerStorageUsed, getUserStorageUsed } from '@/lib/attachment-storage';
 import { isFilenameAllowed } from '@/lib/attachment-utils';
 import { getEntity, formatAttachment } from '@/lib/attachment-api-utils';
 import crypto from 'crypto';
@@ -59,6 +60,26 @@ export async function POST(request: NextRequest) {
     });
     if (currentCount >= config.maxPerEntity) {
       return NextResponse.json({ error: `Maximum ${config.maxPerEntity} attachments per entity` }, { status: 400 });
+    }
+
+    // Check server-wide storage limit
+    if (config.totalSize > 0) {
+      const serverUsed = await getServerStorageUsed();
+      if (serverUsed + file.size > config.totalSize) {
+        return NextResponse.json({
+          error: `Server storage limit exceeded (${config.totalSize / 1024 / 1024} MB). Contact your administrator to increase the limit.`,
+        }, { status: 400 });
+      }
+    }
+
+    // Check per-user storage limit
+    if (config.userMaxSize > 0) {
+      const userUsed = await getUserStorageUsed(userId);
+      if (userUsed + file.size > config.userMaxSize) {
+        return NextResponse.json({
+          error: `Your storage limit is ${config.userMaxSize / 1024 / 1024} MB. Contact your administrator to increase the limit.`,
+        }, { status: 400 });
+      }
     }
 
     // Read file buffer and compute hash

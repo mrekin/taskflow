@@ -103,6 +103,8 @@ bun run dev
 | `ATTACHMENT_MAX_SIZE` | no | `10485760` | Max attachment file size in bytes (default 10 MB) |
 | `ATTACHMENT_MAX_PER_ENTITY` | no | `10` | Max attachments per task or note |
 | `ATTACHMENT_ALLOWED_PATTERNS` | no | `*` | Allowed file patterns (glob-style, comma-separated). `*` = allow all |
+| `ATTACHMENT_TOTAL_SIZE` | no | `0` | Server-wide storage limit in MB. `0` = unlimited |
+| `ATTACHMENT_USER_MAX_SIZE` | no | `512` | Per-user storage limit in MB. `0` = unlimited |
 | `STORAGE_ADAPTER` | no | `local` | Storage backend: `local` (more adapters in future) |
 | `STORAGE_LOCAL_PATH` | no | `/app/uploads` | Local storage path for uploaded files |
 

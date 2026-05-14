@@ -1,6 +1,6 @@
 'use client';
 
-import { useSyncExternalStore, useState, useCallback } from 'react';
+import { useSyncExternalStore, useState, useCallback, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +34,7 @@ import {
   X,
   Check,
   FolderOpen,
+  HardDrive,
 } from 'lucide-react';
 import { GitHubIcon } from '@/components/github-icon';
 import { Switch } from '@/components/ui/switch';
@@ -42,6 +43,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { WebhooksSection } from '@/components/webhooks-section';
 import { StatusColumnsSettings } from '@/components/status-columns-settings';
 import { TagsManagementSection } from '@/components/tags-management-section';
+import { Progress } from '@/components/ui/progress';
 import { useAppStore } from '@/store/app-store';
 import { DEFAULT_PAGE_OPTIONS, DEFAULT_PREFERENCES } from '@/lib/constants';
 
@@ -61,6 +63,13 @@ const iconMap: Record<string, React.ElementType> = {
   'notes': StickyNote,
 };
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
 export function SettingsView() {
   const { theme, setTheme } = useTheme();
   const { data: session, update: updateSession } = useSession();
@@ -78,6 +87,21 @@ export function SettingsView() {
   const [nameSaving, setNameSaving] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameSuccess, setNameSuccess] = useState(false);
+
+  const [storageData, setStorageData] = useState<{
+    serverUsed: number;
+    serverLimit: number;
+    userUsed: number;
+    userLimit: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const basePath = process.env.NEXT_BASE_PATH || '';
+    fetch(`${basePath}/api/attachments/storage`)
+      .then((res) => res.ok ? res.json() : null)
+      .then(setStorageData)
+      .catch(() => {});
+  }, []);
 
   const handleSaveName = useCallback(async () => {
     const trimmed = nameValue.trim();
@@ -502,6 +526,39 @@ export function SettingsView() {
 
         {/* Webhooks Section */}
         <WebhooksSection />
+
+        {/* Storage Section */}
+        {storageData && (storageData.serverLimit > 0 || storageData.userLimit > 0) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <HardDrive className="h-4 w-4 text-primary" />
+                Storage
+              </CardTitle>
+              <CardDescription>Attachment storage usage</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {storageData.serverLimit > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Server</span>
+                    <span className="font-medium">{formatBytes(storageData.serverUsed)} / {formatBytes(storageData.serverLimit)}</span>
+                  </div>
+                  <Progress value={Math.min((storageData.serverUsed / storageData.serverLimit) * 100, 100)} />
+                </div>
+              )}
+              {storageData.userLimit > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Your files</span>
+                    <span className="font-medium">{formatBytes(storageData.userUsed)} / {formatBytes(storageData.userLimit)}</span>
+                  </div>
+                  <Progress value={Math.min((storageData.userUsed / storageData.userLimit) * 100, 100)} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Data Section */}
         <Card>
