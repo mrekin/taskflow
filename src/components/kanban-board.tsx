@@ -15,7 +15,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Search, X, ArrowUpDown, AlertTriangle, User, Filter, Check, ChevronsUpDown } from 'lucide-react';
+import { Plus, Search, X, ArrowUpDown, AlertTriangle, User, Filter, Check, ChevronsUpDown, ChevronRight, FolderOpen } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -43,13 +43,71 @@ import {
 import { TaskCard } from '@/components/task-card';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { useAppStore } from '@/store/app-store';
+import { useCollapsedState } from '@/hooks/use-collapsed-state';
 import { VisibilityBadge } from '@/components/visibility-badge';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import { INVALID_STATE_COLUMN, TASK_PRIORITIES, type StatusConfig } from '@/lib/constants';
 import type { Task } from '@/lib/types';
+import type { Project } from '@/lib/types';
 
 type KanbanSortField = 'id' | 'priority' | 'createdAt' | 'updatedAt' | 'title';
 type KanbanSortDirection = 'asc' | 'desc';
+
+function KanbanProjectGroup({
+  groupKey,
+  projectName,
+  taskCount,
+  collapsed,
+  onToggleCollapse,
+  children,
+}: {
+  groupKey: string;
+  projectName: string;
+  taskCount: number;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-1">
+      <button
+        className="w-full flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-muted/60 text-xs font-medium text-muted-foreground transition-colors"
+        onClick={onToggleCollapse}
+      >
+        <ChevronRight className={cn('size-3 shrink-0 transition-transform duration-150', !collapsed && 'rotate-90')} />
+        <FolderOpen className="size-3 shrink-0" />
+        <span className="truncate">{projectName}</span>
+        <span className="ml-auto text-[10px] bg-muted rounded-full px-1.5 py-0.5 tabular-nums">{taskCount}</span>
+      </button>
+      {!collapsed && <div className="mt-1">{children}</div>}
+    </div>
+  );
+}
+
+function KanbanProjectGroupWrapper({
+  groupKey,
+  projectName,
+  taskCount,
+  children,
+}: {
+  groupKey: string;
+  projectName: string;
+  taskCount: number;
+  children: React.ReactNode;
+}) {
+  const [collapsed, toggleCollapse] = useCollapsedState(groupKey);
+  return (
+    <KanbanProjectGroup
+      groupKey={groupKey}
+      projectName={projectName}
+      taskCount={taskCount}
+      collapsed={collapsed}
+      onToggleCollapse={toggleCollapse}
+    >
+      {children}
+    </KanbanProjectGroup>
+  );
+}
 
 interface KanbanColumnProps {
   column: StatusConfig;
@@ -58,9 +116,11 @@ interface KanbanColumnProps {
   isActive: boolean;
   showSubtasks: boolean;
   isInvalid?: boolean;
+  groupTasksByProject?: boolean;
+  projects?: Project[];
 }
 
-function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInvalid }: KanbanColumnProps) {
+function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInvalid, groupTasksByProject, projects }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
     data: {
@@ -68,6 +128,49 @@ function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInva
       status: column.id,
     },
   });
+
+  const projectGroups = useMemo(() => {
+    if (!groupTasksByProject || !projects) return null;
+    const groups: { key: string; name: string; tasks: Task[] }[] = [];
+    const byProject = new Map<string, Task[]>();
+    const noProject: Task[] = [];
+
+    for (const t of tasks) {
+      if (t.projectId) {
+        const arr = byProject.get(t.projectId) ?? [];
+        arr.push(t);
+        byProject.set(t.projectId, arr);
+      } else {
+        noProject.push(t);
+      }
+    }
+
+    for (const p of projects) {
+      const arr = byProject.get(p.id);
+      if (arr) {
+        groups.push({ key: `kanban_${column.id}_${p.id}`, name: p.name, tasks: arr });
+      }
+    }
+
+    if (noProject.length > 0) {
+      groups.push({ key: `kanban_${column.id}__no_project_`, name: 'No Project', tasks: noProject });
+    }
+
+    return groups;
+  }, [tasks, groupTasksByProject, projects, column.id]);
+
+  const renderTask = (task: Task) => (
+    <div key={task.id}>
+      <TaskCard task={task} />
+      {showSubtasks && (task.subtasks ?? []).length > 0 && (
+        <div className="mt-1 space-y-0.5 ml-2">
+          {(task.subtasks ?? []).map((subtask) => (
+            <TaskCard key={subtask.id} task={subtask} isSubtask />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -117,18 +220,20 @@ function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInva
       <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
         <div className="flex-1 p-2 space-y-2 max-h-[calc(100vh-260px)] overflow-y-auto custom-scrollbar">
           <AnimatePresence mode="popLayout">
-            {tasks.map((task) => (
-              <div key={task.id}>
-                <TaskCard task={task} />
-                {showSubtasks && (task.subtasks ?? []).length > 0 && (
-                  <div className="mt-1 space-y-0.5 ml-2">
-                    {(task.subtasks ?? []).map((subtask) => (
-                      <TaskCard key={subtask.id} task={subtask} isSubtask />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+            {projectGroups ? (
+              projectGroups.map((group) => (
+                <KanbanProjectGroupWrapper
+                  key={group.key}
+                  groupKey={group.key}
+                  projectName={group.name}
+                  taskCount={group.tasks.length}
+                >
+                  {group.tasks.map(renderTask)}
+                </KanbanProjectGroupWrapper>
+              ))
+            ) : (
+              tasks.map(renderTask)
+            )}
           </AnimatePresence>
           {tasks.length === 0 && (
             <div className="py-8 text-center text-muted-foreground text-sm">
@@ -154,7 +259,7 @@ function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInva
 }
 
 export function KanbanBoard() {
-  const { tasks, selectedProjectId, tagFilter, projectFilter, assigneeFilter, setAssigneeFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery, statuses, currentUserId, ownershipFilter, setOwnershipFilter } = useAppStore();
+  const { tasks, selectedProjectId, tagFilter, projectFilter, assigneeFilter, setAssigneeFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery, statuses, currentUserId, ownershipFilter, setOwnershipFilter, projects } = useAppStore();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -539,6 +644,8 @@ export function KanbanBoard() {
               onAddTask={handleAddTask}
               isActive={activeColumnId === col.id && activeTask !== null}
               showSubtasks={userPreferences.showSubtasks}
+              groupTasksByProject={userPreferences.groupTasksByProject}
+              projects={projects}
             />
           ))}
           {hasInvalidTasks && (

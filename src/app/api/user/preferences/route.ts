@@ -29,6 +29,7 @@ export async function GET() {
     customStatuses: parseStatuses(metadata.customStatuses),
     entityShortLinks: metadata.entityShortLinks !== undefined ? Boolean(metadata.entityShortLinks) : DEFAULT_PREFERENCES.entityShortLinks,
     profileVisibility: parseProfileVisibility(metadata.profileVisibility),
+    groupTasksByProject: metadata.groupTasksByProject !== undefined ? Boolean(metadata.groupTasksByProject) : DEFAULT_PREFERENCES.groupTasksByProject,
   };
 
   return NextResponse.json(preferences);
@@ -67,6 +68,7 @@ export async function PUT(request: Request) {
     : undefined;
   const entityShortLinks = typeof body.entityShortLinks === 'boolean' ? body.entityShortLinks : undefined;
   const profileVisibility = body.profileVisibility ? parseProfileVisibility(body.profileVisibility) : undefined;
+  const groupTasksByProject = typeof body.groupTasksByProject === 'boolean' ? body.groupTasksByProject : undefined;
 
   const user = await db.user.findUnique({ where: { id: userId }, select: { metadata: true } });
   let existing: Record<string, unknown>;
@@ -83,6 +85,7 @@ export async function PUT(request: Request) {
   if (customStatuses !== undefined) existing.customStatuses = customStatuses;
   if (entityShortLinks !== undefined) existing.entityShortLinks = entityShortLinks;
   if (profileVisibility !== undefined) existing.profileVisibility = profileVisibility;
+  if (groupTasksByProject !== undefined) existing.groupTasksByProject = groupTasksByProject;
 
   await db.user.update({
     where: { id: userId },
@@ -97,6 +100,7 @@ export async function PUT(request: Request) {
     customStatuses: parseStatuses(existing.customStatuses),
     entityShortLinks: existing.entityShortLinks !== undefined ? Boolean(existing.entityShortLinks) : DEFAULT_PREFERENCES.entityShortLinks,
     profileVisibility: parseProfileVisibility(existing.profileVisibility),
+    groupTasksByProject: existing.groupTasksByProject !== undefined ? Boolean(existing.groupTasksByProject) : DEFAULT_PREFERENCES.groupTasksByProject,
   };
 
   return NextResponse.json(preferences);

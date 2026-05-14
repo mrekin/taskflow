@@ -16,6 +16,7 @@ import {
   User,
   Filter,
   Paperclip,
+  ChevronRight,
 } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 
@@ -30,6 +31,8 @@ import { EntityIdBadge } from '@/components/entity-id-badge';
 import { VisibilityBadge } from '@/components/visibility-badge';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import { useAppStore } from '@/store/app-store';
+import type { Task } from '@/lib/types';
+import { useCollapsedState } from '@/hooks/use-collapsed-state';
 import {
   Popover,
   PopoverContent,
@@ -94,6 +97,62 @@ function SortButton({
         )}
       />
     </button>
+  );
+}
+
+function TaskListProjectGroup({
+  groupKey,
+  projectName,
+  taskCount,
+  collapsed,
+  onToggleCollapse,
+  children,
+}: {
+  groupKey: string;
+  projectName: string;
+  taskCount: number;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <button
+        className="w-full flex items-center gap-2 px-4 py-1.5 bg-muted/40 border-b hover:bg-muted/60 transition-colors"
+        onClick={onToggleCollapse}
+      >
+        <ChevronRight className={cn('size-3 shrink-0 transition-transform duration-150', !collapsed && 'rotate-90')} />
+        <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
+        <span className="text-xs font-medium text-muted-foreground truncate">{projectName}</span>
+        <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5 tabular-nums">{taskCount}</span>
+      </button>
+      {!collapsed && children}
+    </div>
+  );
+}
+
+function TaskListProjectGroupWrapper({
+  groupKey,
+  projectName,
+  taskCount,
+  children,
+}: {
+  groupKey: string;
+  projectName: string;
+  taskCount: number;
+  children: React.ReactNode;
+}) {
+  const [collapsed, toggleCollapse] = useCollapsedState(groupKey);
+  return (
+    <TaskListProjectGroup
+      groupKey={groupKey}
+      projectName={projectName}
+      taskCount={taskCount}
+      collapsed={collapsed}
+      onToggleCollapse={toggleCollapse}
+    >
+      {children}
+    </TaskListProjectGroup>
   );
 }
 
@@ -244,6 +303,36 @@ export function TaskList() {
     });
   }, [filteredTasks, sortField, sortDirection, projects]);
 
+  const projectGroups = useMemo(() => {
+    if (!userPreferences.groupTasksByProject) return null;
+    const groups: { key: string; name: string; tasks: Task[] }[] = [];
+    const byProject = new Map<string, Task[]>();
+    const noProject: Task[] = [];
+
+    for (const t of sortedTasks) {
+      if (t.projectId) {
+        const arr = byProject.get(t.projectId) ?? [];
+        arr.push(t);
+        byProject.set(t.projectId, arr);
+      } else {
+        noProject.push(t);
+      }
+    }
+
+    for (const p of projects) {
+      const arr = byProject.get(p.id);
+      if (arr) {
+        groups.push({ key: `tasklist_${p.id}`, name: p.name, tasks: arr });
+      }
+    }
+
+    if (noProject.length > 0) {
+      groups.push({ key: 'tasklist__no_project_', name: 'No Project', tasks: noProject });
+    }
+
+    return groups;
+  }, [sortedTasks, userPreferences.groupTasksByProject, projects]);
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
@@ -327,6 +416,201 @@ export function TaskList() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, [sortedTasks, selectedTaskIds, projects]);
+
+  const renderTaskRow = (task: Task) => {
+    const isOverdue =
+      task.dueDate &&
+      isPast(parseISO(task.dueDate)) &&
+      task.status !== 'done' &&
+      task.status !== 'cancelled';
+    const project = task.projectId
+      ? projects.find((p) => p.id === task.projectId)
+      : null;
+    const isSelected = selectedTaskIds.has(task.id);
+    const subtasks = task.subtasks ?? [];
+
+    return (
+      <div key={task.id}>
+        <motion.div
+          layout
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -5 }}
+          transition={{ duration: 0.15 }}
+          className={cn(
+            'grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_80px_80px] gap-2 px-4 py-3 border-b items-center',
+            'hover:bg-muted/30 cursor-pointer transition-colors',
+            isSelected && 'bg-primary/5 border-l-2 border-l-primary',
+            subtasks.length === 0 && 'last:border-b-0',
+          )}
+          onClick={() => selectTask(task.id)}
+        >
+          <div className="w-8" onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={(checked) => toggleTaskSelection(task.id, !!checked)}
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm truncate">
+                {task.title}
+              </span>
+              <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" />
+              {(task._count?.attachments ?? 0) > 0 && (
+                <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                  <Paperclip className="size-3" />
+                  {task._count!.attachments}
+                </span>
+              )}
+              <VisibilityBadge visibility={task.visibility} visibleUserIds={task.visibleUserIds} users={users} />
+              <OwnerIndicator ownerId={task.ownerId} currentUserId={currentUserId} />
+            </div>
+            {task.tagIds && task.tagIds.length > 0 && (
+              <div className="mt-0.5">
+                <TagBadges tagIds={task.tagIds} max={2} size="sm" />
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: PRIORITY_COLORS[task.priority] }}
+            />
+            <span className="text-xs text-muted-foreground">
+              {PRIORITY_LABELS[task.priority]}
+            </span>
+          </div>
+          <Badge
+            variant="outline"
+            className="text-[10px] px-1.5 h-5 font-normal w-fit"
+            style={{
+              borderColor: getColumnLabelAndColor(statuses, task.status).color + '60',
+              color: getColumnLabelAndColor(statuses, task.status).color,
+            }}
+          >
+            {getColumnLabelAndColor(statuses, task.status).label}
+          </Badge>
+          {task.dueDate ? (
+            <span
+              className={cn(
+                'text-xs flex items-center gap-1',
+                isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground',
+              )}
+            >
+              <Calendar className="size-3" />
+              {format(parseISO(task.dueDate), 'MMM d, HH:mm')}
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
+          {project ? (
+            <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+              <FolderOpen className="size-3 shrink-0" />
+              {project.name}
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
+          {task.assignee ? (
+            <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+              {task.assignee.image ? (
+                <img src={task.assignee.image} alt="" className="size-3 rounded-full shrink-0" />
+              ) : (
+                <User className="size-3 shrink-0" />
+              )}
+              <span className="truncate">{task.assignee.name || task.assignee.email}</span>
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
+          <span className="text-xs text-muted-foreground">
+            {format(parseISO(task.createdAt), 'MMM d')}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {format(parseISO(task.updatedAt), 'MMM d')}
+          </span>
+        </motion.div>
+
+        {userPreferences.showSubtasks && subtasks.length > 0 && subtasks.map((subtask, idx) => (
+          <motion.div
+            key={subtask.id}
+            layout
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
+            transition={{ duration: 0.12 }}
+            className={cn(
+              'grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_80px_80px] gap-2 pl-10 pr-4 py-2 border-b items-center',
+              'hover:bg-muted/20 cursor-pointer transition-colors',
+              'bg-muted/10',
+              idx === subtasks.length - 1 && 'last:border-b-0',
+            )}
+            onClick={() => selectTask(subtask.id)}
+          >
+            <div className="w-4" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ backgroundColor: PRIORITY_COLORS[subtask.priority] || '#94a3b8' }}
+                />
+                <span className={cn(
+                  'text-xs truncate',
+                  subtask.status === 'done' && 'line-through text-muted-foreground',
+                )}>
+                  {subtask.title}
+                </span>
+                <EntityIdBadge id={subtask.id} shortId={subtask.shortId || 'T-?'} type="task" className="text-[9px]" />
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span
+                className="w-1.5 h-1.5 rounded-full shrink-0"
+                style={{ backgroundColor: PRIORITY_COLORS[subtask.priority] || '#94a3b8' }}
+              />
+              <span className="text-[10px] text-muted-foreground">
+                {PRIORITY_LABELS[subtask.priority] || subtask.priority}
+              </span>
+            </div>
+            <Badge
+              variant="outline"
+              className="text-[9px] px-1 h-4 font-normal w-fit"
+              style={{
+                borderColor: getColumnLabelAndColor(statuses, subtask.status).color + '60',
+                color: getColumnLabelAndColor(statuses, subtask.status).color,
+              }}
+            >
+              {getColumnLabelAndColor(statuses, subtask.status).label}
+            </Badge>
+            {subtask.dueDate ? (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Calendar className="size-2.5" />
+                {format(parseISO(subtask.dueDate), 'MMM d')}
+              </span>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">—</span>
+            )}
+            <span className="text-[10px] text-muted-foreground">—</span>
+            {subtask.assignee ? (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
+                {subtask.assignee.image ? (
+                  <img src={subtask.assignee.image} alt="" className="size-2.5 rounded-full shrink-0" />
+                ) : (
+                  <User className="size-2.5 shrink-0" />
+                )}
+                <span className="truncate">{subtask.assignee.name || subtask.assignee.email}</span>
+              </span>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">—</span>
+            )}
+            <span className="text-[10px] text-muted-foreground">—</span>
+            <span className="text-[10px] text-muted-foreground">—</span>
+          </motion.div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -557,200 +841,15 @@ export function TaskList() {
         <div className="max-h-[calc(100vh-360px)] overflow-y-auto custom-scrollbar">
           <AnimatePresence mode="popLayout">
             {sortedTasks.length > 0 ? (
-              sortedTasks.map((task) => {
-                const isOverdue =
-                  task.dueDate &&
-                  isPast(parseISO(task.dueDate)) &&
-                  task.status !== 'done' &&
-                  task.status !== 'cancelled';
-                const project = task.projectId
-                  ? projects.find((p) => p.id === task.projectId)
-                  : null;
-                const isSelected = selectedTaskIds.has(task.id);
-                const subtasks = task.subtasks ?? [];
-
-                return (
-                  <div key={task.id}>
-                    <motion.div
-                      layout
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -5 }}
-                      transition={{ duration: 0.15 }}
-                      className={cn(
-                        'grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_80px_80px] gap-2 px-4 py-3 border-b items-center',
-                        'hover:bg-muted/30 cursor-pointer transition-colors',
-                        isSelected && 'bg-primary/5 border-l-2 border-l-primary',
-                        subtasks.length === 0 && 'last:border-b-0',
-                      )}
-                      onClick={() => selectTask(task.id)}
-                    >
-                      <div className="w-8" onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={(checked) => toggleTaskSelection(task.id, !!checked)}
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm truncate">
-                            {task.title}
-                          </span>
-                          <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" />
-                          {(task._count?.attachments ?? 0) > 0 && (
-                            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                              <Paperclip className="size-3" />
-                              {task._count!.attachments}
-                            </span>
-                          )}
-                          <VisibilityBadge visibility={task.visibility} visibleUserIds={task.visibleUserIds} users={users} />
-                          <OwnerIndicator ownerId={task.ownerId} currentUserId={currentUserId} />
-                        </div>
-                        {task.tagIds && task.tagIds.length > 0 && (
-                          <div className="mt-0.5">
-                            <TagBadges tagIds={task.tagIds} max={2} size="sm" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: PRIORITY_COLORS[task.priority] }}
-                        />
-                        <span className="text-xs text-muted-foreground">
-                          {PRIORITY_LABELS[task.priority]}
-                        </span>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] px-1.5 h-5 font-normal w-fit"
-                        style={{
-                          borderColor: getColumnLabelAndColor(statuses, task.status).color + '60',
-                          color: getColumnLabelAndColor(statuses, task.status).color,
-                        }}
-                      >
-                        {getColumnLabelAndColor(statuses, task.status).label}
-                      </Badge>
-                      {task.dueDate ? (
-                        <span
-                          className={cn(
-                            'text-xs flex items-center gap-1',
-                            isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground',
-                          )}
-                        >
-                          <Calendar className="size-3" />
-                          {format(parseISO(task.dueDate), 'MMM d, HH:mm')}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                      {project ? (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                          <FolderOpen className="size-3 shrink-0" />
-                          {project.name}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                      {task.assignee ? (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                          {task.assignee.image ? (
-                            <img src={task.assignee.image} alt="" className="size-3 rounded-full shrink-0" />
-                          ) : (
-                            <User className="size-3 shrink-0" />
-                          )}
-                          <span className="truncate">{task.assignee.name || task.assignee.email}</span>
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                      <span className="text-xs text-muted-foreground">
-                        {format(parseISO(task.createdAt), 'MMM d')}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {format(parseISO(task.updatedAt), 'MMM d')}
-                      </span>
-                    </motion.div>
-
-                    {userPreferences.showSubtasks && subtasks.length > 0 && subtasks.map((subtask, idx) => (
-                      <motion.div
-                        key={subtask.id}
-                        layout
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -8 }}
-                        transition={{ duration: 0.12 }}
-                        className={cn(
-                          'grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_80px_80px] gap-2 pl-10 pr-4 py-2 border-b items-center',
-                          'hover:bg-muted/20 cursor-pointer transition-colors',
-                          'bg-muted/10',
-                          idx === subtasks.length - 1 && 'last:border-b-0',
-                        )}
-                        onClick={() => selectTask(subtask.id)}
-                      >
-                        <div className="w-4" />
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="w-1.5 h-1.5 rounded-full shrink-0"
-                              style={{ backgroundColor: PRIORITY_COLORS[subtask.priority] || '#94a3b8' }}
-                            />
-                            <span className={cn(
-                              'text-xs truncate',
-                              subtask.status === 'done' && 'line-through text-muted-foreground',
-                            )}>
-                              {subtask.title}
-                            </span>
-                            <EntityIdBadge id={subtask.id} shortId={subtask.shortId || 'T-?'} type="task" className="text-[9px]" />
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="w-1.5 h-1.5 rounded-full shrink-0"
-                            style={{ backgroundColor: PRIORITY_COLORS[subtask.priority] || '#94a3b8' }}
-                          />
-                          <span className="text-[10px] text-muted-foreground">
-                            {PRIORITY_LABELS[subtask.priority] || subtask.priority}
-                          </span>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className="text-[9px] px-1 h-4 font-normal w-fit"
-                          style={{
-                            borderColor: getColumnLabelAndColor(statuses, subtask.status).color + '60',
-                            color: getColumnLabelAndColor(statuses, subtask.status).color,
-                          }}
-                        >
-                          {getColumnLabelAndColor(statuses, subtask.status).label}
-                        </Badge>
-                        {subtask.dueDate ? (
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Calendar className="size-2.5" />
-                            {format(parseISO(subtask.dueDate), 'MMM d')}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground">—</span>
-                        )}
-                        <span className="text-[10px] text-muted-foreground">—</span>
-                        {subtask.assignee ? (
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
-                            {subtask.assignee.image ? (
-                              <img src={subtask.assignee.image} alt="" className="size-2.5 rounded-full shrink-0" />
-                            ) : (
-                              <User className="size-2.5 shrink-0" />
-                            )}
-                            <span className="truncate">{subtask.assignee.name || subtask.assignee.email}</span>
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground">—</span>
-                        )}
-                        <span className="text-[10px] text-muted-foreground">—</span>
-                        <span className="text-[10px] text-muted-foreground">—</span>
-                      </motion.div>
-                    ))}
-                  </div>
-                );
-              })
+              projectGroups ? (
+                projectGroups.map((group) => (
+                  <TaskListProjectGroupWrapper key={group.key} groupKey={group.key} projectName={group.name} taskCount={group.tasks.length}>
+                    {group.tasks.map((task) => renderTaskRow(task))}
+                  </TaskListProjectGroupWrapper>
+                ))
+              ) : (
+                sortedTasks.map(renderTaskRow)
+              )
             ) : (
               <div className="py-12 text-center text-muted-foreground">
                 <p className="text-sm">No tasks found</p>

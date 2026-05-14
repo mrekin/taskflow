@@ -33,6 +33,7 @@ import {
   Pencil,
   X,
   Check,
+  FolderOpen,
 } from 'lucide-react';
 import { GitHubIcon } from '@/components/github-icon';
 import { Switch } from '@/components/ui/switch';
@@ -400,6 +401,27 @@ export function SettingsView() {
                 id="show-subtasks"
                 checked={prefs.showSubtasks}
                 onCheckedChange={(v) => updateUserPreference('showSubtasks', v)}
+              />
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Label htmlFor="group-tasks-by-project">Group tasks by project</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {prefs.groupTasksByProject
+                    ? 'Tasks are grouped under project headers in kanban and list views'
+                    : 'Tasks are shown in a flat list'}
+                </p>
+              </div>
+              <Switch
+                id="group-tasks-by-project"
+                checked={prefs.groupTasksByProject}
+                onCheckedChange={(v) => updateUserPreference('groupTasksByProject', v)}
               />
             </div>
 

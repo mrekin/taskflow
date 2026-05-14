@@ -101,6 +101,7 @@ export interface UserPreferences {
   customStatuses: StatusConfig[] | null;
   entityShortLinks: boolean;
   profileVisibility: ProfileVisibility;
+  groupTasksByProject: boolean;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -111,6 +112,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   customStatuses: null,
   entityShortLinks: false,
   profileVisibility: { nickname: false, email: false },
+  groupTasksByProject: false,
 };
 
 export function resolveStatuses(
