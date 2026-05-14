@@ -42,7 +42,6 @@ docker-compose.yml
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-local-*
 
 # prisma generated client
 src/generated/
