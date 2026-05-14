@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Paperclip, Upload, Download, Trash2, Copy, FileText, File, Loader2 } from 'lucide-react';
+import { Paperclip, Upload, Download, Trash2, Copy, FileText, File, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
 import { api } from '@/lib/api-utils';
 import { formatFileSize, computeFileHash, isFilenameAllowed } from '@/lib/attachment-utils';
@@ -46,7 +46,14 @@ export function AttachmentList({ entityId, entityType, ownerId }: AttachmentList
   const [uploading, setUploading] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [attachmentsExpanded, setAttachmentsExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const VISIBLE_COUNT = 3;
+  const showSpoiler = attachments.length > VISIBLE_COUNT;
+  const visibleAttachments = showSpoiler && !attachmentsExpanded
+    ? attachments.slice(0, VISIBLE_COUNT)
+    : attachments;
 
   const isOwner = currentUserId === ownerId;
   const canUpload = isOwner;
@@ -182,7 +189,7 @@ export function AttachmentList({ entityId, entityType, ownerId }: AttachmentList
 
       {attachments.length > 0 && (
         <div className="space-y-1">
-          {attachments.map((att) => (
+          {visibleAttachments.map((att) => (
             <div
               key={att.id}
               className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm group"
@@ -229,6 +236,26 @@ export function AttachmentList({ entityId, entityType, ownerId }: AttachmentList
               </div>
             </div>
           ))}
+          {showSpoiler && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs text-muted-foreground"
+              onClick={() => setAttachmentsExpanded((prev) => !prev)}
+            >
+              {attachmentsExpanded ? (
+                <>
+                  <ChevronUp className="h-3.5 w-3.5 mr-1" />
+                  Show less
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3.5 w-3.5 mr-1" />
+                  Show {attachments.length - VISIBLE_COUNT} more
+                </>
+              )}
+            </Button>
+          )}
         </div>
       )}
 

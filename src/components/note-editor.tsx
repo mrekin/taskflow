@@ -713,7 +713,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
                 onFilePaste={inlineUpload.onPaste}
                 placeholder="Start writing... (Markdown supported)"
                 data-note-content
-                className="flex-1 min-h-0 resize-none border-none rounded-none px-4 pt-4 pb-8 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
+                className="h-full resize-none border-none rounded-none px-4 pt-4 pb-8 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
               />
             </div>
             {inlineUpload.uploadingFiles.length > 0 && (
@@ -756,7 +756,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
                   onScroll={syncPreviewScroll}
                   placeholder="Start writing... (Markdown supported)"
                   data-note-content
-                  className="flex-1 min-h-0 resize-none border-none rounded-none px-4 pt-4 pb-8 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
+                  className="h-full resize-none border-none rounded-none px-4 pt-4 pb-8 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar w-full"
                 />
               </div>
               {inlineUpload.uploadingFiles.length > 0 && (
