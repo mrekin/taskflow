@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery, WebhookTrigger } from '@/lib/types';
+import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery, WebhookTrigger, Attachment, AttachmentConfig } from '@/lib/types';
 import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig, resolveStatuses, DEFAULT_STATUSES } from '@/lib/constants';
 
 import { api } from '@/lib/api-utils';
@@ -24,6 +24,8 @@ interface AppState {
   tags: Tag[];
   comments: Comment[];
   webhooks: Webhook[];
+  attachments: Attachment[];
+  attachmentConfig: AttachmentConfig | null;
 
   // UI State
   sidebarOpen: boolean;
@@ -135,6 +137,12 @@ interface AppState {
   createWebhookTrigger: (data: { webhookId: string; events: string[]; scopeType?: string; scopeId?: string }) => Promise<WebhookTrigger | undefined>;
   updateWebhookTrigger: (id: string, data: { events?: string[]; scopeType?: string; scopeId?: string; active?: boolean }) => Promise<WebhookTrigger | undefined>;
   deleteWebhookTrigger: (id: string) => Promise<void>;
+
+  // Actions - Attachments
+  fetchAttachmentConfig: () => Promise<void>;
+  fetchAttachments: (entityId: string, entityType: string) => Promise<void>;
+  uploadAttachment: (file: File, entityId: string, entityType: string, hash: string) => Promise<Attachment | undefined>;
+  deleteAttachment: (id: string) => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -155,6 +163,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   tags: [],
   comments: [],
   webhooks: [],
+  attachments: [],
+  attachmentConfig: null,
 
   // UI initial state
   sidebarOpen: true,
@@ -443,7 +453,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               shortIdNum: newTask.shortIdNum,
               shortId: newTask.shortId,
             } as Task];
-            parent._count = { subtasks: (parent._count?.subtasks ?? 0) + 1 };
+            parent._count = { subtasks: (parent._count?.subtasks ?? 0) + 1, attachments: parent._count?.attachments ?? 0 };
             parent.completedSubtasks = (parent.completedSubtasks ?? 0) + (newTask.status === 'done' ? 1 : 0);
             tasks[parentIdx] = parent;
           }
@@ -505,7 +515,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               return {
                 ...t,
                 subtasks,
-                _count: { ...t._count, subtasks: (t._count?.subtasks ?? 0) - 1 },
+                _count: { subtasks: (t._count?.subtasks ?? 0) - 1, attachments: t._count?.attachments ?? 0 },
                 completedSubtasks: (t.completedSubtasks ?? 0) - (deleted.status === 'done' ? 1 : 0),
               };
             }),
@@ -897,6 +907,127 @@ export const useAppStore = create<AppState>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to delete trigger:', error);
+      throw error;
+    }
+  },
+
+  // Attachments
+  fetchAttachmentConfig: async () => {
+    try {
+      const res = await fetch(api('/api/attachments/config'));
+      if (!res.ok) throw new Error('Failed to fetch attachment config');
+      const config: AttachmentConfig = await res.json();
+      set({ attachmentConfig: config });
+    } catch (error) {
+      console.error('Failed to fetch attachment config:', error);
+    }
+  },
+
+  fetchAttachments: async (entityId, entityType) => {
+    try {
+      const res = await fetch(api(`/api/attachments?entityId=${entityId}&entityType=${entityType}`));
+      if (!res.ok) throw new Error('Failed to fetch attachments');
+      const attachments: Attachment[] = await res.json();
+      set({ attachments });
+    } catch (error) {
+      console.error('Failed to fetch attachments:', error);
+    }
+  },
+
+  uploadAttachment: async (file, entityId, entityType, hash) => {
+    try {
+      // Step 1: check hash
+      const checkRes = await fetch(api('/api/attachments/check'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hash, fileName: file.name, size: file.size, entityId, entityType }),
+      });
+      if (!checkRes.ok) {
+        const err = await checkRes.json().catch(() => ({ error: 'Check failed' }));
+        throw new Error(err.error || 'Check failed');
+      }
+      const checkData = await checkRes.json();
+
+      let attachment: Attachment;
+
+      if (checkData.status === 'deduplicated' || checkData.status === 'already_attached') {
+        attachment = checkData.attachment;
+      } else if (checkData.status === 'upload_needed') {
+        // Step 2: upload file
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('entityId', entityId);
+        formData.append('entityType', entityType);
+        const uploadRes = await fetch(api('/api/attachments/upload'), {
+          method: 'POST',
+          body: formData,
+        });
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({ error: 'Upload failed' }));
+          throw new Error(err.error || 'Upload failed');
+        }
+        attachment = await uploadRes.json();
+      } else {
+        throw new Error('Unexpected check response');
+      }
+
+      set((state) => {
+        const updates: Partial<AppState> = { attachments: [...state.attachments, attachment] };
+
+        // Update _count.attachments on the entity in store
+        if (entityType === 'task') {
+          updates.tasks = state.tasks.map(t =>
+            t.id === entityId
+              ? { ...t, _count: { ...t._count, subtasks: t._count?.subtasks ?? 0, attachments: (t._count?.attachments ?? 0) + 1 } }
+              : t
+          );
+        } else if (entityType === 'note') {
+          updates.notes = state.notes.map(n =>
+            n.id === entityId
+              ? { ...n, _count: { ...n._count, attachments: (n._count?.attachments ?? 0) + 1 } }
+              : n
+          );
+        }
+
+        return updates;
+      });
+      return attachment;
+    } catch (error) {
+      console.error('Failed to upload attachment:', error);
+      throw error;
+    }
+  },
+
+  deleteAttachment: async (id) => {
+    try {
+      const res = await fetch(api(`/api/attachments?id=${id}`), { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete attachment');
+      set((state) => {
+        const deleted = state.attachments.find(a => a.id === id);
+        const updates: Partial<AppState> = {
+          attachments: state.attachments.filter((a) => a.id !== id),
+        };
+
+        if (deleted) {
+          if (deleted.entityType === 'task') {
+            updates.tasks = state.tasks.map(t =>
+              t.id === deleted.entityId
+                ? { ...t, _count: { ...t._count, subtasks: t._count?.subtasks ?? 0, attachments: Math.max(0, (t._count?.attachments ?? 1) - 1) } }
+                : t
+            );
+          } else if (deleted.entityType === 'note') {
+            updates.notes = state.notes.map(n =>
+              n.id === deleted.entityId
+                ? { ...n, _count: { ...n._count, attachments: Math.max(0, (n._count?.attachments ?? 1) - 1) } }
+                : n
+            );
+          }
+        }
+
+        return updates;
+      });
+    } catch (error) {
+      console.error('Failed to delete attachment:', error);
       throw error;
     }
   },

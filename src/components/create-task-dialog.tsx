@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 import {
   CalendarIcon,
@@ -11,6 +11,9 @@ import {
   Webhook as WebhookIcon,
   ChevronDown,
   ChevronRight,
+  Paperclip,
+  Upload,
+  X,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -68,6 +71,7 @@ import { MarkdownToolbar } from '@/components/markdown-toolbar';
 import { MentionTextarea } from '@/components/mention-autocomplete';
 import { toast } from 'sonner';
 import { useConfirmClose } from '@/hooks/use-confirm-close';
+import { computeFileHash, formatFileSize, isFilenameAllowed } from '@/lib/attachment-utils';
 
 const TASK_WEBHOOK_EVENTS = [
   { value: 'task.status_changed', label: 'Status Changed' },
@@ -102,7 +106,7 @@ export function CreateTaskDialog({
   defaultDescription,
   defaultParentId,
 }: CreateTaskDialogProps) {
-  const { createTask, projects, tasks, selectedProjectId, statuses, webhooks, fetchWebhooks, createWebhookTrigger, users, currentUserId } = useAppStore();
+  const { createTask, projects, tasks, selectedProjectId, statuses, webhooks, fetchWebhooks, createWebhookTrigger, users, currentUserId, uploadAttachment, attachmentConfig, fetchAttachmentConfig } = useAppStore();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -121,9 +125,13 @@ export function CreateTaskDialog({
   const [parentTaskOpen, setParentTaskOpen] = useState(false);
   const [webhookBindings, setWebhookBindings] = useState<WebhookBinding[]>([]);
   const [webhooksExpanded, setWebhooksExpanded] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<{ file: File; hash: string }[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isDirty = !!(title.trim() || description.trim() || dueDate || tagIds.length > 0 || assigneeId || webhookBindings.length > 0);
+  const isDirty = !!(title.trim() || description.trim() || dueDate || tagIds.length > 0 || assigneeId || webhookBindings.length > 0 || pendingFiles.length > 0);
 
   const handleClose = () => {
     setTitle(defaultTitle || '');
@@ -138,6 +146,8 @@ export function CreateTaskDialog({
     setAssigneeId(null);
     setWebhookBindings([]);
     setWebhooksExpanded(false);
+    setPendingFiles([]);
+    setAttachmentError(null);
     onOpenChange(false);
   };
 
@@ -167,8 +177,57 @@ export function CreateTaskDialog({
       setIsCreating(false);
       setWebhookBindings([]);
       setWebhooksExpanded(false);
+      setPendingFiles([]);
+      setAttachmentError(null);
     }
   }, [open, defaultStatus, defaultProjectId, selectedProjectId, parentId, defaultTitle, defaultDescription, defaultParentId]);
+
+  useEffect(() => {
+    if (open && !attachmentConfig) fetchAttachmentConfig();
+  }, [open, attachmentConfig, fetchAttachmentConfig]);
+
+  const handleAddFiles = useCallback(async (files: FileList | File[]) => {
+    if (!attachmentConfig) return;
+    const fileArray = Array.from(files);
+    setAttachmentError(null);
+
+    const valid: File[] = [];
+    for (const file of fileArray) {
+      if (file.size > attachmentConfig.maxSize) {
+        setAttachmentError(`${file.name}: size exceeds ${formatFileSize(attachmentConfig.maxSize)}`);
+        continue;
+      }
+      if (!isFilenameAllowed(file.name, attachmentConfig.allowedPatterns)) {
+        setAttachmentError(`${file.name}: file type not allowed`);
+        continue;
+      }
+      valid.push(file);
+    }
+
+    if (valid.length > 0) {
+      const entries = await Promise.all(
+        valid.map(async (file) => ({ file, hash: await computeFileHash(file) }))
+      );
+      setPendingFiles(prev => [...prev, ...entries]);
+    }
+  }, [attachmentConfig]);
+
+  const removePendingFile = useCallback((index: number) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const onFileDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleAddFiles(e.dataTransfer.files);
+  }, [handleAddFiles]);
+
+  const onFileDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const onFileDragLeave = useCallback(() => setIsDragging(false), []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,6 +268,16 @@ export function CreateTaskDialog({
           } catch {
             const sourceWebhook = webhooks.find((w) => w.id === binding.webhookId);
             toast.error(`Failed to create trigger for "${sourceWebhook?.name ?? 'webhook'}"`);
+          }
+        }
+      }
+
+      if (newTask && pendingFiles.length > 0) {
+        for (const { file, hash } of pendingFiles) {
+          try {
+            await uploadAttachment(file, newTask.id, 'task', hash);
+          } catch (e) {
+            console.error('Failed to upload attachment:', e);
           }
         }
       }
@@ -525,6 +594,88 @@ export function CreateTaskDialog({
                 </Popover>
               </div>
             )}
+
+            <Separator />
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-muted-foreground text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Paperclip className="size-3.5" />
+                  Attachments
+                  {pendingFiles.length > 0 && (
+                    <span className="ml-1 rounded-full bg-primary/10 text-primary px-1.5 py-0.5 text-[10px]">
+                      {pendingFiles.length}
+                    </span>
+                  )}
+                </Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4 mr-1" />
+                  Add files
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files) handleAddFiles(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+
+              {attachmentError && (
+                <p className="text-xs text-destructive">{attachmentError}</p>
+              )}
+
+              <div
+                className={cn(
+                  'rounded-md border-2 border-dashed p-4 text-center text-sm text-muted-foreground transition-colors',
+                  isDragging ? 'border-primary/50 bg-primary/5' : 'border-border',
+                )}
+                onDrop={onFileDrop}
+                onDragOver={onFileDragOver}
+                onDragLeave={onFileDragLeave}
+              >
+                {isDragging ? (
+                  'Drop files here'
+                ) : pendingFiles.length === 0 ? (
+                  'Drag and drop files here, or click "Add files"'
+                ) : null}
+              </div>
+
+              {pendingFiles.length > 0 && (
+                <div className="space-y-1">
+                  {pendingFiles.map((entry, idx) => (
+                    <div
+                      key={`${entry.file.name}-${idx}`}
+                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                    >
+                      <span className="flex-1 truncate min-w-0" title={entry.file.name}>
+                        {entry.file.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {formatFileSize(entry.file.size)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => removePendingFile(idx)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <Separator />
 

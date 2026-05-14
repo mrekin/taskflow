@@ -66,6 +66,8 @@ import {
 } from '@/lib/constants';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { TaskComments } from '@/components/task-comments';
+import { AttachmentList } from '@/components/attachment-list';
+import { useInlineFileUpload } from '@/hooks/use-inline-file-upload';
 import { TagPicker } from '@/components/tag-picker';
 import { TagBadges } from '@/components/tag-badges';
 import { UserPicker } from '@/components/user-picker';
@@ -122,6 +124,14 @@ export function TaskDetailDialog() {
 
   const navigatedFromParentRef = useRef(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+
+  const inlineUpload = useInlineFileUpload({
+    entityId: task?.id,
+    entityType: task ? 'task' : undefined,
+    textareaRef: descriptionRef,
+    value: description,
+    onChange: setDescription,
+  });
 
   const isDirty = isEditing && !!task && (
     title !== task.title ||
@@ -531,16 +541,36 @@ export function TaskDetailDialog() {
                           textareaRef={descriptionRef}
                           value={description}
                           onChange={setDescription}
+                          entityId={task?.id}
+                          entityType="task"
                           className="rounded-md border border-b-0 px-1.5 py-1 bg-muted/30"
                         />
-                        <MentionTextarea
-                          ref={descriptionRef}
-                          value={description}
-                          onChange={(val) => setDescription(val)}
-                          placeholder="Add a description... (Markdown supported)"
-                          rows={18}
-                          className="font-mono text-sm w-full rounded-t-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        />
+                        <div className="relative" {...inlineUpload.dragHandlers}>
+                          {inlineUpload.isDragOver && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary/40 rounded-md pointer-events-none">
+                              <p className="text-sm text-primary font-medium">Drop files to upload</p>
+                            </div>
+                          )}
+                          <MentionTextarea
+                            ref={descriptionRef}
+                            value={description}
+                            onChange={(val) => setDescription(val)}
+                            onFilePaste={inlineUpload.onPaste}
+                            placeholder="Add a description... (Markdown supported)"
+                            rows={18}
+                            className="font-mono text-sm w-full rounded-t-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          />
+                          {inlineUpload.fileInputElement}
+                        </div>
+                        {inlineUpload.uploadingFiles.length > 0 && (
+                          <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground bg-muted/50 rounded-b-md">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span>Uploading {inlineUpload.uploadingFiles.join(', ')}</span>
+                          </div>
+                        )}
+                        {inlineUpload.uploadError && (
+                          <p className="text-xs text-destructive">{inlineUpload.uploadError}</p>
+                        )}
                       </>
                     ) : (
                       task.description ? (
@@ -1267,6 +1297,16 @@ export function TaskDetailDialog() {
                     <Separator />
                     <TaskComments taskId={task.id} />
                   </>
+
+                  {/* Attachments */}
+                  <Separator />
+                  <div>
+                    <AttachmentList
+                      entityId={task.id}
+                      entityType="task"
+                      ownerId={task.ownerId}
+                    />
+                  </div>
 
                   {/* Delete button */}
                   {!isEditing && isOwner && (

@@ -18,6 +18,7 @@ Self-hosted task and notes management application for individual use or small te
 - **Quick create** — Streamlined entity creation from a single text input
 - **Entity links & mentions** — Reference tasks, projects, and notes with short IDs (T-5, P-2, N-3) and `#mentions` in Markdown
 - **Webhooks** — Automated notifications on task/project events with scope matching and placeholder substitution
+- **File attachments** — Upload files to tasks and notes with deduplication, inline image rendering, and configurable limits
 - **Bulk operations** — Select multiple tasks for delete or export
 - **Dark / Light theme** — System-aware theme switching
 - **OIDC / SSO** — Enterprise authentication via Keycloak, Auth0, Okta, Google, etc.
@@ -44,8 +45,8 @@ Self-hosted task and notes management application for individual use or small te
 ```bash
 git clone <repo-url> taskflow
 cd taskflow
-mkdir -p taskflow-data
-chown -R 1001:1001 taskflow-data
+mkdir -p taskflow-data taskflow-files
+chown -R 1001:1001 taskflow-data taskflow-files
 docker compose up -d
 ```
 
@@ -99,6 +100,11 @@ bun run dev
 | `BUILD_TYPE` | no | `test` | Build type: `test`, `dev`, or `release` (build-time, affects version display) |
 | `KANBAN_COLUMNS` | no | — | Default Kanban board columns. Format: `Label:color,...` or JSON array |
 | `SCHEDULER_INTERVAL_MIN` | no | `1` | Background scheduler interval in minutes (due date webhooks, etc.) |
+| `ATTACHMENT_MAX_SIZE` | no | `10485760` | Max attachment file size in bytes (default 10 MB) |
+| `ATTACHMENT_MAX_PER_ENTITY` | no | `10` | Max attachments per task or note |
+| `ATTACHMENT_ALLOWED_PATTERNS` | no | `*` | Allowed file patterns (glob-style, comma-separated). `*` = allow all |
+| `STORAGE_ADAPTER` | no | `local` | Storage backend: `local` (more adapters in future) |
+| `STORAGE_LOCAL_PATH` | no | `/app/uploads` | Local storage path for uploaded files |
 
 ## Subpath Deployment
 

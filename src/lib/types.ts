@@ -67,7 +67,7 @@ export interface Task {
   project?: Project;
   parent?: Task;
   subtasks?: Task[];
-  _count?: { subtasks: number };
+  _count?: { subtasks: number; attachments: number };
   completedSubtasks?: number;
 }
 
@@ -148,6 +148,7 @@ export interface Note {
   updatedAt: string;
   project?: Project;
   folder?: NoteFolder;
+  _count?: { attachments: number };
 }
 
 export interface NoteFolder {
@@ -168,4 +169,29 @@ export interface NoteFolder {
   children?: NoteFolder[];
   notes?: Note[];
   _count?: { children: number; notes: number };
+}
+
+export interface FileBlob {
+  id: string;
+  hash: string;
+  size: number;
+  mimeType: string;
+  originalName: string;
+}
+
+export interface Attachment {
+  id: string;
+  entityId: string;
+  entityType: string;
+  blobId: string;
+  displayName: string | null;
+  ownerId: string;
+  createdAt: string;
+  blob?: FileBlob;
+}
+
+export interface AttachmentConfig {
+  maxSize: number;
+  maxPerEntity: number;
+  allowedPatterns: string[];
 }

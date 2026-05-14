@@ -96,13 +96,22 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Get attachment counts for all tasks
+    const taskIds = tasks.map(t => t.id);
+    const attachmentCounts = await db.attachment.groupBy({
+      by: ['entityId'],
+      where: { entityId: { in: taskIds }, entityType: 'task' },
+      _count: { id: true },
+    });
+    const attachmentCountMap = new Map(attachmentCounts.map(a => [a.entityId, a._count.id]));
+
     const result = tasks.map((task) => {
       const { subtasks, ...rest } = task;
       const parsed = parseJsonFields(rest, "task");
       return {
         ...parsed,
         assignee: task.assignee ? sanitizeUserProfile(task.assignee) : null,
-        _count: { subtasks: task._count.subtasks },
+        _count: { subtasks: task._count.subtasks, attachments: attachmentCountMap.get(task.id) || 0 },
         completedSubtasks: subtasks.filter((s) => s.status === "done").length,
         subtasks: subtasks.map((s) => ({
           ...s,

@@ -68,8 +68,8 @@ COPY --from=builder /app/src/generated/prisma ./src/generated/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
-# Create data directory for SQLite
-RUN mkdir -p /app/db && chown taskflow:nodejs /app/db
+# Create data directory for SQLite and uploads
+RUN mkdir -p /app/db /app/uploads && chown -R taskflow:nodejs /app/db /app/uploads
 
 # Copy entrypoint script
 COPY --chown=taskflow:nodejs docker-entrypoint.sh ./docker-entrypoint.sh

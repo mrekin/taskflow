@@ -21,6 +21,7 @@ interface MentionTextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaE
   value: string;
   onChange: (value: string) => void;
   children?: ReactNode;
+  onFilePaste?: (e: React.ClipboardEvent<HTMLTextAreaElement>) => boolean;
 }
 
 const TYPE_ICONS: Record<string, string> = {
@@ -181,7 +182,7 @@ function Dropdown({
 
 
 export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaProps>(
-  function MentionTextarea({ value, onChange, children, className, onKeyDown, ...rest }, forwardedRef) {
+  function MentionTextarea({ value, onChange, children, className, onKeyDown, onFilePaste, ...rest }, forwardedRef) {
     const innerRef = useRef<HTMLTextAreaElement>(null);
     useImperativeHandle(forwardedRef, () => innerRef.current!, []);
 
@@ -443,6 +444,11 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
 
     const handlePaste = useCallback(
       (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        if (onFilePaste) {
+          const handled = onFilePaste(e);
+          if (handled) return;
+        }
+
         const entityShortLinks = useAppStore.getState().userPreferences.entityShortLinks;
         if (!entityShortLinks) return;
 
@@ -471,7 +477,7 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
           });
         }
       },
-      [value, onChange]
+      [value, onChange, onFilePaste]
     );
 
     return (
