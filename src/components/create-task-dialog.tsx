@@ -71,7 +71,7 @@ import { MarkdownToolbar } from '@/components/markdown-toolbar';
 import { MentionTextarea } from '@/components/mention-autocomplete';
 import { toast } from 'sonner';
 import { useConfirmClose } from '@/hooks/use-confirm-close';
-import { formatFileSize, isFilenameAllowed } from '@/lib/attachment-utils';
+import { computeFileHash, formatFileSize, isFilenameAllowed } from '@/lib/attachment-utils';
 
 const TASK_WEBHOOK_EVENTS = [
   { value: 'task.status_changed', label: 'Status Changed' },
@@ -125,7 +125,7 @@ export function CreateTaskDialog({
   const [parentTaskOpen, setParentTaskOpen] = useState(false);
   const [webhookBindings, setWebhookBindings] = useState<WebhookBinding[]>([]);
   const [webhooksExpanded, setWebhooksExpanded] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<{ file: File; hash: string }[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -186,7 +186,7 @@ export function CreateTaskDialog({
     if (open && !attachmentConfig) fetchAttachmentConfig();
   }, [open, attachmentConfig, fetchAttachmentConfig]);
 
-  const handleAddFiles = useCallback((files: FileList | File[]) => {
+  const handleAddFiles = useCallback(async (files: FileList | File[]) => {
     if (!attachmentConfig) return;
     const fileArray = Array.from(files);
     setAttachmentError(null);
@@ -205,7 +205,10 @@ export function CreateTaskDialog({
     }
 
     if (valid.length > 0) {
-      setPendingFiles(prev => [...prev, ...valid]);
+      const entries = await Promise.all(
+        valid.map(async (file) => ({ file, hash: await computeFileHash(file) }))
+      );
+      setPendingFiles(prev => [...prev, ...entries]);
     }
   }, [attachmentConfig]);
 

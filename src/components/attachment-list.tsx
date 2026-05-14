@@ -4,8 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Paperclip, Upload, Download, Trash2, Copy, FileText, File, Loader2 } from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
 import { api } from '@/lib/api-utils';
-import { formatFileSize, computeFileHash } from '@/lib/attachment-utils';
-import { isFilenameAllowed } from '@/lib/attachment-utils';
+import { formatFileSize, computeFileHash, isFilenameAllowed } from '@/lib/attachment-utils';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
