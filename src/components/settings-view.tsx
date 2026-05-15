@@ -37,6 +37,7 @@ import {
   HardDrive,
   ChevronDown,
   File,
+  Trash2,
 } from 'lucide-react';
 import { GitHubIcon } from '@/components/github-icon';
 import { Switch } from '@/components/ui/switch';
@@ -47,6 +48,16 @@ import { StatusColumnsSettings } from '@/components/status-columns-settings';
 import { TagsManagementSection } from '@/components/tags-management-section';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { useAppStore } from '@/store/app-store';
 import { DEFAULT_PAGE_OPTIONS, DEFAULT_PREFERENCES } from '@/lib/constants';
@@ -112,6 +123,25 @@ export function SettingsView() {
     }[];
   }[] | null>(null);
   const [filesOpen, setFilesOpen] = useState(false);
+  const [deleteFileTarget, setDeleteFileTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+
+  const handleDeleteFile = async () => {
+    if (!deleteFileTarget) return;
+    setDeletingFileId(deleteFileTarget.id);
+    setDeleteFileTarget(null);
+    try {
+      const basePath = process.env.NEXT_BASE_PATH || '';
+      const res = await fetch(`${basePath}/api/attachments/user-files?blobId=${deleteFileTarget.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setUserFiles((prev) => prev?.filter((x) => x.id !== deleteFileTarget.id) ?? null);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setDeletingFileId(null);
+    }
+  };
 
   useEffect(() => {
     const basePath = process.env.NEXT_BASE_PATH || '';
@@ -605,15 +635,32 @@ export function SettingsView() {
                           <span className="flex-1 truncate min-w-0">{f.originalName}</span>
                           <span className="text-muted-foreground whitespace-nowrap">{formatBytes(f.size)}</span>
                           <div className="flex items-center gap-1 shrink-0">
-                            {f.attachments.map((att) => (
-                              <EntityIdBadge
-                                key={att.id}
-                                id={att.entity.id}
-                                shortId={att.entity.shortId}
-                                type={att.entity.type}
-                                className="text-[9px]"
-                              />
-                            ))}
+                            {f.attachments.length > 0 ? (
+                              f.attachments.map((att) => (
+                                <EntityIdBadge
+                                  key={att.id}
+                                  id={att.entity.id}
+                                  shortId={att.entity.shortId}
+                                  type={att.entity.type}
+                                  className="text-[9px]"
+                                />
+                              ))
+                            ) : (
+                              <span className="text-muted-foreground italic text-[10px]">unlinked</span>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
+                              disabled={deletingFileId === f.id}
+                              onClick={() => setDeleteFileTarget({ id: f.id, name: f.originalName })}
+                            >
+                              {deletingFileId === f.id ? (
+                                <Loader2 className="size-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="size-3" />
+                              )}
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -621,6 +668,20 @@ export function SettingsView() {
                   )}
                 </CollapsibleContent>
               </Collapsible>
+              <AlertDialog open={!!deleteFileTarget} onOpenChange={(open) => !open && setDeleteFileTarget(null)}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete File</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete &quot;{deleteFileTarget?.name}&quot;? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteFile}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
         )}

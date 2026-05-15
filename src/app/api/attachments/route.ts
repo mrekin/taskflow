@@ -70,12 +70,15 @@ export async function DELETE(request: NextRequest) {
 
     // Check write access via parent entity ownership
     const entity = await getEntity(attachment.entityId, attachment.entityType);
-    if (!entity) {
-      return NextResponse.json({ error: 'Entity not found' }, { status: 404 });
-    }
-
-    if (!canWriteEntity(userId, entity.ownerId)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    if (entity) {
+      if (!canWriteEntity(userId, entity.ownerId)) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
+    } else {
+      // Orphaned attachment — allow owner of the blob to delete it
+      if (attachment.blob.ownerId !== userId) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
     }
 
     const blobId = attachment.blobId;

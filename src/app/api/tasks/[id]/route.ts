@@ -5,6 +5,7 @@ import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
 import { fireWebhookEvent, buildTaskContext, resolveTaskAreaId, computeChanges } from "@/lib/webhook-engine";
 import { createScheduledJob, deleteScheduledJobsForEntity } from "@/lib/scheduler";
 import { resolveEffectiveVisibility, canReadEntity, canWriteEntity, parseVisibleUserIds, sanitizeRelation, sanitizeUserProfile } from "@/lib/visibility";
+import { cleanupAttachments } from "@/lib/attachment-cleanup";
 
 // GET /api/tasks/[id] - Get single task with subtasks and comments
 export async function GET(
@@ -286,6 +287,23 @@ export async function DELETE(
     if (!existing || !canWriteEntity(userId, existing.ownerId)) {
       return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
     }
+
+    // Collect all descendant task IDs and their comment IDs for attachment cleanup
+    const entityRefs: Array<{ id: string; type: 'task' | 'note' | 'comment' }> = [{ id, type: 'task' }];
+    const queue = [id];
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const subtasks = await db.task.findMany({ where: { parentId: currentId }, select: { id: true } });
+      for (const st of subtasks) {
+        entityRefs.push({ id: st.id, type: 'task' });
+        queue.push(st.id);
+      }
+      const comments = await db.comment.findMany({ where: { taskId: currentId }, select: { id: true } });
+      for (const c of comments) {
+        entityRefs.push({ id: c.id, type: 'comment' });
+      }
+    }
+    await cleanupAttachments(entityRefs);
 
     await db.task.delete({ where: { id } });
 

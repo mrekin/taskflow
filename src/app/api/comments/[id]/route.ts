@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth-utils";
 import { canDeleteComment, sanitizeUserProfile } from "@/lib/visibility";
+import { cleanupAttachments } from "@/lib/attachment-cleanup";
 
 // PUT /api/comments/[id] - Update comment content
 export async function PUT(
@@ -128,6 +129,7 @@ export async function DELETE(
     }
 
     // No replies — hard delete
+    await cleanupAttachments([{ id, type: 'comment' }]);
     await db.comment.delete({ where: { id } });
 
     return NextResponse.json({ success: true, deleted: true });

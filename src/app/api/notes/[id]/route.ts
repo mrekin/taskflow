@@ -9,6 +9,7 @@ import {
   parseVisibleUserIds,
   sanitizeRelation,
 } from "@/lib/visibility";
+import { cleanupAttachments } from "@/lib/attachment-cleanup";
 
 // GET /api/notes/[id] - Get single note
 export async function GET(
@@ -194,6 +195,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Not found or access denied" }, { status: 404 });
     }
 
+    await cleanupAttachments([{ id, type: 'note' }]);
     await db.note.delete({ where: { id } });
 
     return NextResponse.json({ success: true });

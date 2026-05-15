@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-utils';
 import { db } from '@/lib/db';
 import { formatShortId } from '@/lib/utils';
+import { getStorageAdapter } from '@/lib/storage';
 
 interface EntityRef {
   id: string;
@@ -121,4 +122,40 @@ export async function GET() {
   }
 
   return NextResponse.json({ files });
+}
+
+// DELETE /api/attachments/user-files?blobId=... — delete a user's file blob and all its attachments
+export async function DELETE(request: NextRequest) {
+  const authResult = await requireAuth();
+  if ('error' in authResult) return authResult.error;
+  const { userId } = authResult;
+
+  const { searchParams } = new URL(request.url);
+  const blobId = searchParams.get('blobId');
+  if (!blobId) {
+    return NextResponse.json({ error: 'blobId is required' }, { status: 400 });
+  }
+
+  const blob = await db.fileBlob.findUnique({
+    where: { id: blobId },
+    include: { attachments: true },
+  });
+
+  if (!blob || blob.ownerId !== userId) {
+    return NextResponse.json({ error: 'File not found' }, { status: 404 });
+  }
+
+  // Delete all attachment records for this blob
+  if (blob.attachments.length > 0) {
+    await db.attachment.deleteMany({
+      where: { blobId: blob.id },
+    });
+  }
+
+  // Delete the blob record and physical file
+  const storage = getStorageAdapter();
+  await storage.delete(blob.storageKey).catch(() => {});
+  await db.fileBlob.delete({ where: { id: blob.id } });
+
+  return NextResponse.json({ success: true });
 }
