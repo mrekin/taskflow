@@ -18,6 +18,24 @@ export async function getEntity(
   entityType: string,
   options?: { includeVisibility?: boolean }
 ): Promise<EntityBasic | EntityWithVisibility | null> {
+  if (entityType === 'comment') {
+    const comment = await db.comment.findUnique({
+      where: { id: entityId },
+      select: { id: true, ownerId: true, taskId: true },
+    });
+    if (!comment) return null;
+
+    if (options?.includeVisibility) {
+      const task = await db.task.findUnique({
+        where: { id: comment.taskId },
+        select: { visibility: true, visibleUserIds: true },
+      });
+      if (!task) return null;
+      return { id: comment.id, ownerId: comment.ownerId, visibility: task.visibility, visibleUserIds: task.visibleUserIds };
+    }
+    return { id: comment.id, ownerId: comment.ownerId };
+  }
+
   const select = options?.includeVisibility
     ? { id: true, ownerId: true, visibility: true, visibleUserIds: true }
     : { id: true, ownerId: true };
@@ -45,8 +63,7 @@ export function formatAttachment(
     entityId: string;
     entityType: string;
     blobId: string;
-    displayName: string | null;
-    ownerId: string;
+    displayName: string;
     createdAt: Date;
   },
   blob: {
@@ -63,7 +80,6 @@ export function formatAttachment(
     entityType: a.entityType,
     blobId: a.blobId,
     displayName: a.displayName,
-    ownerId: a.ownerId,
     createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
     blob: {
       id: blob.id,

@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
     const entityId = searchParams.get('entityId');
     const entityType = searchParams.get('entityType');
 
-    if (!entityId || !entityType || !['task', 'note'].includes(entityType)) {
-      return NextResponse.json({ error: 'entityId and entityType (task|note) are required' }, { status: 400 });
+    if (!entityId || !entityType || !['task', 'note', 'comment'].includes(entityType)) {
+      return NextResponse.json({ error: 'entityId and entityType (task|note|comment) are required' }, { status: 400 });
     }
 
     // Check read access to the entity
@@ -68,7 +68,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Attachment not found' }, { status: 404 });
     }
 
-    if (!canWriteEntity(userId, attachment.ownerId)) {
+    // Check write access via parent entity ownership
+    const entity = await getEntity(attachment.entityId, attachment.entityType);
+    if (!entity) {
+      return NextResponse.json({ error: 'Entity not found' }, { status: 404 });
+    }
+
+    if (!canWriteEntity(userId, entity.ownerId)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 

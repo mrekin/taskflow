@@ -116,7 +116,7 @@ interface AppState {
   deleteFolder: (id: string) => Promise<void>;
 
   // Actions - CRUD Comments
-  createComment: (data: { content: string; taskId: string; parentId?: string }) => Promise<void>;
+  createComment: (data: { content: string; taskId: string; parentId?: string }) => Promise<Comment | undefined>;
   updateComment: (id: string, data: { content: string }) => Promise<void>;
   deleteComment: (id: string) => Promise<void>;
 
@@ -669,6 +669,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (!res.ok) throw new Error('Failed to create comment');
       const newComment: Comment = await res.json();
       set((state) => ({ comments: [...state.comments, newComment] }));
+      return newComment;
     } catch (error) {
       console.error('Failed to create comment:', error);
     }

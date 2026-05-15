@@ -14,6 +14,8 @@ import {
   Paperclip,
   Upload,
   X,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -71,7 +73,8 @@ import { MarkdownToolbar } from '@/components/markdown-toolbar';
 import { MentionTextarea } from '@/components/mention-autocomplete';
 import { toast } from 'sonner';
 import { useConfirmClose } from '@/hooks/use-confirm-close';
-import { computeFileHash, formatFileSize, isFilenameAllowed } from '@/lib/attachment-utils';
+import { computeFileHash, formatFileSize, isFilenameAllowed, uploadFilesConcurrently } from '@/lib/attachment-utils';
+import type { PendingAttachment } from '@/lib/types';
 
 const TASK_WEBHOOK_EVENTS = [
   { value: 'task.status_changed', label: 'Status Changed' },
@@ -125,7 +128,7 @@ export function CreateTaskDialog({
   const [parentTaskOpen, setParentTaskOpen] = useState(false);
   const [webhookBindings, setWebhookBindings] = useState<WebhookBinding[]>([]);
   const [webhooksExpanded, setWebhooksExpanded] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState<{ file: File; hash: string }[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -213,7 +216,7 @@ export function CreateTaskDialog({
 
     if (valid.length > 0) {
       const entries = await Promise.all(
-        valid.map(async (file) => ({ file, hash: await computeFileHash(file) }))
+        valid.map(async (file) => ({ file, hash: await computeFileHash(file), status: 'pending' as const }))
       );
       setPendingFiles(prev => [...prev, ...entries]);
     }
@@ -280,13 +283,15 @@ export function CreateTaskDialog({
       }
 
       if (newTask && pendingFiles.length > 0) {
-        for (const { file, hash } of pendingFiles) {
+        await uploadFilesConcurrently(pendingFiles, async ({ file, hash }, i) => {
+          setPendingFiles(prev => prev.map((f, j) => j === i ? { ...f, status: 'uploading' } : f));
           try {
             await uploadAttachment(file, newTask.id, 'task', hash);
-          } catch (e) {
-            console.error('Failed to upload attachment:', e);
+            setPendingFiles(prev => prev.map((f, j) => j === i ? { ...f, status: 'success' } : f));
+          } catch (e: any) {
+            setPendingFiles(prev => prev.map((f, j) => j === i ? { ...f, status: 'error', error: e.message || 'Upload failed' } : f));
           }
-        }
+        });
       }
 
       onOpenChange(false);
@@ -661,23 +666,39 @@ export function CreateTaskDialog({
                   {pendingFiles.map((entry, idx) => (
                     <div
                       key={`${entry.file.name}-${idx}`}
-                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                      className={cn(
+                        "flex items-center gap-2 rounded-md border px-3 py-2 text-sm",
+                        entry.status === 'error' && "border-destructive/50 bg-destructive/5",
+                      )}
                     >
+                      {entry.status === 'uploading' && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />}
+                      {entry.status === 'success' && <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />}
+                      {entry.status === 'error' && <AlertCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />}
+                      {entry.status === 'pending' && (
+                        <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-muted-foreground/30" />
+                      )}
                       <span className="flex-1 truncate min-w-0" title={entry.file.name}>
                         {entry.file.name}
                       </span>
+                      {entry.status === 'error' && entry.error && (
+                        <span className="text-xs text-destructive truncate max-w-[120px]" title={entry.error}>
+                          {entry.error}
+                        </span>
+                      )}
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {formatFileSize(entry.file.size)}
                       </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => removePendingFile(idx)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
+                      {(entry.status === 'pending' || entry.status === 'error') && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => removePendingFile(idx)}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -35,6 +35,8 @@ import {
   Check,
   FolderOpen,
   HardDrive,
+  ChevronDown,
+  File,
 } from 'lucide-react';
 import { GitHubIcon } from '@/components/github-icon';
 import { Switch } from '@/components/ui/switch';
@@ -44,6 +46,8 @@ import { WebhooksSection } from '@/components/webhooks-section';
 import { StatusColumnsSettings } from '@/components/status-columns-settings';
 import { TagsManagementSection } from '@/components/tags-management-section';
 import { Progress } from '@/components/ui/progress';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { EntityIdBadge } from '@/components/entity-id-badge';
 import { useAppStore } from '@/store/app-store';
 import { DEFAULT_PAGE_OPTIONS, DEFAULT_PREFERENCES } from '@/lib/constants';
 
@@ -95,6 +99,20 @@ export function SettingsView() {
     userLimit: number;
   } | null>(null);
 
+  const [userFiles, setUserFiles] = useState<{
+    id: string;
+    originalName: string;
+    size: number;
+    mimeType: string;
+    createdAt: string;
+    attachments: {
+      id: string;
+      displayName: string;
+      entity: { id: string; shortId: string; type: 'task' | 'note' };
+    }[];
+  }[] | null>(null);
+  const [filesOpen, setFilesOpen] = useState(false);
+
   useEffect(() => {
     const basePath = process.env.NEXT_BASE_PATH || '';
     fetch(`${basePath}/api/attachments/storage`)
@@ -102,6 +120,15 @@ export function SettingsView() {
       .then(setStorageData)
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!filesOpen || userFiles) return;
+    const basePath = process.env.NEXT_BASE_PATH || '';
+    fetch(`${basePath}/api/attachments/user-files`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => data?.files && setUserFiles(data.files))
+      .catch(() => {});
+  }, [filesOpen, userFiles]);
 
   const handleSaveName = useCallback(async () => {
     const trimmed = nameValue.trim();
@@ -528,7 +555,7 @@ export function SettingsView() {
         <WebhooksSection />
 
         {/* Storage Section */}
-        {storageData && (storageData.serverLimit > 0 || storageData.userLimit > 0) && (
+        {storageData && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -556,6 +583,44 @@ export function SettingsView() {
                   <Progress value={Math.min((storageData.userUsed / storageData.userLimit) * 100, 100)} />
                 </div>
               )}
+              <Collapsible open={filesOpen} onOpenChange={setFilesOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-between text-xs text-muted-foreground">
+                    <span>{filesOpen ? 'Hide files' : 'Show files'}{userFiles ? ` (${userFiles.length})` : ''}</span>
+                    <ChevronDown className={`size-3.5 transition-transform ${filesOpen ? 'rotate-180' : ''}`} />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  {!userFiles ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : userFiles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">No files uploaded</p>
+                  ) : (
+                    <div className="space-y-1 mt-2">
+                      {userFiles.map((f) => (
+                        <div key={f.id} className="flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
+                          <File className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="flex-1 truncate min-w-0">{f.originalName}</span>
+                          <span className="text-muted-foreground whitespace-nowrap">{formatBytes(f.size)}</span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {f.attachments.map((att) => (
+                              <EntityIdBadge
+                                key={att.id}
+                                id={att.entity.id}
+                                shortId={att.entity.shortId}
+                                type={att.entity.type}
+                                className="text-[9px]"
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
             </CardContent>
           </Card>
         )}

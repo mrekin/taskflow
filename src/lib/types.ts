@@ -184,15 +184,22 @@ export interface Attachment {
   entityId: string;
   entityType: string;
   blobId: string;
-  displayName: string | null;
-  ownerId: string;
+  displayName: string;
   createdAt: string;
   blob?: FileBlob;
+}
+
+export interface PendingAttachment {
+  file: File;
+  hash: string;
+  status: 'pending' | 'uploading' | 'success' | 'error';
+  error?: string;
 }
 
 export interface AttachmentConfig {
   maxSize: number;
   maxPerEntity: number;
+  maxPerComment: number;
   allowedPatterns: string[];
   userMaxSize: number;
   userStorageUsed: number;

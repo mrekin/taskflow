@@ -16,6 +16,7 @@ export async function GET() {
   return NextResponse.json({
     maxSize: config.maxSize,
     maxPerEntity: config.maxPerEntity,
+    maxPerComment: config.maxPerComment,
     allowedPatterns: config.allowedPatterns,
     userMaxSize: config.userMaxSize,
     userStorageUsed,

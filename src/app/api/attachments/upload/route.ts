@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'file, entityId, entityType are required' }, { status: 400 });
     }
 
-    if (!['task', 'note'].includes(entityType)) {
-      return NextResponse.json({ error: 'entityType must be task or note' }, { status: 400 });
+    if (!['task', 'note', 'comment'].includes(entityType)) {
+      return NextResponse.json({ error: 'entityType must be task, note, or comment' }, { status: 400 });
     }
 
     // Check entity exists and user can write
@@ -55,11 +55,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Check attachment limit
+    const maxAllowed = entityType === 'comment' ? config.maxPerComment : config.maxPerEntity;
     const currentCount = await db.attachment.count({
       where: { entityId, entityType },
     });
-    if (currentCount >= config.maxPerEntity) {
-      return NextResponse.json({ error: `Maximum ${config.maxPerEntity} attachments per entity` }, { status: 400 });
+    if (currentCount >= maxAllowed) {
+      return NextResponse.json({ error: `Maximum ${maxAllowed} attachments per ${entityType}` }, { status: 400 });
     }
 
     // Check server-wide storage limit
@@ -120,16 +121,14 @@ export async function POST(request: NextRequest) {
           entityType,
           blobId,
           displayName: file.name,
-          ownerId: userId,
         },
         include: { blob: true },
       });
 
       return NextResponse.json(formatAttachment(attachment, attachment.blob), { status: 201 });
     } catch (e: any) {
-      // Unique constraint violation — already attached
       if (e?.code === 'P2002') {
-        return NextResponse.json({ error: 'File already attached to this entity' }, { status: 409 });
+        return NextResponse.json({ error: `File "${file.name}" already exists` }, { status: 409 });
       }
       throw e;
     }

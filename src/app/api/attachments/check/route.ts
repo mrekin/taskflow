@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'hash, fileName, size, entityId, entityType are required' }, { status: 400 });
     }
 
-    if (!['task', 'note'].includes(entityType)) {
-      return NextResponse.json({ error: 'entityType must be task or note' }, { status: 400 });
+    if (!['task', 'note', 'comment'].includes(entityType)) {
+      return NextResponse.json({ error: 'entityType must be task, note, or comment' }, { status: 400 });
     }
 
     const config = getAttachmentConfig();
@@ -47,20 +47,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Check attachment limit
+    const maxAllowed = entityType === 'comment' ? config.maxPerComment : config.maxPerEntity;
     const currentCount = await db.attachment.count({
       where: { entityId, entityType },
     });
-    if (currentCount >= config.maxPerEntity) {
-      return NextResponse.json({ error: `Maximum ${config.maxPerEntity} attachments per entity` }, { status: 400 });
+    if (currentCount >= maxAllowed) {
+      return NextResponse.json({ error: `Maximum ${maxAllowed} attachments per ${entityType}` }, { status: 400 });
     }
 
     // Check for duplicate blob
     const existingBlob = await db.fileBlob.findUnique({ where: { hash } });
 
     if (existingBlob) {
-      // Check if already attached to this entity
+      // Check if file with same name already attached to this entity
       const existingAttachment = await db.attachment.findUnique({
-        where: { entityId_entityType_blobId: { entityId, entityType, blobId: existingBlob.id } },
+        where: { entityId_entityType_displayName: { entityId, entityType, displayName: fileName } },
       });
 
       if (existingAttachment) {
@@ -77,7 +78,6 @@ export async function POST(request: NextRequest) {
           entityType,
           blobId: existingBlob.id,
           displayName: fileName,
-          ownerId: userId,
         },
         include: { blob: true },
       });

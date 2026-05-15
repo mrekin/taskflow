@@ -32,7 +32,6 @@ model User {
   webhooks      Webhook[]
   scheduledJobs ScheduledJob[]
   fileBlobs     FileBlob[]
-  attachments   Attachment[]
 }
 
 model Area {
@@ -256,13 +255,11 @@ model Attachment {
   entityId    String
   entityType  String
   blobId      String
-  displayName String?
-  ownerId     String
+  displayName String
   createdAt   DateTime @default(now())
 
-  blob  FileBlob @relation(fields: [blobId], references: [id], onDelete: Cascade)
-  owner User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  blob FileBlob @relation(fields: [blobId], references: [id], onDelete: Cascade)
 
-  @@unique([entityId, entityType, blobId])
+  @@unique([entityId, entityType, displayName])
   @@index([entityId, entityType])
 }
