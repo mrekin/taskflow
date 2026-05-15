@@ -191,6 +191,9 @@ export function CreateTaskDialog({
     const fileArray = Array.from(files);
     setAttachmentError(null);
 
+    const pendingSize = pendingFiles.reduce((sum, f) => sum + f.file.size, 0);
+    const usedTotal = attachmentConfig.userStorageUsed + pendingSize;
+
     const valid: File[] = [];
     for (const file of fileArray) {
       if (file.size > attachmentConfig.maxSize) {
@@ -199,6 +202,10 @@ export function CreateTaskDialog({
       }
       if (!isFilenameAllowed(file.name, attachmentConfig.allowedPatterns)) {
         setAttachmentError(`${file.name}: file type not allowed`);
+        continue;
+      }
+      if (attachmentConfig.userMaxSize > 0 && usedTotal + file.size > attachmentConfig.userMaxSize) {
+        setAttachmentError(`Storage limit exceeded (${formatFileSize(attachmentConfig.userMaxSize)})`);
         continue;
       }
       valid.push(file);
@@ -210,7 +217,7 @@ export function CreateTaskDialog({
       );
       setPendingFiles(prev => [...prev, ...entries]);
     }
-  }, [attachmentConfig]);
+  }, [attachmentConfig, pendingFiles]);
 
   const removePendingFile = useCallback((index: number) => {
     setPendingFiles(prev => prev.filter((_, i) => i !== index));

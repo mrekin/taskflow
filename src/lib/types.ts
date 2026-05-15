@@ -194,4 +194,6 @@ export interface AttachmentConfig {
   maxSize: number;
   maxPerEntity: number;
   allowedPatterns: string[];
+  userMaxSize: number;
+  userStorageUsed: number;
 }

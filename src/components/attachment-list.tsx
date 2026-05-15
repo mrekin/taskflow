@@ -85,6 +85,10 @@ export function AttachmentList({ entityId, entityType, ownerId }: AttachmentList
         setError(`Maximum ${attachmentConfig.maxPerEntity} attachments`);
         break;
       }
+      if (attachmentConfig.userMaxSize > 0 && attachmentConfig.userStorageUsed + file.size > attachmentConfig.userMaxSize) {
+        setError(`Storage limit exceeded (${formatFileSize(attachmentConfig.userMaxSize)})`);
+        break;
+      }
 
       setUploading(prev => [...prev, file.name]);
       try {
