@@ -305,9 +305,11 @@ export function KanbanBoard() {
     }
 
     if (tagFilter && tagFilter.length > 0) {
-      filtered = filtered.filter((t) =>
-        tagFilter.some((tagId) => (t.tagIds || []).includes(tagId))
-      );
+      filtered = filtered.filter((t) => {
+        if (tagFilter.some((tagId) => (t.tagIds || []).includes(tagId))) return true;
+        const childTasks = tasks.filter((st) => st.parentId === t.id);
+        return childTasks.some((st) => tagFilter.some((tagId) => (st.tagIds || []).includes(tagId)));
+      });
     }
 
     if (assigneeFilter && assigneeFilter.length > 0) {
