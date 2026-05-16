@@ -15,7 +15,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Search, X, ArrowUpDown, AlertTriangle, User, Filter, Check, ChevronsUpDown, ChevronRight, FolderOpen } from 'lucide-react';
+import { Plus, Search, X, ArrowUpDown, AlertTriangle, User, Filter, Check, ChevronsUpDown, ChevronRight, FolderOpen, ChevronDown } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -40,13 +40,23 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { EntityIdBadge } from '@/components/entity-id-badge';
+import { TagBadges } from '@/components/tag-badges';
 import { TaskCard } from '@/components/task-card';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { useAppStore } from '@/store/app-store';
 import { useCollapsedState } from '@/hooks/use-collapsed-state';
-import { VisibilityBadge } from '@/components/visibility-badge';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { OwnerIndicator } from '@/components/owner-indicator';
-import { INVALID_STATE_COLUMN, TASK_PRIORITIES, type StatusConfig } from '@/lib/constants';
+import { INVALID_STATE_COLUMN, TASK_PRIORITIES, PRIORITY_LABELS, PRIORITY_COLORS, getColumnLabelAndColor, type StatusConfig } from '@/lib/constants';
 import type { Task } from '@/lib/types';
 import type { Project } from '@/lib/types';
 
@@ -258,8 +268,99 @@ function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInva
   );
 }
 
+function MobileTaskCard({ task, visibleColumns }: { task: Task; visibleColumns: StatusConfig[] }) {
+  const { selectTask, updateTask, statuses, currentUserId, users } = useAppStore();
+  const { label: statusLabel, color: statusColor } = getColumnLabelAndColor(statuses, task.status);
+  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done' && task.status !== 'cancelled';
+
+  const handleStatusChange = (newStatus: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (newStatus === task.status) return;
+    useAppStore.setState((state) => ({
+      tasks: state.tasks.map((t) => t.id === task.id ? { ...t, status: newStatus } : t),
+    }));
+    updateTask(task.id, { status: newStatus });
+  };
+
+  return (
+    <Card
+      className="cursor-pointer py-0 gap-1.5 border-l-4 transition-all duration-200 active:scale-[0.98]"
+      style={{ borderLeftColor: statusColor }}
+      onClick={() => selectTask(task.id)}
+    >
+      <div className="p-2.5 space-y-1.5">
+        <div className="flex items-start gap-1.5">
+          <span className="text-sm font-medium leading-tight line-clamp-2 flex-1">
+            {task.title}
+          </span>
+          <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" className="shrink-0 text-[9px]" />
+          <span
+            className="shrink-0 w-2 h-2 rounded-full mt-1.5"
+            style={{ backgroundColor: PRIORITY_COLORS[task.priority] || '#94a3b8' }}
+            title={PRIORITY_LABELS[task.priority] || task.priority}
+          />
+        </div>
+
+        <OwnerIndicator ownerId={task.ownerId} currentUserId={currentUserId} />
+
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-normal border transition-colors hover:bg-accent shrink-0"
+                style={{ borderColor: statusColor + '60', color: statusColor }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: statusColor }} />
+                {statusLabel}
+                <ChevronDown className="size-2.5 opacity-50" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[140px]" onClick={(e) => e.stopPropagation()}>
+              {visibleColumns.map((col) => (
+                <DropdownMenuItem
+                  key={col.id}
+                  className={cn('gap-2 text-xs', col.id === task.status && 'font-medium')}
+                  onClick={(e) => handleStatusChange(col.id, e)}
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+                  {col.label}
+                  {col.id === task.status && <Check className="size-3 ml-auto" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {task.dueDate && (
+            <Badge
+              variant="outline"
+              className={cn(
+                'text-[10px] px-1.5 py-0 h-5 gap-1 font-normal',
+                isOverdue && 'border-red-300 text-red-600 bg-red-50 dark:bg-red-950/30',
+              )}
+            >
+              {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+            </Badge>
+          )}
+
+          {(task._count?.subtasks ?? task.subtasks?.length ?? 0) > 0 && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 gap-1 font-normal">
+              {task.completedSubtasks ?? task.subtasks?.filter((s) => s.status === 'done').length ?? 0}/{task._count?.subtasks ?? task.subtasks?.length ?? 0}
+            </Badge>
+          )}
+
+          {task.tagIds && task.tagIds.length > 0 && (
+            <TagBadges tagIds={task.tagIds} max={2} size="sm" />
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export function KanbanBoard() {
   const { tasks, selectedProjectId, tagFilter, projectFilter, assigneeFilter, setAssigneeFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery, statuses, currentUserId, ownershipFilter, setOwnershipFilter, projects } = useAppStore();
+  const isMobile = useIsMobile();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -269,9 +370,14 @@ export function KanbanBoard() {
   const [sortField, setSortField] = useState<KanbanSortField>('id');
   const [sortDirection, setSortDirection] = useState<KanbanSortDirection>('asc');
   const [assigneeFilterOpen, setAssigneeFilterOpen] = useState(false);
+  const [activeColumnIndex, setActiveColumnIndex] = useState(0);
 
   const visibleColumns = useMemo(() => statuses.filter((c) => c.visible), [statuses]);
   const allColumnIds = useMemo(() => new Set(statuses.map((c) => c.id)), [statuses]);
+
+  useEffect(() => {
+    setActiveColumnIndex(0);
+  }, [visibleColumns.map((c) => c.id).join(',')]);
 
   useEffect(() => {
     return () => {
@@ -515,9 +621,32 @@ export function KanbanBoard() {
     setCreateDialogOpen(true);
   };
 
+  const allMobileColumns = useMemo(() => {
+    const cols = [...visibleColumns];
+    if (hasInvalidTasks) cols.push(INVALID_STATE_COLUMN);
+    return cols;
+  }, [visibleColumns, hasInvalidTasks]);
+
+  const activeColTasks = allMobileColumns[activeColumnIndex]
+    ? tasksByStatus[allMobileColumns[activeColumnIndex].id] || []
+    : [];
+
+  const renderMobileTask = (task: Task) => (
+    <div key={task.id}>
+      <MobileTaskCard task={task} visibleColumns={visibleColumns} />
+      {userPreferences.showSubtasks && (task.subtasks ?? []).length > 0 && (
+        <div className="mt-1 space-y-0.5 ml-2">
+          {(task.subtasks ?? []).map((subtask) => (
+            <MobileTaskCard key={subtask.id} task={subtask} visibleColumns={visibleColumns} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="h-full space-y-4">
-      <div className="flex items-center gap-2 justify-end">
+      <div className={cn('flex items-center gap-2 justify-end', isMobile && 'flex-wrap')}>
         <div className="flex items-center gap-1">
           <Button
             variant={ownershipFilter === 'all' ? 'default' : 'outline'}
@@ -590,7 +719,7 @@ export function KanbanBoard() {
             </PopoverContent>
           </Popover>
         )}
-        <div className="relative w-56">
+        <div className={cn('relative', isMobile ? 'w-full' : 'w-56')}>
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
           <Input
             value={searchInput}
@@ -607,65 +736,127 @@ export function KanbanBoard() {
             </button>
           )}
         </div>
-        <Select value={sortField} onValueChange={(v) => setSortField(v as KanbanSortField)}>
-          <SelectTrigger className="w-[150px] h-7 text-xs">
-            <ArrowUpDown className="size-3 mr-1 text-muted-foreground" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="id">ID</SelectItem>
-            <SelectItem value="priority">Priority</SelectItem>
-            <SelectItem value="createdAt">Created</SelectItem>
-            <SelectItem value="updatedAt">Updated</SelectItem>
-            <SelectItem value="title">Title</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 text-xs px-2"
-          onClick={() => setSortDirection((d) => d === 'asc' ? 'desc' : 'asc')}
-        >
-          {sortDirection === 'asc' ? '↑ Asc' : '↓ Desc'}
-        </Button>
+        {!isMobile && (
+          <>
+            <Select value={sortField} onValueChange={(v) => setSortField(v as KanbanSortField)}>
+              <SelectTrigger className="w-[150px] h-7 text-xs">
+                <ArrowUpDown className="size-3 mr-1 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="id">ID</SelectItem>
+                <SelectItem value="priority">Priority</SelectItem>
+                <SelectItem value="createdAt">Created</SelectItem>
+                <SelectItem value="updatedAt">Updated</SelectItem>
+                <SelectItem value="title">Title</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs px-2"
+              onClick={() => setSortDirection((d) => d === 'asc' ? 'desc' : 'asc')}
+            >
+              {sortDirection === 'asc' ? '↑ Asc' : '↓ Desc'}
+            </Button>
+          </>
+        )}
       </div>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={pointerWithin}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-        onDragCancel={handleDragCancel}
-      >
-        <div className="flex gap-4 overflow-x-auto pb-4 h-full custom-scrollbar-horizontal">
-          {visibleColumns.map((col) => (
-            <KanbanColumn
-              key={col.id}
-              column={col}
-              tasks={tasksByStatus[col.id] || []}
-              onAddTask={handleAddTask}
-              isActive={activeColumnId === col.id && activeTask !== null}
-              showSubtasks={userPreferences.showSubtasks}
-              groupTasksByProject={userPreferences.groupTasksByProject}
-              projects={projects}
-            />
-          ))}
-          {hasInvalidTasks && (
-            <KanbanColumn
-              column={INVALID_STATE_COLUMN}
-              tasks={tasksByStatus[INVALID_STATE_COLUMN.id] || []}
-              onAddTask={handleAddTask}
-              isActive={activeColumnId === INVALID_STATE_COLUMN.id && activeTask !== null}
-              showSubtasks={userPreferences.showSubtasks}
-              isInvalid
-            />
+
+      {isMobile ? (
+        <div className="flex flex-col h-full -mt-2">
+          <div className="flex border-b overflow-x-auto shrink-0">
+            {allMobileColumns.map((col, idx) => (
+              <button
+                key={col.id}
+                className={cn(
+                  'px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors',
+                  idx === activeColumnIndex
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground',
+                )}
+                onClick={() => setActiveColumnIndex(idx)}
+              >
+                <span className="flex items-center gap-1.5">
+                  {col.id === INVALID_STATE_COLUMN.id ? (
+                    <AlertTriangle className="size-3 shrink-0" />
+                  ) : (
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: col.color }}
+                    />
+                  )}
+                  {col.label}
+                  <span className="text-xs text-muted-foreground">
+                    ({(tasksByStatus[col.id] || []).length})
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="flex-1 overflow-auto p-3 space-y-2">
+            <AnimatePresence mode="popLayout">
+              {activeColTasks.map(renderMobileTask)}
+            </AnimatePresence>
+            {activeColTasks.length === 0 && (
+              <div className="py-8 text-center text-muted-foreground text-sm">
+                {allMobileColumns[activeColumnIndex]?.id === INVALID_STATE_COLUMN.id
+                  ? 'No invalid tasks'
+                  : 'No tasks'}
+              </div>
+            )}
+          </div>
+          {allMobileColumns[activeColumnIndex]?.id !== INVALID_STATE_COLUMN.id && (
+            <div className="p-3 pt-0">
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-muted-foreground hover:text-foreground h-9"
+                onClick={() => handleAddTask(allMobileColumns[activeColumnIndex]?.id || 'todo')}
+              >
+                <Plus className="size-4 mr-2" /> Add task
+              </Button>
+            </div>
           )}
         </div>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={pointerWithin}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-4 h-full custom-scrollbar-horizontal">
+            {visibleColumns.map((col) => (
+              <KanbanColumn
+                key={col.id}
+                column={col}
+                tasks={tasksByStatus[col.id] || []}
+                onAddTask={handleAddTask}
+                isActive={activeColumnId === col.id && activeTask !== null}
+                showSubtasks={userPreferences.showSubtasks}
+                groupTasksByProject={userPreferences.groupTasksByProject}
+                projects={projects}
+              />
+            ))}
+            {hasInvalidTasks && (
+              <KanbanColumn
+                column={INVALID_STATE_COLUMN}
+                tasks={tasksByStatus[INVALID_STATE_COLUMN.id] || []}
+                onAddTask={handleAddTask}
+                isActive={activeColumnId === INVALID_STATE_COLUMN.id && activeTask !== null}
+                showSubtasks={userPreferences.showSubtasks}
+                isInvalid
+              />
+            )}
+          </div>
 
-        <DragOverlay>
-          {activeTask && <TaskCard task={activeTask} isDragOverlay />}
-        </DragOverlay>
-      </DndContext>
+          <DragOverlay>
+            {activeTask && <TaskCard task={activeTask} isDragOverlay />}
+          </DragOverlay>
+        </DndContext>
+      )}
 
       <CreateTaskDialog
         open={createDialogOpen}

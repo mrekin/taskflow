@@ -33,6 +33,8 @@ import { OwnerIndicator } from '@/components/owner-indicator';
 import { useAppStore } from '@/store/app-store';
 import type { Task } from '@/lib/types';
 import { useCollapsedState } from '@/hooks/use-collapsed-state';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { TaskCardMobile } from '@/components/task-card-mobile';
 import {
   Popover,
   PopoverContent,
@@ -171,6 +173,7 @@ export function TaskList() {
   const [searchInput, setSearchInput] = useState(taskSearchQuery);
   const [assigneeFilterOpen, setAssigneeFilterOpen] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     return () => {
@@ -676,191 +679,230 @@ export function TaskList() {
       </AnimatePresence>
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Button
-          variant={taskStatusFilter === 'all' ? 'default' : 'outline'}
-          size="sm"
-          className="h-7 text-xs"
-          onClick={() => setTaskStatusFilter('all')}
-        >
-          All ({projectTasksCount.all})
-        </Button>
-        <Button
-          variant={taskStatusFilter === 'active' ? 'default' : 'outline'}
-          size="sm"
-          className="h-7 text-xs"
-          onClick={() => setTaskStatusFilter('active')}
-        >
-          Active ({projectTasksCount.active})
-        </Button>
-        {TASK_STATUSES.map((status) => {
-          const count = tasks.filter(
-            (t) =>
-              t.status === status &&
-              !t.parentId &&
-              (!selectedProjectId || t.projectId === selectedProjectId),
-          ).length;
-          return (
-            <Button
-              key={status}
-              variant={taskStatusFilter === status ? 'default' : 'outline'}
-              size="sm"
-              className="h-7 text-xs gap-1.5"
-              onClick={() => setTaskStatusFilter(status)}
-            >
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: getColumnLabelAndColor(statuses, status).color }}
-              />
-              {getColumnLabelAndColor(statuses, status).label} ({count})
-            </Button>
-          );
-        })}
-
-        {/* Assignee filter */}
-        {uniqueAssignees.length > 0 && (
-          <Popover open={assigneeFilterOpen} onOpenChange={setAssigneeFilterOpen}>
-            <PopoverTrigger asChild>
+      <div className={cn('flex items-center gap-2', isMobile ? 'flex-col' : 'flex-wrap')}>
+        <div className={cn('flex items-center gap-2', isMobile && 'w-full overflow-x-auto pb-1')}>
+          <Button
+            variant={taskStatusFilter === 'all' ? 'default' : 'outline'}
+            size="sm"
+            className="h-7 text-xs shrink-0"
+            onClick={() => setTaskStatusFilter('all')}
+          >
+            All ({projectTasksCount.all})
+          </Button>
+          <Button
+            variant={taskStatusFilter === 'active' ? 'default' : 'outline'}
+            size="sm"
+            className="h-7 text-xs shrink-0"
+            onClick={() => setTaskStatusFilter('active')}
+          >
+            Active ({projectTasksCount.active})
+          </Button>
+          {TASK_STATUSES.map((status) => {
+            const count = tasks.filter(
+              (t) =>
+                t.status === status &&
+                !t.parentId &&
+                (!selectedProjectId || t.projectId === selectedProjectId),
+            ).length;
+            return (
               <Button
-                variant={assigneeFilter.length > 0 ? 'default' : 'outline'}
+                key={status}
+                variant={taskStatusFilter === status ? 'default' : 'outline'}
                 size="sm"
-                className="h-7 text-xs gap-1"
+                className="h-7 text-xs gap-1.5 shrink-0"
+                onClick={() => setTaskStatusFilter(status)}
               >
-                <User className="size-3" />
-                Assignee
-                {assigneeFilter.length > 0 && ` (${assigneeFilter.length})`}
-                <ChevronsUpDown className="size-3 opacity-50" />
+                <span
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: getColumnLabelAndColor(statuses, status).color }}
+                />
+                {getColumnLabelAndColor(statuses, status).label} ({count})
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[200px] p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Search assignee..." />
-                <CommandList onWheel={(e) => e.stopPropagation()}>
-                  <CommandEmpty>No assignee found.</CommandEmpty>
-                  <CommandGroup>
-                    {uniqueAssignees.map((assignee) => (
-                      <CommandItem
-                        key={assignee.id}
-                        value={`${assignee.name || ''} ${assignee.email || ''}`}
-                        onSelect={() => {
-                          const next = assigneeFilter.includes(assignee.id)
-                            ? assigneeFilter.filter((id) => id !== assignee.id)
-                            : [...assigneeFilter, assignee.id];
-                          setAssigneeFilter(next);
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            'mr-2 size-4 shrink-0',
-                            assigneeFilter.includes(assignee.id) ? 'opacity-100' : 'opacity-0',
-                          )}
-                        />
-                        <span className="truncate">{assignee.name || assignee.email}</span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        )}
+            );
+          })}
 
-        <div className="flex-1" />
-        <div className="flex items-center gap-1">
-          <Button
-            variant={ownershipFilter === 'all' ? 'default' : 'outline'}
-            size="sm"
-            className="h-7 text-xs px-2"
-            onClick={() => setOwnershipFilter('all')}
-          >
-            All
-          </Button>
-          <Button
-            variant={ownershipFilter === 'mine' ? 'default' : 'outline'}
-            size="sm"
-            className="h-7 text-xs px-2"
-            onClick={() => setOwnershipFilter('mine')}
-          >
-            Mine
-          </Button>
-          <Button
-            variant={ownershipFilter === 'shared' ? 'default' : 'outline'}
-            size="sm"
-            className="h-7 text-xs px-2"
-            onClick={() => setOwnershipFilter('shared')}
-          >
-            Shared
-          </Button>
-        </div>
-        <div className="relative w-56">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-          <Input
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search tasks..."
-            className="h-7 text-xs pl-7 pr-7"
-          />
-          {searchInput && (
-            <button
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 size-4 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground"
-              onClick={clearSearch}
-            >
-              <X className="size-3" />
-            </button>
+          {/* Assignee filter */}
+          {uniqueAssignees.length > 0 && (
+            <Popover open={assigneeFilterOpen} onOpenChange={setAssigneeFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={assigneeFilter.length > 0 ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-xs gap-1 shrink-0"
+                >
+                  <User className="size-3" />
+                  Assignee
+                  {assigneeFilter.length > 0 && ` (${assigneeFilter.length})`}
+                  <ChevronsUpDown className="size-3 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search assignee..." />
+                  <CommandList onWheel={(e) => e.stopPropagation()}>
+                    <CommandEmpty>No assignee found.</CommandEmpty>
+                    <CommandGroup>
+                      {uniqueAssignees.map((assignee) => (
+                        <CommandItem
+                          key={assignee.id}
+                          value={`${assignee.name || ''} ${assignee.email || ''}`}
+                          onSelect={() => {
+                            const next = assigneeFilter.includes(assignee.id)
+                              ? assigneeFilter.filter((id) => id !== assignee.id)
+                              : [...assigneeFilter, assignee.id];
+                            setAssigneeFilter(next);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              'mr-2 size-4 shrink-0',
+                              assigneeFilter.includes(assignee.id) ? 'opacity-100' : 'opacity-0',
+                            )}
+                          />
+                          <span className="truncate">{assignee.name || assignee.email}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           )}
         </div>
-        <Button size="sm" onClick={() => setCreateDialogOpen(true)} className="h-7 text-xs">
-          <Plus className="size-3 mr-1" /> Add Task
-        </Button>
-      </div>
 
-      {/* Table header */}
-      <div className="border rounded-lg overflow-hidden">
-        <div className="grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_80px_80px] gap-2 px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground">
-          <div className="w-8 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-            <Checkbox
-              checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
-              onCheckedChange={(checked) => {
-                if (checked) {
-                  selectAll();
-                } else {
-                  deselectAll();
-                }
-              }}
-            />
+        <div className={cn('flex items-center gap-2', isMobile ? 'w-full' : 'flex-1 justify-end')}>
+          {!isMobile && <div className="flex-1" />}
+          <div className="flex items-center gap-1">
+            <Button
+              variant={ownershipFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              className="h-7 text-xs px-2"
+              onClick={() => setOwnershipFilter('all')}
+            >
+              All
+            </Button>
+            <Button
+              variant={ownershipFilter === 'mine' ? 'default' : 'outline'}
+              size="sm"
+              className="h-7 text-xs px-2"
+              onClick={() => setOwnershipFilter('mine')}
+            >
+              Mine
+            </Button>
+            <Button
+              variant={ownershipFilter === 'shared' ? 'default' : 'outline'}
+              size="sm"
+              className="h-7 text-xs px-2"
+              onClick={() => setOwnershipFilter('shared')}
+            >
+              Shared
+            </Button>
           </div>
-          <SortButton field="title" currentSortField={sortField} onSort={handleSort}>Title</SortButton>
-          <SortButton field="priority" currentSortField={sortField} onSort={handleSort}>Priority</SortButton>
-          <SortButton field="status" currentSortField={sortField} onSort={handleSort}>Status</SortButton>
-          <SortButton field="dueDate" currentSortField={sortField} onSort={handleSort}>Due Date</SortButton>
-          <SortButton field="project" currentSortField={sortField} onSort={handleSort}>Project</SortButton>
-          <span className="text-xs font-medium text-muted-foreground">Assignee</span>
-          <SortButton field="createdAt" currentSortField={sortField} onSort={handleSort}>Created</SortButton>
-          <SortButton field="updatedAt" currentSortField={sortField} onSort={handleSort}>Updated</SortButton>
-        </div>
-
-        {/* Task rows */}
-        <div className="max-h-[calc(100vh-360px)] overflow-y-auto custom-scrollbar">
-          <AnimatePresence mode="popLayout">
-            {sortedTasks.length > 0 ? (
-              projectGroups ? (
-                projectGroups.map((group) => (
-                  <TaskListProjectGroupWrapper key={group.key} groupKey={group.key} projectName={group.name} taskCount={group.tasks.length}>
-                    {group.tasks.map((task) => renderTaskRow(task))}
-                  </TaskListProjectGroupWrapper>
-                ))
-              ) : (
-                sortedTasks.map(renderTaskRow)
-              )
-            ) : (
-              <div className="py-12 text-center text-muted-foreground">
-                <p className="text-sm">No tasks found</p>
-                <p className="text-xs mt-1">Create a task to get started</p>
-              </div>
+          <div className={cn('relative', isMobile ? 'flex-1' : 'w-56')}>
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search tasks..."
+              className="h-7 text-xs pl-7 pr-7 w-full"
+            />
+            {searchInput && (
+              <button
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 size-4 flex items-center justify-center rounded-sm hover:bg-muted text-muted-foreground"
+                onClick={clearSearch}
+              >
+                <X className="size-3" />
+              </button>
             )}
-          </AnimatePresence>
+          </div>
+          <Button size="sm" onClick={() => setCreateDialogOpen(true)} className="h-7 text-xs shrink-0">
+            <Plus className="size-3 mr-1" /> Add Task
+          </Button>
         </div>
       </div>
+
+      {/* Mobile card layout */}
+      {isMobile ? (
+        <div className="max-h-[calc(100vh-300px)] overflow-y-auto custom-scrollbar">
+          {sortedTasks.length > 0 ? (
+            projectGroups ? (
+              projectGroups.map((group) => (
+                <div key={group.key}>
+                  <div className="flex items-center gap-2 px-1 py-1.5">
+                    <FolderOpen className="size-3 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground">{group.name}</span>
+                    <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{group.tasks.length}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {group.tasks.map((task) => (
+                      <TaskCardMobile key={task.id} task={task} />
+                    ))}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="space-y-2">
+                {sortedTasks.map((task) => (
+                  <TaskCardMobile key={task.id} task={task} />
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="py-12 text-center text-muted-foreground">
+              <p className="text-sm">No tasks found</p>
+              <p className="text-xs mt-1">Create a task to get started</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Desktop table layout */
+        <div className="border rounded-lg overflow-hidden">
+          <div className="grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_80px_80px] gap-2 px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground">
+            <div className="w-8 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    selectAll();
+                  } else {
+                    deselectAll();
+                  }
+                }}
+              />
+            </div>
+            <SortButton field="title" currentSortField={sortField} onSort={handleSort}>Title</SortButton>
+            <SortButton field="priority" currentSortField={sortField} onSort={handleSort}>Priority</SortButton>
+            <SortButton field="status" currentSortField={sortField} onSort={handleSort}>Status</SortButton>
+            <SortButton field="dueDate" currentSortField={sortField} onSort={handleSort}>Due Date</SortButton>
+            <SortButton field="project" currentSortField={sortField} onSort={handleSort}>Project</SortButton>
+            <span className="text-xs font-medium text-muted-foreground">Assignee</span>
+            <SortButton field="createdAt" currentSortField={sortField} onSort={handleSort}>Created</SortButton>
+            <SortButton field="updatedAt" currentSortField={sortField} onSort={handleSort}>Updated</SortButton>
+          </div>
+
+          {/* Task rows */}
+          <div className="max-h-[calc(100vh-360px)] overflow-y-auto custom-scrollbar">
+            <AnimatePresence mode="popLayout">
+              {sortedTasks.length > 0 ? (
+                projectGroups ? (
+                  projectGroups.map((group) => (
+                    <TaskListProjectGroupWrapper key={group.key} groupKey={group.key} projectName={group.name} taskCount={group.tasks.length}>
+                      {group.tasks.map((task) => renderTaskRow(task))}
+                    </TaskListProjectGroupWrapper>
+                  ))
+                ) : (
+                  sortedTasks.map(renderTaskRow)
+                )
+              ) : (
+                <div className="py-12 text-center text-muted-foreground">
+                  <p className="text-sm">No tasks found</p>
+                  <p className="text-xs mt-1">Create a task to get started</p>
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
 
       <CreateTaskDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
     </div>

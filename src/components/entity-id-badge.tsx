@@ -46,7 +46,7 @@ export function EntityIdBadge({ shortId, id, type, className }: EntityIdBadgePro
         type="button"
         onClick={handleCopyId}
         className={cn(
-          'px-1.5 py-0.5 transition-colors',
+          'px-2 py-1 sm:px-1.5 sm:py-0.5 transition-colors',
           copiedId ? 'text-emerald-500' : 'hover:text-foreground',
         )}
         title="Copy ID"
@@ -56,7 +56,7 @@ export function EntityIdBadge({ shortId, id, type, className }: EntityIdBadgePro
       <button
         type="button"
         onClick={handleCopyLink}
-        className="px-1 py-0.5 hover:text-foreground transition-colors border-l border-border/50"
+        className="px-1.5 py-1 sm:px-1 sm:py-0.5 hover:text-foreground transition-colors border-l border-border/50"
         title="Copy direct link"
       >
         {copiedLink ? <Check className="size-2.5 text-emerald-500" /> : <Link2 className="size-2.5" />}

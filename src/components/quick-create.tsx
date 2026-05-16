@@ -201,9 +201,9 @@ export function QuickCreate() {
       <div className="flex flex-wrap items-center gap-3">
         {/* Project selector for Tasks */}
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Task →</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap hidden md:inline">Task →</span>
           <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-            <SelectTrigger size="sm" className="h-7 text-xs gap-1">
+            <SelectTrigger size="sm" className="h-9 md:h-7 text-xs gap-1">
               <SelectValue placeholder="Project" />
             </SelectTrigger>
             <SelectContent>
@@ -219,9 +219,9 @@ export function QuickCreate() {
 
         {/* Area selector for Projects */}
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Project →</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap hidden md:inline">Project →</span>
           <Select value={selectedAreaId} onValueChange={setSelectedAreaId}>
-            <SelectTrigger size="sm" className="h-7 text-xs gap-1">
+            <SelectTrigger size="sm" className="h-9 md:h-7 text-xs gap-1">
               <SelectValue placeholder="Area" />
             </SelectTrigger>
             <SelectContent>
@@ -237,9 +237,9 @@ export function QuickCreate() {
 
         {/* Project selector for Notes */}
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Note →</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap hidden md:inline">Note →</span>
           <Select value={noteProjectId} onValueChange={setNoteProjectId}>
-            <SelectTrigger size="sm" className="h-7 text-xs gap-1">
+            <SelectTrigger size="sm" className="h-9 md:h-7 text-xs gap-1">
               <SelectValue placeholder="Project" />
             </SelectTrigger>
             <SelectContent>

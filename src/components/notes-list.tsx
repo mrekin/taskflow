@@ -46,6 +46,7 @@ import { VisibilityBadge } from '@/components/visibility-badge';
 import { VisibilityLock } from '@/components/visibility-lock';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Popover,
   PopoverContent,
@@ -111,6 +112,7 @@ export function NotesList() {
     users,
   } = useAppStore();
 
+  const isMobile = useIsMobile();
   const [searchInput, setSearchInput] = useState(noteSearchQuery);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -462,26 +464,58 @@ export function NotesList() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleImport}>
-              <Upload className="h-4 w-4 mr-1.5" />
-              Import
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleExportAll}>
-              <FileDown className="h-4 w-4 mr-1.5" />
-              Export
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCreateFolderOpen(true)}
-            >
-              <FolderPlus className="h-4 w-4 mr-1.5" />
-              New Folder
-            </Button>
-            <Button onClick={() => setCreateDialogOpen(true)} size="sm">
-              <Plus className="h-4 w-4 mr-1.5" />
-              New Note
-            </Button>
+            {isMobile ? (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-8 w-8">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleImport}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Import
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportAll}>
+                      <FileDown className="h-4 w-4 mr-2" />
+                      Export
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setCreateFolderOpen(true)}>
+                      <FolderPlus className="h-4 w-4 mr-2" />
+                      New Folder
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button onClick={() => setCreateDialogOpen(true)} size="sm">
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  New Note
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={handleImport}>
+                  <Upload className="h-4 w-4 mr-1.5" />
+                  Import
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExportAll}>
+                  <FileDown className="h-4 w-4 mr-1.5" />
+                  Export
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCreateFolderOpen(true)}
+                >
+                  <FolderPlus className="h-4 w-4 mr-1.5" />
+                  New Folder
+                </Button>
+                <Button onClick={() => setCreateDialogOpen(true)} size="sm">
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  New Note
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -726,7 +760,10 @@ export function NotesList() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className={cn(
+                                  "h-7 w-7 shrink-0 transition-opacity",
+                                  isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                )}
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <MoreVertical className="h-3.5 w-3.5" />
@@ -806,7 +843,10 @@ export function NotesList() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className={cn(
+                            "h-7 w-7 shrink-0 transition-opacity",
+                            isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                          )}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleExportSingle(note);
@@ -817,7 +857,12 @@ export function NotesList() {
                         </Button>
                       </div>
                       {note.content && (
-                        <div className="mt-1.5 line-clamp-3 text-xs text-muted-foreground [&_*]:text-xs [&_h1]:text-xs [&_h2]:text-xs [&_h3]:text-xs [&_p]:m-0 [&_ul]:m-0 [&_ol]:m-0 [&_li]:m-0 [&_blockquote]:m-0 [&_pre]:m-0 [&_code]:text-[0.65rem]">
+                        <div className={cn(
+                          "mt-1.5 text-xs text-muted-foreground [&_*]:text-xs [&_h1]:text-xs [&_h2]:text-xs [&_h3]:text-xs [&_p]:m-0 [&_ul]:m-0 [&_ol]:m-0 [&_li]:m-0 [&_blockquote]:m-0 [&_pre]:m-0 [&_code]:text-[0.65rem]",
+                          isMobile
+                            ? "relative max-h-16 overflow-hidden after:absolute after:bottom-0 after:left-0 after:right-0 after:h-6 after:bg-gradient-to-t after:from-background after:to-transparent"
+                            : "line-clamp-3"
+                        )}>
                           <MarkdownRenderer content={note.content} compact />
                         </div>
                       )}

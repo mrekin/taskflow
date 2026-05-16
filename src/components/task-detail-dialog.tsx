@@ -433,8 +433,8 @@ export function TaskDetailDialog() {
           {task && (
             <div className="flex flex-col h-full">
               {/* Header */}
-              <SheetHeader className="p-6 pb-4 pr-12">
-                <div className="flex items-center justify-between">
+              <SheetHeader className="p-4 sm:p-6 pb-4 sm:pr-12 pr-10">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     {task.parentId && (
                       <Button
@@ -586,7 +586,7 @@ export function TaskDetailDialog() {
                   <Separator />
 
                   {/* Status + Priority + Due Date */}
-                  <div className={isEditing ? "grid grid-cols-3 gap-3" : "grid grid-cols-2 gap-4"}>
+                  <div className={isEditing ? "grid grid-cols-1 sm:grid-cols-3 gap-3" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
                     <div className="space-y-1.5">
                       <Label className="text-muted-foreground text-xs uppercase tracking-wider">
                         Status
@@ -720,7 +720,7 @@ export function TaskDetailDialog() {
 
                   {/* Project + Tags row */}
                   {isEditing ? (
-                    <div className={task.parentId ? "grid grid-cols-1 gap-3" : "grid grid-cols-[1fr_2fr] gap-3"}>
+                    <div className={task.parentId ? "grid grid-cols-1 gap-3" : "grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-3"}>
                       {!task.parentId && (
                         <div className="space-y-1.5">
                           <Label className="text-muted-foreground text-xs uppercase tracking-wider">
@@ -944,11 +944,11 @@ export function TaskDetailDialog() {
 
                                   {/* Action buttons - show on hover */}
                                   {editingSubtaskId !== subtask.id && (
-                                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                    <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="size-6"
+                                        className="size-8 sm:size-6"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleSubtaskEditStart(subtask.id, subtask.title);
@@ -960,7 +960,7 @@ export function TaskDetailDialog() {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="size-6 text-muted-foreground hover:text-destructive"
+                                        className="size-8 sm:size-6 text-muted-foreground hover:text-destructive"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setPendingDeleteSubtaskId(subtask.id);

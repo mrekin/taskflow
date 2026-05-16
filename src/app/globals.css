@@ -154,6 +154,18 @@
   background: var(--muted-foreground);
 }
 
+/* Hide custom scrollbars on mobile (touch devices use native scroll) */
+@media (max-width: 767px) {
+  .custom-scrollbar::-webkit-scrollbar,
+  .custom-scrollbar-horizontal::-webkit-scrollbar {
+    display: none;
+  }
+  .custom-scrollbar,
+  .custom-scrollbar-horizontal {
+    scrollbar-width: none;
+  }
+}
+
 /* Kanban column styles */
 .kanban-column {
   min-height: 200px;

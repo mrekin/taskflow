@@ -59,6 +59,8 @@ import {
   STATUS_COLORS,
 } from '@/lib/constants';
 import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { MobileBottomNav } from '@/components/mobile-bottom-nav';
 
 // ─── Sub-Components ─────────────────────────────────────────────────────
 
@@ -267,6 +269,11 @@ function HomeContent() {
   const { setTheme } = useTheme();
   const { data: session } = useSession();
   const [showCreateArea, setShowCreateArea] = useState(false);
+  const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (isMobile) useAppStore.setState({ sidebarOpen: false });
+  }, [isMobile]);
 
   const notesTreeEnabled = userPreferences.notesTree;
 
@@ -748,11 +755,30 @@ function HomeContent() {
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
+      {isMobile && sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => useAppStore.setState({ sidebarOpen: false })}
+        />
+      )}
       <aside
         className={cn(
-          'border-r bg-muted/20 transition-all duration-300 flex flex-col shrink-0 overflow-hidden h-screen',
-          sidebarOpen ? 'w-64' : 'w-0',
+          'bg-muted/20 flex flex-col shrink-0 h-screen',
+          isMobile
+            ? cn(
+                'fixed top-0 left-0 z-50 w-64 border-r shadow-xl transition-transform duration-300',
+                !sidebarOpen && '-translate-x-full',
+              )
+            : cn(
+                'border-r transition-all duration-300 overflow-hidden',
+                sidebarOpen ? 'w-64' : 'w-0',
+              ),
         )}
+        onClick={(e) => {
+          if (isMobile && (e.target as HTMLElement).closest('button')) {
+            useAppStore.setState({ sidebarOpen: false });
+          }
+        }}
       >
         {/* Sidebar header */}
         <div className="p-4 flex items-center justify-between border-b shrink-0">
@@ -1200,8 +1226,8 @@ function HomeContent() {
       {/* Main content */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="border-b px-6 py-3 flex items-center gap-4 shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          {!sidebarOpen && (
+        <header className="border-b px-3 md:px-6 py-3 flex items-center gap-3 md:gap-4 shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          {(!sidebarOpen || isMobile) && (
             <Button variant="ghost" size="icon" className="size-8" onClick={toggleSidebar}>
               <Menu className="size-4" />
             </Button>
@@ -1228,7 +1254,7 @@ function HomeContent() {
           'flex-1',
           currentView === 'note-editor' && selectedNoteId
             ? 'overflow-hidden p-0'
-            : 'overflow-auto p-6',
+            : 'overflow-auto p-3 md:p-6',
         )}>
           <AnimatePresence mode="wait">
             <motion.div
@@ -1244,8 +1270,11 @@ function HomeContent() {
               {renderContent()}
             </motion.div>
           </AnimatePresence>
+          {currentView !== 'note-editor' && <div className="h-16 md:h-0" />}
         </div>
       </main>
+
+      <MobileBottomNav />
 
       {/* Task Detail Dialog (global) */}
       <TaskDetailDialog />
