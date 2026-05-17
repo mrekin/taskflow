@@ -882,7 +882,13 @@ export function KanbanBoard() {
       </div>
 
       {isMobile ? (
-        <div className="flex flex-col h-full -mt-2">
+        <div
+          className="flex flex-col h-full -mt-2"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{ touchAction: 'pan-y' }}
+        >
           <div className="flex border-b overflow-x-auto shrink-0">
             {allMobileColumns.map((col, idx) => (
               <button
@@ -915,56 +921,56 @@ export function KanbanBoard() {
 
           <div
             ref={swipeContainerRef}
-            className="relative flex-1 overflow-hidden"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            className="relative flex-1 min-h-0 overflow-hidden"
           >
-            {(() => {
-              const containerWidth = swipeContainerRef.current?.clientWidth ?? 0;
-              const adjacentIdx = swipeTargetRef.current;
-              const baseOffset = adjacentIdx >= 0
-                ? (adjacentIdx > activeColumnIndex ? containerWidth : -containerWidth)
-                : 0;
-              const transition = swipePhase === 'dragging' ? 'none' : 'transform 0.25s ease-out';
+            {/* Current column */}
+            <div
+              style={{
+                transform: `translateX(${swipeDelta}px)`,
+                transition: swipePhase === 'dragging' ? 'none' : 'transform 0.25s ease-out',
+              }}
+            >
+              <div className="overflow-auto p-3 space-y-2" style={{ maxHeight: '100%' }}>
+                <AnimatePresence mode="popLayout">
+                  {activeColTasks.map(renderMobileTask)}
+                </AnimatePresence>
+                {activeColTasks.length === 0 && (
+                  <div className="py-8 text-center text-muted-foreground text-sm">
+                    {allMobileColumns[activeColumnIndex]?.id === INVALID_STATE_COLUMN.id
+                      ? 'No invalid tasks'
+                      : 'No tasks'}
+                  </div>
+                )}
+              </div>
+            </div>
 
+            {/* Adjacent column */}
+            {swipePhase !== 'idle' && swipeTargetRef.current >= 0 && (() => {
+              const adjIdx = swipeTargetRef.current;
+              const adjCol = allMobileColumns[adjIdx];
+              if (!adjCol) return null;
+              const adjTasks = tasksByStatus[adjCol.id] || [];
+              const w = swipeContainerRef.current?.clientWidth ?? 0;
+              const base = adjIdx > activeColumnIndex ? w : -w;
               return (
-                <>
-                  <div
-                    className="absolute inset-0 p-3 space-y-2 overflow-auto"
-                    style={{ transform: `translateX(${swipeDelta}px)`, transition }}
-                  >
+                <div
+                  className="absolute top-0 left-0 right-0 bottom-0"
+                  style={{
+                    transform: `translateX(${base + swipeDelta}px)`,
+                    transition: swipePhase === 'dragging' ? 'none' : 'transform 0.25s ease-out',
+                  }}
+                >
+                  <div className="overflow-auto p-3 space-y-2 h-full">
                     <AnimatePresence mode="popLayout">
-                      {activeColTasks.map(renderMobileTask)}
+                      {adjTasks.map((t: Task) => (
+                        <MobileTaskCard key={t.id} task={t} visibleColumns={visibleColumns} />
+                      ))}
                     </AnimatePresence>
-                    {activeColTasks.length === 0 && (
-                      <div className="py-8 text-center text-muted-foreground text-sm">
-                        {allMobileColumns[activeColumnIndex]?.id === INVALID_STATE_COLUMN.id
-                          ? 'No invalid tasks'
-                          : 'No tasks'}
-                      </div>
+                    {adjTasks.length === 0 && (
+                      <div className="py-8 text-center text-muted-foreground text-sm">No tasks</div>
                     )}
                   </div>
-
-                  {swipePhase !== 'idle' && adjacentIdx >= 0 && (() => {
-                    const adjTasks = tasksByStatus[allMobileColumns[adjacentIdx]?.id] || [];
-                    return (
-                      <div
-                        className="absolute inset-0 p-3 space-y-2 overflow-auto"
-                        style={{ transform: `translateX(${baseOffset + swipeDelta}px)`, transition }}
-                      >
-                        <AnimatePresence mode="popLayout">
-                          {adjTasks.map((t: Task) => (
-                            <MobileTaskCard key={t.id} task={t} visibleColumns={visibleColumns} />
-                          ))}
-                        </AnimatePresence>
-                        {adjTasks.length === 0 && (
-                          <div className="py-8 text-center text-muted-foreground text-sm">No tasks</div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </>
+                </div>
               );
             })()}
           </div>
