@@ -663,41 +663,87 @@ export function KanbanBoard() {
     return cols;
   }, [visibleColumns, hasInvalidTasks]);
 
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
-  const isVerticalSwipe = useRef(false);
+  // Swipe state
+  const swipeContainerRef = useRef<HTMLDivElement>(null);
+  const swipeStartXRef = useRef(0);
+  const swipeStartYRef = useRef(0);
+  const isVerticalRef = useRef(false);
+  const swipeDeltaRef = useRef(0);
+  const swipeTargetRef = useRef(-1);
+  const [swipeDelta, setSwipeDelta] = useState(0);
+  const [swipePhase, setSwipePhase] = useState<'idle' | 'dragging' | 'snapping'>('idle');
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-    isVerticalSwipe.current = false;
-    setIsSwiping(false);
-    setSwipeOffset(0);
+    swipeStartXRef.current = e.touches[0].clientX;
+    swipeStartYRef.current = e.touches[0].clientY;
+    isVerticalRef.current = false;
+    swipeDeltaRef.current = 0;
+    swipeTargetRef.current = -1;
+    setSwipeDelta(0);
+    setSwipePhase('idle');
   }, []);
+
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    const dx = e.touches[0].clientX - touchStartX.current;
-    const dy = e.touches[0].clientY - touchStartY.current;
-    if (!isVerticalSwipe.current && Math.abs(dy) > Math.abs(dx) && Math.abs(dx) < 10) {
-      isVerticalSwipe.current = true;
+    const dx = e.touches[0].clientX - swipeStartXRef.current;
+    const dy = e.touches[0].clientY - swipeStartYRef.current;
+
+    if (!isVerticalRef.current && Math.abs(dx) < 30 && Math.abs(dy) < 30) return;
+
+    if (!isVerticalRef.current && Math.abs(dy) > Math.abs(dx)) {
+      isVerticalRef.current = true;
       return;
     }
-    if (isVerticalSwipe.current) return;
-    if (Math.abs(dx) < 10) return;
-    setIsSwiping(true);
-    setSwipeOffset(dx * 0.4);
+    if (isVerticalRef.current) return;
+
+    if (swipeTargetRef.current < 0) {
+      if (dx < 0 && activeColumnIndex < allMobileColumns.length - 1) {
+        swipeTargetRef.current = activeColumnIndex + 1;
+      } else if (dx > 0 && activeColumnIndex > 0) {
+        swipeTargetRef.current = activeColumnIndex - 1;
+      }
+    }
+
+    const delta = swipeTargetRef.current < 0 ? dx * 0.2 : dx;
+    swipeDeltaRef.current = delta;
+    setSwipeDelta(delta);
+    setSwipePhase('dragging');
+  }, [activeColumnIndex, allMobileColumns.length]);
+
+  const handleTouchEnd = useCallback(() => {
+    const delta = swipeDeltaRef.current;
+
+    if (Math.abs(delta) < 30) {
+      swipeTargetRef.current = -1;
+      swipeDeltaRef.current = 0;
+      setSwipeDelta(0);
+      setSwipePhase('idle');
+      return;
+    }
+
+    const width = swipeContainerRef.current?.clientWidth ?? 300;
+    const threshold = width * 0.15;
+
+    setSwipePhase('snapping');
+
+    if (Math.abs(delta) > threshold && swipeTargetRef.current >= 0) {
+      const snapDelta = delta > 0 ? width : -width;
+      setSwipeDelta(snapDelta);
+      setTimeout(() => {
+        setActiveColumnIndex(swipeTargetRef.current);
+        swipeTargetRef.current = -1;
+        swipeDeltaRef.current = 0;
+        setSwipeDelta(0);
+        setSwipePhase('idle');
+      }, 260);
+    } else {
+      swipeTargetRef.current = -1;
+      swipeDeltaRef.current = 0;
+      setSwipeDelta(0);
+      setTimeout(() => {
+        setSwipePhase('idle');
+      }, 260);
+    }
   }, []);
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    setSwipeOffset(0);
-    setIsSwiping(false);
-    if (isVerticalSwipe.current || Math.abs(dx) < 50) return;
-    setActiveColumnIndex((prev) => {
-      if (dx < 0 && prev < allMobileColumns.length - 1) return prev + 1;
-      if (dx > 0 && prev > 0) return prev - 1;
-      return prev;
-    });
-  }, [allMobileColumns.length]);
 
   const activeColTasks = allMobileColumns[activeColumnIndex]
     ? tasksByStatus[allMobileColumns[activeColumnIndex].id] || []
@@ -866,28 +912,63 @@ export function KanbanBoard() {
               </button>
             ))}
           </div>
-          <div className="flex-1 overflow-auto p-3 space-y-2"
+
+          <div
+            ref={swipeContainerRef}
+            className="relative flex-1 overflow-hidden"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
-            <div style={{
-              transform: `translateX(${swipeOffset}px)`,
-              transition: isSwiping ? 'none' : 'transform 0.2s ease-out',
-              opacity: 1 - Math.abs(swipeOffset) / 400,
-            }}>
-            <AnimatePresence mode="popLayout">
-              {activeColTasks.map(renderMobileTask)}
-            </AnimatePresence>
-            {activeColTasks.length === 0 && (
-              <div className="py-8 text-center text-muted-foreground text-sm">
-                {allMobileColumns[activeColumnIndex]?.id === INVALID_STATE_COLUMN.id
-                  ? 'No invalid tasks'
-                  : 'No tasks'}
-              </div>
-            )}
-            </div>
+            {(() => {
+              const containerWidth = swipeContainerRef.current?.clientWidth ?? 0;
+              const adjacentIdx = swipeTargetRef.current;
+              const baseOffset = adjacentIdx >= 0
+                ? (adjacentIdx > activeColumnIndex ? containerWidth : -containerWidth)
+                : 0;
+              const transition = swipePhase === 'dragging' ? 'none' : 'transform 0.25s ease-out';
+
+              return (
+                <>
+                  <div
+                    className="absolute inset-0 p-3 space-y-2 overflow-auto"
+                    style={{ transform: `translateX(${swipeDelta}px)`, transition }}
+                  >
+                    <AnimatePresence mode="popLayout">
+                      {activeColTasks.map(renderMobileTask)}
+                    </AnimatePresence>
+                    {activeColTasks.length === 0 && (
+                      <div className="py-8 text-center text-muted-foreground text-sm">
+                        {allMobileColumns[activeColumnIndex]?.id === INVALID_STATE_COLUMN.id
+                          ? 'No invalid tasks'
+                          : 'No tasks'}
+                      </div>
+                    )}
+                  </div>
+
+                  {swipePhase !== 'idle' && adjacentIdx >= 0 && (() => {
+                    const adjTasks = tasksByStatus[allMobileColumns[adjacentIdx]?.id] || [];
+                    return (
+                      <div
+                        className="absolute inset-0 p-3 space-y-2 overflow-auto"
+                        style={{ transform: `translateX(${baseOffset + swipeDelta}px)`, transition }}
+                      >
+                        <AnimatePresence mode="popLayout">
+                          {adjTasks.map((t: Task) => (
+                            <MobileTaskCard key={t.id} task={t} visibleColumns={visibleColumns} />
+                          ))}
+                        </AnimatePresence>
+                        {adjTasks.length === 0 && (
+                          <div className="py-8 text-center text-muted-foreground text-sm">No tasks</div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </>
+              );
+            })()}
           </div>
+
           {allMobileColumns[activeColumnIndex]?.id !== INVALID_STATE_COLUMN.id && (
             <div className="p-3 pt-0">
               <Button
