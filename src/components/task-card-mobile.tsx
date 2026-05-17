@@ -1,10 +1,11 @@
 'use client';
 
 import { format, parseISO, isPast } from 'date-fns';
-import { Calendar, FolderOpen } from 'lucide-react';
+import { Calendar, FolderOpen, Share2 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { EntityIdBadge } from '@/components/entity-id-badge';
 import { useAppStore } from '@/store/app-store';
 import type { Task } from '@/lib/types';
 import {
@@ -14,10 +15,11 @@ import {
 
 interface TaskCardMobileProps {
   task: Task;
+  isSubtask?: boolean;
 }
 
-export function TaskCardMobile({ task }: TaskCardMobileProps) {
-  const { projects, tags, statuses, selectTask } = useAppStore();
+export function TaskCardMobile({ task, isSubtask = false }: TaskCardMobileProps) {
+  const { projects, tags, statuses, selectTask, currentUserId } = useAppStore();
 
   const isOverdue =
     task.dueDate &&
@@ -40,6 +42,42 @@ export function TaskCardMobile({ task }: TaskCardMobileProps) {
     : [];
 
   const statusInfo = getColumnLabelAndColor(statuses, task.status);
+
+  if (isSubtask) {
+    return (
+      <div
+        className={cn(
+          'flex items-center gap-2 px-2.5 py-2 rounded-md cursor-pointer transition-colors',
+          'ml-4 border-l-2 bg-muted/30',
+          task.status === 'done' && 'opacity-60',
+        )}
+        style={{ borderLeftColor: statusInfo.color }}
+        onClick={() => selectTask(task.id)}
+      >
+        <span
+          className="shrink-0 w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: PRIORITY_COLORS[task.priority] || '#94a3b8' }}
+        />
+        <span className={cn(
+          'text-xs leading-tight truncate flex-1',
+          task.status === 'done' && 'line-through text-muted-foreground',
+        )}>
+          {task.title}
+        </span>
+        {task.ownerId !== currentUserId && (
+          <Share2 className="size-3 shrink-0 text-muted-foreground" />
+        )}
+        <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" className="shrink-0 text-[9px]" />
+        <Badge
+          variant="outline"
+          className="text-[9px] px-1 py-0 h-4 font-normal shrink-0"
+          style={{ borderColor: statusInfo.color + '60', color: statusInfo.color }}
+        >
+          {task.status === 'done' ? '✓' : task.status === 'in_progress' ? '►' : '●'}
+        </Badge>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       orderBy: { sortOrder: "asc" },
       include: {
         _count: { select: { subtasks: true } },
-        subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true, assigneeId: true, assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } } } },
+        subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true, assigneeId: true, ownerId: true, assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } } } },
         assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
         project: { select: { id: true, name: true, color: true } },
       },

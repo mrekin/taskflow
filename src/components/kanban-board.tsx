@@ -15,7 +15,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Search, X, ArrowUpDown, AlertTriangle, User, Filter, Check, ChevronsUpDown, ChevronRight, FolderOpen, ChevronDown } from 'lucide-react';
+import { Plus, Search, X, ArrowUpDown, AlertTriangle, User, Filter, Check, ChevronsUpDown, ChevronRight, FolderOpen, ChevronDown, Share2 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -268,7 +268,7 @@ function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInva
   );
 }
 
-function MobileTaskCard({ task, visibleColumns }: { task: Task; visibleColumns: StatusConfig[] }) {
+function MobileTaskCard({ task, visibleColumns, isSubtask = false }: { task: Task; visibleColumns: StatusConfig[]; isSubtask?: boolean }) {
   const { selectTask, updateTask, statuses, currentUserId, users } = useAppStore();
   const { label: statusLabel, color: statusColor } = getColumnLabelAndColor(statuses, task.status);
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done' && task.status !== 'cancelled';
@@ -281,6 +281,42 @@ function MobileTaskCard({ task, visibleColumns }: { task: Task; visibleColumns: 
     }));
     updateTask(task.id, { status: newStatus });
   };
+
+  if (isSubtask) {
+    return (
+      <div
+        className={cn(
+          'flex items-center gap-2 px-2.5 py-2 rounded-md cursor-pointer transition-all duration-200 active:scale-[0.98]',
+          'ml-4 border-l-2 bg-muted/30',
+          task.status === 'done' && 'opacity-60',
+        )}
+        style={{ borderLeftColor: statusColor }}
+        onClick={() => selectTask(task.id)}
+      >
+        <span
+          className="shrink-0 w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: PRIORITY_COLORS[task.priority] || '#94a3b8' }}
+        />
+        <span className={cn(
+          'text-xs leading-tight truncate flex-1',
+          task.status === 'done' && 'line-through text-muted-foreground',
+        )}>
+          {task.title}
+        </span>
+        {task.ownerId !== currentUserId && (
+          <Share2 className="size-3 shrink-0 text-muted-foreground" />
+        )}
+        <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" className="shrink-0 text-[9px]" />
+        <Badge
+          variant="outline"
+          className="text-[9px] px-1 py-0 h-4 font-normal shrink-0"
+          style={{ borderColor: statusColor + '60', color: statusColor }}
+        >
+          {task.status === 'done' ? '✓' : task.status === 'in_progress' ? '►' : '●'}
+        </Badge>
+      </div>
+    );
+  }
 
   return (
     <Card
@@ -627,6 +663,42 @@ export function KanbanBoard() {
     return cols;
   }, [visibleColumns, hasInvalidTasks]);
 
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const isVerticalSwipe = useRef(false);
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    isVerticalSwipe.current = false;
+    setIsSwiping(false);
+    setSwipeOffset(0);
+  }, []);
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+    if (!isVerticalSwipe.current && Math.abs(dy) > Math.abs(dx) && Math.abs(dx) < 10) {
+      isVerticalSwipe.current = true;
+      return;
+    }
+    if (isVerticalSwipe.current) return;
+    if (Math.abs(dx) < 10) return;
+    setIsSwiping(true);
+    setSwipeOffset(dx * 0.4);
+  }, []);
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    setSwipeOffset(0);
+    setIsSwiping(false);
+    if (isVerticalSwipe.current || Math.abs(dx) < 50) return;
+    setActiveColumnIndex((prev) => {
+      if (dx < 0 && prev < allMobileColumns.length - 1) return prev + 1;
+      if (dx > 0 && prev > 0) return prev - 1;
+      return prev;
+    });
+  }, [allMobileColumns.length]);
+
   const activeColTasks = allMobileColumns[activeColumnIndex]
     ? tasksByStatus[allMobileColumns[activeColumnIndex].id] || []
     : [];
@@ -637,7 +709,7 @@ export function KanbanBoard() {
       {userPreferences.showSubtasks && (task.subtasks ?? []).length > 0 && (
         <div className="mt-1 space-y-0.5 ml-2">
           {(task.subtasks ?? []).map((subtask) => (
-            <MobileTaskCard key={subtask.id} task={subtask} visibleColumns={visibleColumns} />
+            <MobileTaskCard key={subtask.id} task={subtask} visibleColumns={visibleColumns} isSubtask />
           ))}
         </div>
       )}
@@ -794,7 +866,16 @@ export function KanbanBoard() {
               </button>
             ))}
           </div>
-          <div className="flex-1 overflow-auto p-3 space-y-2">
+          <div className="flex-1 overflow-auto p-3 space-y-2"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            <div style={{
+              transform: `translateX(${swipeOffset}px)`,
+              transition: isSwiping ? 'none' : 'transform 0.2s ease-out',
+              opacity: 1 - Math.abs(swipeOffset) / 400,
+            }}>
             <AnimatePresence mode="popLayout">
               {activeColTasks.map(renderMobileTask)}
             </AnimatePresence>
@@ -805,6 +886,7 @@ export function KanbanBoard() {
                   : 'No tasks'}
               </div>
             )}
+            </div>
           </div>
           {allMobileColumns[activeColumnIndex]?.id !== INVALID_STATE_COLUMN.id && (
             <div className="p-3 pt-0">

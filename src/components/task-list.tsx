@@ -835,7 +835,16 @@ export function TaskList() {
                   </div>
                   <div className="space-y-2">
                     {group.tasks.map((task) => (
-                      <TaskCardMobile key={task.id} task={task} />
+                      <div key={task.id}>
+                        <TaskCardMobile task={task} />
+                        {userPreferences.showSubtasks && (task.subtasks ?? []).length > 0 && (
+                          <div className="mt-1 space-y-0.5 ml-2">
+                            {(task.subtasks ?? []).map((subtask) => (
+                              <TaskCardMobile key={subtask.id} task={subtask} isSubtask />
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -843,7 +852,16 @@ export function TaskList() {
             ) : (
               <div className="space-y-2">
                 {sortedTasks.map((task) => (
-                  <TaskCardMobile key={task.id} task={task} />
+                  <div key={task.id}>
+                    <TaskCardMobile task={task} />
+                    {userPreferences.showSubtasks && (task.subtasks ?? []).length > 0 && (
+                      <div className="mt-1 space-y-0.5 ml-2">
+                        {(task.subtasks ?? []).map((subtask) => (
+                          <TaskCardMobile key={subtask.id} task={subtask} isSubtask />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )
