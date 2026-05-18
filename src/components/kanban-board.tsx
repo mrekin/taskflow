@@ -15,7 +15,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Search, X, ArrowUpDown, AlertTriangle, User, Filter, Check, ChevronsUpDown, ChevronRight, FolderOpen, ChevronDown, Share2 } from 'lucide-react';
+import { Plus, Search, X, ArrowUpDown, AlertTriangle, User, Filter, Check, ChevronsUpDown, ChevronRight, FolderOpen, ChevronDown, Share2, Paperclip } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -56,6 +56,7 @@ import { useAppStore } from '@/store/app-store';
 import { useCollapsedState } from '@/hooks/use-collapsed-state';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { OwnerIndicator } from '@/components/owner-indicator';
+import { VisibilityBadge } from '@/components/visibility-badge';
 import { INVALID_STATE_COLUMN, TASK_PRIORITIES, PRIORITY_LABELS, PRIORITY_COLORS, getColumnLabelAndColor, type StatusConfig } from '@/lib/constants';
 import type { Task } from '@/lib/types';
 import type { Project } from '@/lib/types';
@@ -306,6 +307,10 @@ function MobileTaskCard({ task, visibleColumns, isSubtask = false }: { task: Tas
         {task.ownerId !== currentUserId && (
           <Share2 className="size-3 shrink-0 text-muted-foreground" />
         )}
+        {(task._count?.attachments ?? 0) > 0 && (
+          <Paperclip className="size-3 shrink-0 text-muted-foreground" />
+        )}
+        <VisibilityBadge visibility={task.visibility} visibleUserIds={task.visibleUserIds} users={users} className="shrink-0 [&>span]:inline-flex" />
         <EntityIdBadge id={task.id} shortId={task.shortId || 'T-?'} type="task" className="shrink-0 text-[9px]" />
         <Badge
           variant="outline"
@@ -384,6 +389,15 @@ function MobileTaskCard({ task, visibleColumns, isSubtask = false }: { task: Tas
               {task.completedSubtasks ?? task.subtasks?.filter((s) => s.status === 'done').length ?? 0}/{task._count?.subtasks ?? task.subtasks?.length ?? 0}
             </Badge>
           )}
+
+          {(task._count?.attachments ?? 0) > 0 && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 gap-1 font-normal">
+              <Paperclip className="size-3" />
+              {task._count!.attachments}
+            </Badge>
+          )}
+
+          <VisibilityBadge visibility={task.visibility} visibleUserIds={task.visibleUserIds} users={users} className="shrink-0" />
 
           {task.tagIds && task.tagIds.length > 0 && (
             <TagBadges tagIds={task.tagIds} max={2} size="sm" />
