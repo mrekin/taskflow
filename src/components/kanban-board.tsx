@@ -784,14 +784,13 @@ export function KanbanBoard() {
     ? tasksByStatus[allMobileColumns[activeColumnIndex].id] || []
     : [];
 
-  const activeColProjectGroups = useMemo(() => {
+  const buildMobileProjectGroups = useCallback((colId: string, colTasks: Task[]) => {
     if (!userPreferences.groupTasksByProject || !projects) return null;
-    const colId = allMobileColumns[activeColumnIndex]?.id ?? '';
     const groups: { key: string; name: string; tasks: Task[] }[] = [];
     const byProject = new Map<string, Task[]>();
     const noProject: Task[] = [];
 
-    for (const t of activeColTasks) {
+    for (const t of colTasks) {
       if (t.projectId) {
         const arr = byProject.get(t.projectId) ?? [];
         arr.push(t);
@@ -813,7 +812,12 @@ export function KanbanBoard() {
     }
 
     return groups;
-  }, [activeColTasks, userPreferences.groupTasksByProject, projects, allMobileColumns, activeColumnIndex]);
+  }, [userPreferences.groupTasksByProject, projects]);
+
+  const activeColProjectGroups = useMemo(
+    () => buildMobileProjectGroups(allMobileColumns[activeColumnIndex]?.id ?? '', activeColTasks),
+    [buildMobileProjectGroups, allMobileColumns, activeColumnIndex, activeColTasks],
+  );
 
   const renderMobileTask = (task: Task) => (
     <div key={task.id}>
@@ -1029,6 +1033,7 @@ export function KanbanBoard() {
               const adjCol = allMobileColumns[adjIdx];
               if (!adjCol) return null;
               const adjTasks = tasksByStatus[adjCol.id] || [];
+              const adjProjectGroups = buildMobileProjectGroups(adjCol.id, adjTasks);
               const w = swipeContainerRef.current?.clientWidth ?? 0;
               const base = adjIdx > activeColumnIndex ? w : -w;
               return (
@@ -1042,9 +1047,20 @@ export function KanbanBoard() {
                   <div className="overflow-auto p-3 h-full" style={{ touchAction: 'pan-y' }}>
                     <div className="space-y-2 min-h-full">
                     <AnimatePresence mode="popLayout">
-                      {adjTasks.map((t: Task) => (
-                        <MobileTaskCard key={t.id} task={t} visibleColumns={visibleColumns} />
-                      ))}
+                      {adjProjectGroups ? (
+                        adjProjectGroups.map((group) => (
+                          <KanbanProjectGroupWrapper
+                            key={group.key}
+                            groupKey={group.key}
+                            projectName={group.name}
+                            taskCount={group.tasks.length}
+                          >
+                            {group.tasks.map(renderMobileTask)}
+                          </KanbanProjectGroupWrapper>
+                        ))
+                      ) : (
+                        adjTasks.map(renderMobileTask)
+                      )}
                     </AnimatePresence>
                     {adjTasks.length === 0 && (
                       <div className="py-8 text-center text-muted-foreground text-sm">No tasks</div>
