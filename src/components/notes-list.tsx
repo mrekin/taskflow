@@ -436,7 +436,7 @@ export function NotesList() {
   const hasNoContent = visibleFolders.length === 0 && filteredAndSortedNotes.length === 0;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       {/* Header */}
       <div className="flex flex-col gap-4 pb-4 border-b">
         <div className="flex items-center justify-between">
@@ -685,7 +685,7 @@ export function NotesList() {
       </div>
 
       {/* Folders & Notes Grid */}
-      <div className="flex-1 overflow-y-auto py-4 custom-scrollbar">
+      <div className="py-4">
         {hasNoContent ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             <FileText className="h-16 w-16 mb-4 opacity-20" />

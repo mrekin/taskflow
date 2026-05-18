@@ -791,7 +791,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
 
       {/* Attachments */}
       {note && (
-        <div className="border-t pt-4 mt-4 px-3 pb-2">
+        <div className="border-t pt-4 mt-4 px-3 pb-16 md:pb-2">
           <AttachmentList
             entityId={note.id}
             entityType="note"

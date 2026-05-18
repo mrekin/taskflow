@@ -823,7 +823,7 @@ export function TaskList() {
 
       {/* Mobile card layout */}
       {isMobile ? (
-        <div className="max-h-[calc(100vh-300px)] overflow-y-auto custom-scrollbar">
+        <div>
           {sortedTasks.length > 0 ? (
             projectGroups ? (
               projectGroups.map((group) => (
@@ -894,7 +894,7 @@ export function TaskList() {
           </div>
 
           {/* Task rows */}
-          <div className="max-h-[calc(100vh-360px)] overflow-y-auto custom-scrollbar">
+          <div>
             <AnimatePresence mode="popLayout">
               {sortedTasks.length > 0 ? (
                 projectGroups ? (

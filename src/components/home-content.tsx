@@ -218,6 +218,17 @@ function AllProjectsView({
   );
 }
 
+// ─── ScrollPage ───────────────────────────────────────────────────────────
+
+function ScrollPage({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="h-full overflow-auto p-3 md:p-6">
+      {children}
+      <div className="h-16 md:h-0" />
+    </div>
+  );
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────────
 
 function HomeContent() {
@@ -665,14 +676,6 @@ function HomeContent() {
     );
   };
 
-  function ScrollPage({ children }: { children: React.ReactNode }) {
-    return (
-      <div className="h-full overflow-auto p-3 md:p-6">
-        {children}
-        <div className="h-16 md:h-0" />
-      </div>
-    );
-  }
 
   // Render main content based on current view
   const renderContent = () => {
@@ -776,7 +779,7 @@ function HomeContent() {
       )}
       <aside
         className={cn(
-          'bg-muted/20 flex flex-col shrink-0 h-screen',
+          'bg-card flex flex-col shrink-0 h-screen',
           isMobile
             ? cn(
                 'fixed top-0 left-0 z-50 w-64 border-r shadow-xl transition-transform duration-300',
@@ -1264,18 +1267,12 @@ function HomeContent() {
 
         {/* Content area */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentView + (selectedAreaId || '') + (selectedProjectId || '') + (selectedNoteId || '')}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.15 }}
-              className="h-full"
-            >
-              {renderContent()}
-            </motion.div>
-          </AnimatePresence>
+          <div
+            key={currentView + (selectedAreaId || '') + (selectedProjectId || '') + (selectedNoteId || '')}
+            className="h-full"
+          >
+            {renderContent()}
+          </div>
         </div>
       </main>
 

@@ -1057,7 +1057,7 @@ export function KanbanBoard() {
           </div>
 
           {allMobileColumns[activeColumnIndex]?.id !== INVALID_STATE_COLUMN.id && (
-            <div className="p-3 pt-0">
+            <div className="p-3 pt-0 pb-14">
               <Button
                 variant="ghost"
                 className="w-full justify-start text-muted-foreground hover:text-foreground h-9"

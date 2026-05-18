@@ -243,13 +243,13 @@ export function SettingsView() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       <div className="flex items-center gap-3 pb-4 border-b">
         <Settings className="h-6 w-6 text-primary" />
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-6 space-y-6 custom-scrollbar">
+      <div className="py-6 space-y-6">
         {/* Profile Section */}
         <Card>
           <CardHeader>
