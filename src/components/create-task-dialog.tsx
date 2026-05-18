@@ -353,6 +353,7 @@ export function CreateTaskDialog({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 autoFocus
+                tabIndex={1}
               />
             </div>
 
@@ -372,6 +373,7 @@ export function CreateTaskDialog({
                 value={description}
                 onChange={setDescription}
                 rows={8}
+                tabIndex={2}
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
             </div>
@@ -463,7 +465,7 @@ export function CreateTaskDialog({
                     Project
                   </Label>
                   <Select value={projectId} onValueChange={setProjectId}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full" tabIndex={3}>
                       <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -844,10 +846,11 @@ export function CreateTaskDialog({
               variant="outline"
               onClick={() => confirmOpenChange(false)}
               disabled={isCreating}
+              tabIndex={4}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!title.trim() || isCreating}>
+            <Button type="submit" disabled={!title.trim() || isCreating} tabIndex={5}>
               {isCreating ? 'Creating...' : 'Create Task'}
             </Button>
           </DialogFooter>

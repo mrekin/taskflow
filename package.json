@@ -1,6 +1,6 @@
 {
   "name": "nextjs_tailwind_shadcn_ts",
-  "version": "v0.3.3",
+  "version": "v0.4.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
