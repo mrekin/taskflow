@@ -827,12 +827,7 @@ export function TaskList() {
           {sortedTasks.length > 0 ? (
             projectGroups ? (
               projectGroups.map((group) => (
-                <div key={group.key}>
-                  <div className="flex items-center gap-2 px-1 py-1.5">
-                    <FolderOpen className="size-3 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground">{group.name}</span>
-                    <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{group.tasks.length}</span>
-                  </div>
+                <TaskListProjectGroupWrapper key={group.key} groupKey={group.key} projectName={group.name} taskCount={group.tasks.length}>
                   <div className="space-y-2">
                     {group.tasks.map((task) => (
                       <div key={task.id}>
@@ -847,7 +842,7 @@ export function TaskList() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </TaskListProjectGroupWrapper>
               ))
             ) : (
               <div className="space-y-2">

@@ -665,42 +665,55 @@ function HomeContent() {
     );
   };
 
+  function ScrollPage({ children }: { children: React.ReactNode }) {
+    return (
+      <div className="h-full overflow-auto p-3 md:p-6">
+        {children}
+        <div className="h-16 md:h-0" />
+      </div>
+    );
+  }
+
   // Render main content based on current view
   const renderContent = () => {
     switch (currentView) {
       case 'areas':
-        if (selectedAreaId) {
-          return <AreaDetail />;
-        }
         return (
-          <AllAreasView
-            areas={areas}
-            onCreateArea={() => setShowCreateArea(true)}
-            onAreaClick={handleAreaClick}
-          />
+          <ScrollPage>
+            {selectedAreaId ? <AreaDetail /> : (
+              <AllAreasView
+                areas={areas}
+                onCreateArea={() => setShowCreateArea(true)}
+                onAreaClick={handleAreaClick}
+              />
+            )}
+          </ScrollPage>
         );
       case 'projects':
-        if (selectedProjectId) {
-          return <ProjectDetail />;
-        }
-        return <AllProjectsView projects={projects} tasks={tasks} onProjectClick={handleProjectClick} />;
+        return (
+          <ScrollPage>
+            {selectedProjectId ? <ProjectDetail /> : (
+              <AllProjectsView projects={projects} tasks={tasks} onProjectClick={handleProjectClick} />
+            )}
+          </ScrollPage>
+        );
       case 'tasks':
-        return <TaskList />;
+        return <ScrollPage><TaskList /></ScrollPage>;
       case 'kanban':
         return <KanbanBoard />;
       case 'quick-create':
-        return <QuickCreate />;
+        return <ScrollPage><QuickCreate /></ScrollPage>;
       case 'notes':
-        return <NotesList />;
+        return <ScrollPage><NotesList /></ScrollPage>;
       case 'note-editor':
         if (selectedNoteId) {
           return <NoteEditor key={selectedNoteId} noteId={selectedNoteId} initialMode="preview" />;
         }
-        return <NotesList />;
+        return <ScrollPage><NotesList /></ScrollPage>;
       case 'settings':
-        return <SettingsView />;
+        return <ScrollPage><SettingsView /></ScrollPage>;
       default:
-        return <TaskList />;
+        return <ScrollPage><TaskList /></ScrollPage>;
     }
   };
 
@@ -1250,12 +1263,7 @@ function HomeContent() {
         </header>
 
         {/* Content area */}
-        <div className={cn(
-          'flex-1',
-          currentView === 'note-editor' && selectedNoteId
-            ? 'overflow-hidden p-0'
-            : 'overflow-auto p-3 md:p-6',
-        )}>
+        <div className="flex-1 min-h-0 overflow-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentView + (selectedAreaId || '') + (selectedProjectId || '') + (selectedNoteId || '')}
@@ -1263,14 +1271,11 @@ function HomeContent() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.15 }}
-              className={cn(
-                currentView === 'note-editor' && selectedNoteId && 'h-full',
-              )}
+              className="h-full"
             >
               {renderContent()}
             </motion.div>
           </AnimatePresence>
-          {currentView !== 'note-editor' && <div className="h-16 md:h-0" />}
         </div>
       </main>
 

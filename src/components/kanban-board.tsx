@@ -665,89 +665,155 @@ export function KanbanBoard() {
 
   // Swipe state
   const swipeContainerRef = useRef<HTMLDivElement>(null);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
   const swipeStartXRef = useRef(0);
   const swipeStartYRef = useRef(0);
   const isVerticalRef = useRef(false);
   const swipeDeltaRef = useRef(0);
   const swipeTargetRef = useRef(-1);
+  const snapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [swipeDelta, setSwipeDelta] = useState(0);
-  const [swipePhase, setSwipePhase] = useState<'idle' | 'dragging' | 'snapping'>('idle');
+  const [swipePhase, setSwipePhase] = useState<'idle' | 'dragging' | 'snapping' | 'resetting'>('idle');
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    swipeStartXRef.current = e.touches[0].clientX;
-    swipeStartYRef.current = e.touches[0].clientY;
-    isVerticalRef.current = false;
-    swipeDeltaRef.current = 0;
-    swipeTargetRef.current = -1;
-    setSwipeDelta(0);
-    setSwipePhase('idle');
-  }, []);
+  const activeColumnIndexRef = useRef(0);
+  const allMobileColumnsLengthRef = useRef(allMobileColumns.length);
+  activeColumnIndexRef.current = activeColumnIndex;
+  allMobileColumnsLengthRef.current = allMobileColumns.length;
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    const dx = e.touches[0].clientX - swipeStartXRef.current;
-    const dy = e.touches[0].clientY - swipeStartYRef.current;
+  useEffect(() => {
+    const el = mobileScrollRef.current;
+    if (!el || !isMobile) return;
 
-    if (!isVerticalRef.current && Math.abs(dx) < 30 && Math.abs(dy) < 30) return;
-
-    if (!isVerticalRef.current && Math.abs(dy) > Math.abs(dx)) {
-      isVerticalRef.current = true;
-      return;
-    }
-    if (isVerticalRef.current) return;
-
-    if (swipeTargetRef.current < 0) {
-      if (dx < 0 && activeColumnIndex < allMobileColumns.length - 1) {
-        swipeTargetRef.current = activeColumnIndex + 1;
-      } else if (dx > 0 && activeColumnIndex > 0) {
-        swipeTargetRef.current = activeColumnIndex - 1;
+    const onTouchStart = (e: TouchEvent) => {
+      if (snapTimeoutRef.current) {
+        clearTimeout(snapTimeoutRef.current);
+        snapTimeoutRef.current = null;
       }
-    }
-
-    const delta = swipeTargetRef.current < 0 ? dx * 0.2 : dx;
-    swipeDeltaRef.current = delta;
-    setSwipeDelta(delta);
-    setSwipePhase('dragging');
-  }, [activeColumnIndex, allMobileColumns.length]);
-
-  const handleTouchEnd = useCallback(() => {
-    const delta = swipeDeltaRef.current;
-
-    if (Math.abs(delta) < 30) {
-      swipeTargetRef.current = -1;
+      swipeStartXRef.current = e.touches[0].clientX;
+      swipeStartYRef.current = e.touches[0].clientY;
+      isVerticalRef.current = false;
       swipeDeltaRef.current = 0;
+      swipeTargetRef.current = -1;
       setSwipeDelta(0);
       setSwipePhase('idle');
-      return;
-    }
+    };
 
-    const width = swipeContainerRef.current?.clientWidth ?? 300;
-    const threshold = width * 0.15;
+    const onTouchMove = (e: TouchEvent) => {
+      const dx = e.touches[0].clientX - swipeStartXRef.current;
+      const dy = e.touches[0].clientY - swipeStartYRef.current;
 
-    setSwipePhase('snapping');
+      if (!isVerticalRef.current && Math.abs(dx) < 30 && Math.abs(dy) < 30) return;
 
-    if (Math.abs(delta) > threshold && swipeTargetRef.current >= 0) {
-      const snapDelta = delta > 0 ? width : -width;
-      setSwipeDelta(snapDelta);
-      setTimeout(() => {
-        setActiveColumnIndex(swipeTargetRef.current);
+      if (!isVerticalRef.current && Math.abs(dy) > Math.abs(dx)) {
+        isVerticalRef.current = true;
+        return;
+      }
+      if (isVerticalRef.current) return;
+
+      e.preventDefault();
+
+      if (swipeTargetRef.current < 0) {
+        if (dx < 0 && activeColumnIndexRef.current < allMobileColumnsLengthRef.current - 1) {
+          swipeTargetRef.current = activeColumnIndexRef.current + 1;
+        } else if (dx > 0 && activeColumnIndexRef.current > 0) {
+          swipeTargetRef.current = activeColumnIndexRef.current - 1;
+        }
+      }
+
+      const delta = swipeTargetRef.current < 0 ? dx * 0.2 : dx;
+      swipeDeltaRef.current = delta;
+      setSwipeDelta(delta);
+      setSwipePhase('dragging');
+    };
+
+    const onTouchEnd = () => {
+      const delta = swipeDeltaRef.current;
+
+      if (Math.abs(delta) < 30) {
         swipeTargetRef.current = -1;
         swipeDeltaRef.current = 0;
         setSwipeDelta(0);
         setSwipePhase('idle');
-      }, 260);
-    } else {
-      swipeTargetRef.current = -1;
-      swipeDeltaRef.current = 0;
-      setSwipeDelta(0);
-      setTimeout(() => {
-        setSwipePhase('idle');
-      }, 260);
-    }
-  }, []);
+        return;
+      }
+
+      const width = swipeContainerRef.current?.clientWidth ?? 300;
+      const threshold = width * 0.15;
+
+      setSwipePhase('snapping');
+
+      if (Math.abs(delta) > threshold && swipeTargetRef.current >= 0) {
+        const snapDelta = delta > 0 ? width : -width;
+        setSwipeDelta(snapDelta);
+        snapTimeoutRef.current = setTimeout(() => {
+          snapTimeoutRef.current = null;
+          setSwipePhase('resetting');
+          setActiveColumnIndex(swipeTargetRef.current);
+          swipeTargetRef.current = -1;
+          swipeDeltaRef.current = 0;
+          setSwipeDelta(0);
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              setSwipePhase('idle');
+            });
+          });
+        }, 260);
+      } else {
+        swipeTargetRef.current = -1;
+        swipeDeltaRef.current = 0;
+        setSwipeDelta(0);
+        snapTimeoutRef.current = setTimeout(() => {
+          snapTimeoutRef.current = null;
+          setSwipePhase('idle');
+        }, 260);
+      }
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [isMobile]);
 
   const activeColTasks = allMobileColumns[activeColumnIndex]
     ? tasksByStatus[allMobileColumns[activeColumnIndex].id] || []
     : [];
+
+  const activeColProjectGroups = useMemo(() => {
+    if (!userPreferences.groupTasksByProject || !projects) return null;
+    const colId = allMobileColumns[activeColumnIndex]?.id ?? '';
+    const groups: { key: string; name: string; tasks: Task[] }[] = [];
+    const byProject = new Map<string, Task[]>();
+    const noProject: Task[] = [];
+
+    for (const t of activeColTasks) {
+      if (t.projectId) {
+        const arr = byProject.get(t.projectId) ?? [];
+        arr.push(t);
+        byProject.set(t.projectId, arr);
+      } else {
+        noProject.push(t);
+      }
+    }
+
+    for (const p of projects) {
+      const arr = byProject.get(p.id);
+      if (arr) {
+        groups.push({ key: `kanban_mobile_${colId}_${p.id}`, name: p.name, tasks: arr });
+      }
+    }
+
+    if (noProject.length > 0) {
+      groups.push({ key: `kanban_mobile_${colId}__no_project_`, name: 'No Project', tasks: noProject });
+    }
+
+    return groups;
+  }, [activeColTasks, userPreferences.groupTasksByProject, projects, allMobileColumns, activeColumnIndex]);
 
   const renderMobileTask = (task: Task) => (
     <div key={task.id}>
@@ -763,8 +829,8 @@ export function KanbanBoard() {
   );
 
   return (
-    <div className="h-full space-y-4">
-      <div className={cn('flex items-center gap-2 justify-end', isMobile && 'flex-wrap')}>
+    <div className={cn('h-full', isMobile ? 'flex flex-col' : 'flex flex-col gap-4 md:p-6')}>
+      <div className={cn('flex items-center gap-2 justify-end shrink-0', isMobile && 'flex-wrap px-3 pt-3')}>
         <div className="flex items-center gap-1">
           <Button
             variant={ownershipFilter === 'all' ? 'default' : 'outline'}
@@ -883,11 +949,7 @@ export function KanbanBoard() {
 
       {isMobile ? (
         <div
-          className="flex flex-col h-full -mt-2"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          style={{ touchAction: 'pan-y' }}
+          className="flex flex-col flex-1 min-h-0"
         >
           <div className="flex border-b overflow-x-auto shrink-0">
             {allMobileColumns.map((col, idx) => (
@@ -922,17 +984,33 @@ export function KanbanBoard() {
           <div
             ref={swipeContainerRef}
             className="relative flex-1 min-h-0 overflow-hidden"
+            style={{ touchAction: 'pan-y' }}
           >
             {/* Current column */}
             <div
+              className="h-full"
               style={{
                 transform: `translateX(${swipeDelta}px)`,
-                transition: swipePhase === 'dragging' ? 'none' : 'transform 0.25s ease-out',
+                transition: (swipePhase === 'dragging' || swipePhase === 'resetting') ? 'none' : 'transform 0.25s ease-out',
               }}
             >
-              <div className="overflow-auto p-3 space-y-2" style={{ maxHeight: '100%' }}>
+              <div ref={mobileScrollRef} className="overflow-auto p-3 h-full" style={{ touchAction: 'pan-y' }}>
+                <div className="space-y-2 min-h-full">
                 <AnimatePresence mode="popLayout">
-                  {activeColTasks.map(renderMobileTask)}
+                  {activeColProjectGroups ? (
+                    activeColProjectGroups.map((group) => (
+                      <KanbanProjectGroupWrapper
+                        key={group.key}
+                        groupKey={group.key}
+                        projectName={group.name}
+                        taskCount={group.tasks.length}
+                      >
+                        {group.tasks.map(renderMobileTask)}
+                      </KanbanProjectGroupWrapper>
+                    ))
+                  ) : (
+                    activeColTasks.map(renderMobileTask)
+                  )}
                 </AnimatePresence>
                 {activeColTasks.length === 0 && (
                   <div className="py-8 text-center text-muted-foreground text-sm">
@@ -941,6 +1019,7 @@ export function KanbanBoard() {
                       : 'No tasks'}
                   </div>
                 )}
+                </div>
               </div>
             </div>
 
@@ -957,10 +1036,11 @@ export function KanbanBoard() {
                   className="absolute top-0 left-0 right-0 bottom-0"
                   style={{
                     transform: `translateX(${base + swipeDelta}px)`,
-                    transition: swipePhase === 'dragging' ? 'none' : 'transform 0.25s ease-out',
+                    transition: (swipePhase === 'dragging' || swipePhase === 'resetting') ? 'none' : 'transform 0.25s ease-out',
                   }}
                 >
-                  <div className="overflow-auto p-3 space-y-2 h-full">
+                  <div className="overflow-auto p-3 h-full" style={{ touchAction: 'pan-y' }}>
+                    <div className="space-y-2 min-h-full">
                     <AnimatePresence mode="popLayout">
                       {adjTasks.map((t: Task) => (
                         <MobileTaskCard key={t.id} task={t} visibleColumns={visibleColumns} />
@@ -969,6 +1049,7 @@ export function KanbanBoard() {
                     {adjTasks.length === 0 && (
                       <div className="py-8 text-center text-muted-foreground text-sm">No tasks</div>
                     )}
+                    </div>
                   </div>
                 </div>
               );
@@ -996,7 +1077,7 @@ export function KanbanBoard() {
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
-          <div className="flex gap-4 overflow-x-auto pb-4 h-full custom-scrollbar-horizontal">
+          <div className="flex gap-4 overflow-x-auto pb-4 flex-1 min-h-0 custom-scrollbar-horizontal">
             {visibleColumns.map((col) => (
               <KanbanColumn
                 key={col.id}
