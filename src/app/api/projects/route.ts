@@ -1,55 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
-import { fireWebhookEvent, buildProjectContext } from "@/lib/webhook-engine";
-import { buildVisibilityWhereClause } from "@/lib/visibility";
+import { ProjectService } from "@/services/project.service";
 
-// GET /api/projects - List projects with task counts
 export async function GET(request: NextRequest) {
   try {
     const userId = await getCurrentUserId();
-    const isAuthenticated = !!userId;
-
     const { searchParams } = new URL(request.url);
     const areaId = searchParams.get("areaId") ?? undefined;
 
-    const projects = await db.project.findMany({
-      where: {
-        ...buildVisibilityWhereClause(userId, isAuthenticated),
-        ...(areaId ? { areaId } : {}),
-      },
-      orderBy: { sortOrder: "asc" },
-      include: {
-        _count: { select: { tasks: true, notes: true } },
-        area: { select: { id: true, name: true, color: true } },
-      },
-    });
-
-    // Also count top-level tasks (without parentId) for each project
-    const projectIds = projects.map((p) => p.id);
-    const topLevelTaskCounts = projectIds.length > 0 ? await db.task.groupBy({
-      by: ["projectId"],
-      where: {
-        ...buildVisibilityWhereClause(userId, isAuthenticated),
-        projectId: { in: projectIds },
-        parentId: null,
-      },
-      _count: true,
-    }) : [];
-    const topLevelMap = new Map(
-      topLevelTaskCounts.map((r) => [r.projectId, r._count])
-    );
-
-    const result = projects.map((project) => ({
-      ...parseJsonFields(project, "project"),
-      _count: {
-        tasks: project._count.tasks,
-        topLevelTasks: topLevelMap.get(project.id) ?? 0,
-        notes: project._count.notes,
-      },
-    }));
-
+    const result = await ProjectService.listProjects(userId, areaId);
     return NextResponse.json(result);
   } catch (error) {
     console.error("Failed to fetch projects:", error);
@@ -57,7 +16,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/projects - Create new project
 export async function POST(request: NextRequest) {
   try {
     const authResult = await requireAuth();
@@ -65,55 +23,10 @@ export async function POST(request: NextRequest) {
     const { userId } = authResult;
 
     const body = await request.json();
-    const { name, description, color, icon, areaId, status, metadata, tagIds, visibility, visibleUserIds } = body;
+    const result = await ProjectService.createProject(userId, body);
 
-    if (!name || typeof name !== "string" || name.trim() === "") {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
-    }
-
-    const maxSortProject = await db.project.findFirst({
-      where: { ownerId: userId },
-      orderBy: { sortOrder: "desc" },
-      select: { sortOrder: true },
-    });
-
-    const shortIdNum = await getNextShortIdNum(db.project, userId);
-
-    const project = await db.project.create({
-      data: {
-        name: name.trim(),
-        description: description ?? null,
-        color: color ?? "#8b5cf6",
-        icon: icon ?? null,
-        status: status ?? "active",
-        areaId: areaId ?? null,
-        metadata: metadata ? JSON.stringify(metadata) : "{}",
-        tagIds: tagIds ? JSON.stringify(tagIds) : "[]",
-        visibility: visibility ?? null,
-        visibleUserIds: JSON.stringify(visibleUserIds || []),
-        shortIdNum,
-        ownerId: userId,
-        sortOrder: (maxSortProject?.sortOrder ?? -1) + 1,
-      },
-      include: {
-        area: { select: { id: true, name: true, color: true } },
-      },
-    });
-
-    // Fire webhook event for project creation (non-blocking)
-    try {
-      fireWebhookEvent(buildProjectContext(
-        { id: project.id, name: project.name, shortIdNum: project.shortIdNum, areaId: project.areaId, ownerId: project.ownerId },
-        'project.created'
-      ));
-    } catch (webhookError) {
-      console.error('[Webhook] Error in project create webhook:', webhookError);
-    }
-
-    return NextResponse.json(
-      { ...parseJsonFields(project, "project"), _count: { tasks: 0, notes: 0 } },
-      { status: 201 }
-    );
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(result.data, { status: 201 });
   } catch (error) {
     console.error("Failed to create project:", error);
     return NextResponse.json({ error: "Failed to create project" }, { status: 500 });

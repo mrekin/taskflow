@@ -1,46 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
 import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
-import { buildVisibilityWhereClause } from "@/lib/visibility";
+import { NoteService } from "@/services/note.service";
 
-// GET /api/notes - List notes with optional filters
 export async function GET(request: NextRequest) {
   try {
     const userId = await getCurrentUserId();
     if (!userId) return NextResponse.json([]);
 
     const { searchParams } = new URL(request.url);
-    const projectId = searchParams.get("projectId") ?? undefined;
-    const folderId = searchParams.get("folderId") ?? undefined;
+    const filters = {
+      projectId: searchParams.get("projectId") ?? undefined,
+      folderId: searchParams.get("folderId") ?? undefined,
+    };
 
-    const notes = await db.note.findMany({
-      where: {
-        ...buildVisibilityWhereClause(userId, !!userId),
-        ...(projectId ? { projectId } : {}),
-        ...(folderId ? { folderId } : {}),
-      },
-      orderBy: { updatedAt: "desc" },
-      include: {
-        project: { select: { id: true, name: true, color: true } },
-        folder: { select: { id: true, name: true, parentId: true } },
-      },
-    });
-
-    // Get attachment counts for all notes
-    const noteIds = notes.map(n => n.id);
-    const attachmentCounts = await db.attachment.groupBy({
-      by: ['entityId'],
-      where: { entityId: { in: noteIds }, entityType: 'note' },
-      _count: { id: true },
-    });
-    const attachmentCountMap = new Map(attachmentCounts.map(a => [a.entityId, a._count.id]));
-
-    const result = notes.map((note) => ({
-      ...parseJsonFields(note, "note"),
-      _count: { attachments: attachmentCountMap.get(note.id) || 0 },
-    }));
-
+    const result = await NoteService.listNotes(userId, filters);
     return NextResponse.json(result);
   } catch (error) {
     console.error("Failed to fetch notes:", error);
@@ -48,7 +21,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/notes - Create new note
 export async function POST(request: NextRequest) {
   try {
     const authResult = await requireAuth();
@@ -56,54 +28,10 @@ export async function POST(request: NextRequest) {
     const { userId } = authResult;
 
     const body = await request.json();
-    const { title, content, projectId, folderId, metadata, tagIds, visibility, visibleUserIds } = body;
+    const result = await NoteService.createNote(userId, body);
 
-    if (!title || typeof title !== "string" || title.trim() === "") {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 });
-    }
-
-    const noteProjectId = projectId ?? null;
-    const noteFolderId = folderId ?? null;
-    const duplicateNote = await db.note.findFirst({
-      where: {
-        title: title.trim(),
-        projectId: noteProjectId,
-        folderId: noteFolderId,
-        ownerId: userId,
-      },
-    });
-    if (duplicateNote) {
-      return NextResponse.json({ error: "A note with this title already exists in this location" }, { status: 409 });
-    }
-
-    const maxSortNote = await db.note.findFirst({
-      where: { ownerId: userId },
-      orderBy: { sortOrder: "desc" },
-      select: { sortOrder: true },
-    });
-
-    const shortIdNum = await getNextShortIdNum(db.note, userId);
-
-    const note = await db.note.create({
-      data: {
-        title: title.trim(),
-        content: content ?? "",
-        projectId: projectId ?? null,
-        folderId: folderId ?? null,
-        metadata: metadata ? JSON.stringify(metadata) : "{}",
-        tagIds: tagIds ? JSON.stringify(tagIds) : "[]",
-        shortIdNum,
-        ownerId: userId,
-        sortOrder: (maxSortNote?.sortOrder ?? -1) + 1,
-        visibility: visibility ?? null,
-        visibleUserIds: JSON.stringify(visibleUserIds || []),
-      },
-      include: {
-        project: { select: { id: true, name: true, color: true } },
-      },
-    });
-
-    return NextResponse.json(parseJsonFields(note, "note"), { status: 201 });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(result.data, { status: 201 });
   } catch (error) {
     console.error("Failed to create note:", error);
     return NextResponse.json({ error: "Failed to create note" }, { status: 500 });

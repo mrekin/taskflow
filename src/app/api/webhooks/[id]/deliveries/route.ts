@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth-utils';
+import { WebhookService } from '@/services/webhook.service';
 
-// GET /api/webhooks/[id]/deliveries - Get delivery history for a webhook
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,18 +12,10 @@ export async function GET(
     const { userId } = authResult;
 
     const { id } = await params;
-    const webhook = await db.webhook.findFirst({ where: { id, ownerId: userId } });
-    if (!webhook) {
-      return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
-    }
+    const result = await WebhookService.getDeliveries(userId, id);
 
-    const deliveries = await db.webhookDelivery.findMany({
-      where: { webhookId: id },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
-
-    return NextResponse.json(deliveries);
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(result.data);
   } catch (error) {
     console.error('Failed to fetch deliveries:', error);
     return NextResponse.json({ error: 'Failed to fetch deliveries' }, { status: 500 });
