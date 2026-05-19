@@ -55,6 +55,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { DeleteDialog } from '@/components/delete-dialog';
 import { useAppStore } from '@/store/app-store';
 import type { WebhookTrigger } from '@/lib/types';
 import {
@@ -1330,46 +1331,27 @@ export function TaskDetailDialog() {
       </Sheet>
 
       {/* Delete confirmation */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {task?.parentId ? 'Subtask' : 'Task'}</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete &quot;{task?.title}&quot;? This action cannot be
-              undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title={`Delete ${task?.parentId ? 'Subtask' : 'Task'}`}
+        description={<>Are you sure you want to delete &quot;{task?.title}&quot;? This action cannot be undone.</>}
+        onConfirm={handleDelete}
+      />
 
       {/* Delete subtask confirmation */}
-      <AlertDialog open={showDeleteSubtaskDialog} onOpenChange={setShowDeleteSubtaskDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Subtask</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete &quot;{subtasks.find((s) => s.id === pendingDeleteSubtaskId)?.title}&quot;? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (pendingDeleteSubtaskId) {
-                  handleSubtaskDelete(pendingDeleteSubtaskId);
-                  setPendingDeleteSubtaskId(null);
-                }
-              }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteDialog
+        open={showDeleteSubtaskDialog}
+        onOpenChange={setShowDeleteSubtaskDialog}
+        title="Delete Subtask"
+        description={<>Are you sure you want to delete &quot;{subtasks.find((s) => s.id === pendingDeleteSubtaskId)?.title}&quot;? This action cannot be undone.</>}
+        onConfirm={() => {
+          if (pendingDeleteSubtaskId) {
+            handleSubtaskDelete(pendingDeleteSubtaskId);
+            setPendingDeleteSubtaskId(null);
+          }
+        }}
+      />
 
       {/* Create subtask dialog */}
       <CreateTaskDialog

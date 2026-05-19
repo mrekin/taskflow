@@ -16,17 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { DeleteDialog } from '@/components/delete-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -122,6 +112,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
   const [lastSavedTagIds, setLastSavedTagIds] = useState<string[]>(() => note?.tagIds ?? []);
   const [lastSavedVisibility, setLastSavedVisibility] = useState<string | null>(() => note?.visibility ?? null);
   const [lastSavedVisibleUserIds, setLastSavedVisibleUserIds] = useState<string[]>(() => note?.visibleUserIds ?? []);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -444,27 +435,18 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
           )}
 
           {!isReadOnly && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Note</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete &quot;{title}&quot;? This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <>
+              <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" onClick={() => setShowDeleteDialog(true)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+              <DeleteDialog
+                open={showDeleteDialog}
+                onOpenChange={setShowDeleteDialog}
+                title="Delete Note"
+                description={<>Are you sure you want to delete &quot;{title}&quot;? This action cannot be undone.</>}
+                onConfirm={handleDelete}
+              />
+            </>
           )}
         </div>
       </div>

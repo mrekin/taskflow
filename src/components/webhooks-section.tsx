@@ -44,6 +44,7 @@ import { useAppStore } from '@/store/app-store';
 import type { Webhook, WebhookDelivery } from '@/lib/types';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/empty-state';
 
 const WEBHOOK_EVENTS = [
   { value: 'task.status_changed', label: 'Task Status Changed', description: 'When a task status is updated' },
@@ -339,14 +340,12 @@ export function WebhooksSection() {
       </CardHeader>
       <CardContent>
         {webhooks.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground border rounded-lg border-dashed">
-            <WebhookIcon className="size-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm font-medium">No webhooks configured</p>
-            <p className="text-xs mt-1 mb-3">Create a webhook to receive notifications when events happen</p>
-            <Button size="sm" variant="outline" onClick={handleCreate}>
-              <Plus className="size-4 mr-1" /> Create First Webhook
-            </Button>
-          </div>
+          <EmptyState
+              icon={WebhookIcon}
+              title="No webhooks configured"
+              description="Create a webhook to receive notifications when events happen"
+              action={{ label: "Create First Webhook", onClick: handleCreate, icon: Plus }}
+            />
         ) : (
           <div className="space-y-2">
             <AnimatePresence mode="popLayout">

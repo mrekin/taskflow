@@ -61,6 +61,7 @@ import {
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileBottomNav } from '@/components/mobile-bottom-nav';
+import { EmptyState } from '@/components/empty-state';
 
 // ─── Sub-Components ─────────────────────────────────────────────────────
 
@@ -126,14 +127,12 @@ function AllAreasView({
           </AnimatePresence>
         </div>
       ) : (
-        <div className="py-16 text-center text-muted-foreground border rounded-lg border-dashed">
-          <Layers className="size-12 mx-auto mb-4 opacity-30" />
-          <p className="text-sm font-medium">No areas yet</p>
-          <p className="text-xs mt-1 mb-4">Create an area to organize your projects</p>
-          <Button size="sm" variant="outline" onClick={onCreateArea}>
-            <Plus className="size-4 mr-1" /> Create First Area
-          </Button>
-        </div>
+        <EmptyState
+          icon={Layers}
+          title="No areas yet"
+          description="Create an area to organize your projects"
+          action={{ label: "Create First Area", onClick: onCreateArea, icon: Plus }}
+        />
       )}
     </div>
   );
@@ -208,11 +207,11 @@ function AllProjectsView({
           </AnimatePresence>
         </div>
       ) : (
-        <div className="py-16 text-center text-muted-foreground border rounded-lg border-dashed">
-          <FolderOpen className="size-12 mx-auto mb-4 opacity-30" />
-          <p className="text-sm font-medium">No projects yet</p>
-          <p className="text-xs mt-1">Create a project from an area or add one directly</p>
-        </div>
+        <EmptyState
+          icon={FolderOpen}
+          title="No projects yet"
+          description="Create a project from an area or add one directly"
+        />
       )}
     </div>
   );

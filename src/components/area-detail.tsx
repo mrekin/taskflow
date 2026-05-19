@@ -20,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { DeleteDialog } from '@/components/delete-dialog';
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ import { ColorPicker } from '@/components/color-picker';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import { VisibilityLock } from '@/components/visibility-lock';
 import { useConfirmClose } from '@/hooks/use-confirm-close';
+import { EmptyState } from '@/components/empty-state';
 
 export function AreaDetail() {
   const {
@@ -242,11 +244,11 @@ export function AreaDetail() {
             </AnimatePresence>
           </div>
         ) : (
-          <div className="py-12 text-center text-muted-foreground border rounded-lg border-dashed">
-            <FolderOpen className="size-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">No projects in this area</p>
-            <p className="text-xs mt-1">Create a project to get started</p>
-          </div>
+          <EmptyState
+              icon={FolderOpen}
+              title="No projects in this area"
+              description="Create a project to get started"
+            />
         )}
       </div>
 
@@ -328,21 +330,13 @@ export function AreaDetail() {
       </AlertDialog>
 
       {/* Delete confirmation */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Area</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete &quot;{area.name}&quot;? All projects in this area
-              will be unlinked. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Delete Area"
+        description={<>Are you sure you want to delete &quot;{area.name}&quot;? All projects in this area will be unlinked. This action cannot be undone.</>}
+        onConfirm={handleDelete}
+      />
 
       {/* Create Project Dialog */}
       <CreateProjectDialog
