@@ -2,8 +2,11 @@
 # Supports subpath deployment via NEXT_BASE_PATH env var
 # Auto-creates and migrates database on startup
 
+# Stage 0: Base image (shared between builder and runner, cached once)
+FROM node:22-alpine AS base
+
 # Stage 1: Build (deps + build in one stage, cache mount for bun)
-FROM node:22-alpine AS builder
+FROM base AS builder
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -37,7 +40,7 @@ ENV DATABASE_URL=${DATABASE_URL:-file:./db/taskflow.db}
 RUN bun run build
 
 # Stage 2: Production
-FROM node:22-alpine AS runner
+FROM base AS runner
 WORKDIR /app
 
 ARG BUILD_TYPE=test

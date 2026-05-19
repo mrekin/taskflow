@@ -122,4 +122,4 @@ jobs:
       - name: Delete untagged images from GHCR
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
-          keep-n-untagged: 1
+          keep-n-untagged: 0
