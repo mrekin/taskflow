@@ -1103,7 +1103,7 @@ export function TaskDetailDialog() {
                     </>
                   )}
 
-                  {/* Prices */}
+                  {/* Costs */}
                   {(isEditing || (localPrices.length > 0)) && (
                     <>
                       <Separator />
@@ -1111,7 +1111,7 @@ export function TaskDetailDialog() {
                         <div className="flex items-center justify-between">
                           <Label className="text-muted-foreground text-xs uppercase tracking-wider flex items-center gap-1.5">
                             <DollarSignIcon className="size-3.5" />
-                            Prices
+                            Costs
                           </Label>
                           {isEditing && (
                             <div className="flex items-center gap-2">
@@ -1222,7 +1222,7 @@ export function TaskDetailDialog() {
                             }}
                           >
                             <Plus className="size-3.5 mr-1" />
-                            Add price
+                            Add cost
                           </Button>
                         )}
                       </div>

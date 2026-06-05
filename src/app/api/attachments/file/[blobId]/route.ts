@@ -17,7 +17,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const disposition = searchParams.get('disposition') || 'attachment';
 
-    return new NextResponse(result.data.data, {
+    return new NextResponse(Buffer.from(result.data.data), {
       headers: {
         'Content-Type': result.data.mimeType,
         'Content-Length': String(result.data.data.length),

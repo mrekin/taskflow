@@ -550,12 +550,12 @@ export function CreateTaskDialog({
               </div>
             </div>
 
-            {/* Prices */}
+            {/* Costs */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-muted-foreground text-xs uppercase tracking-wider flex items-center gap-1.5">
                   <DollarSignIcon className="size-3.5" />
-                  Prices
+                  Costs
                 </Label>
                 <div className="flex items-center gap-2">
                   <Select
@@ -638,7 +638,7 @@ export function CreateTaskDialog({
                 }}
               >
                 <Plus className="size-3 mr-1" />
-                Add Price
+                Add Cost
               </Button>
             </div>
 

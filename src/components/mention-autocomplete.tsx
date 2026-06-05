@@ -39,7 +39,7 @@ const TYPE_LABELS: Record<string, string> = {
   note: 'Notes',
   area: 'Areas',
   user: 'Users',
-  price: 'Prices',
+  price: 'Costs',
 };
 
 type DropdownItem = MentionItem | (UserMentionItem & { type: 'user' }) | (PriceMentionItem & { type: 'price' });
