@@ -16,6 +16,7 @@ import {
   X,
   Loader2,
   AlertCircle,
+  DollarSign as DollarSignIcon,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -63,6 +64,7 @@ import { useAppStore } from '@/store/app-store';
 import {
   TASK_PRIORITIES,
   PRIORITY_LABELS,
+  CURRENCIES,
   getColumnLabelAndColor,
   type StatusConfig,
 } from '@/lib/constants';
@@ -74,7 +76,7 @@ import { MentionTextarea } from '@/components/mention-autocomplete';
 import { toast } from 'sonner';
 import { useConfirmClose } from '@/hooks/use-confirm-close';
 import { computeFileHash, formatFileSize, isFilenameAllowed, uploadFilesConcurrently } from '@/lib/attachment-utils';
-import type { PendingAttachment } from '@/lib/types';
+import type { PendingAttachment, TaskPrice } from '@/lib/types';
 
 const TASK_WEBHOOK_EVENTS = [
   { value: 'task.status_changed', label: 'Status Changed' },
@@ -131,10 +133,14 @@ export function CreateTaskDialog({
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [prices, setPrices] = useState<TaskPrice[]>([]);
+  const [priceAmountStrings, setPriceAmountStrings] = useState<Record<number, string>>({});
+  const [currency, setCurrency] = useState<string>('USD');
+  const [inheritedCurrency, setInheritedCurrency] = useState<string | undefined>(undefined);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isDirty = !!(title.trim() || description.trim() || dueDate || tagIds.length > 0 || assigneeId || webhookBindings.length > 0 || pendingFiles.length > 0);
+  const isDirty = !!(title.trim() || description.trim() || dueDate || tagIds.length > 0 || assigneeId || webhookBindings.length > 0 || pendingFiles.length > 0 || prices.length > 0);
 
   const handleClose = () => {
     setTitle(defaultTitle || '');
@@ -151,6 +157,10 @@ export function CreateTaskDialog({
     setWebhooksExpanded(false);
     setPendingFiles([]);
     setAttachmentError(null);
+    setPrices([]);
+    setPriceAmountStrings({});
+    setCurrency('USD');
+    setInheritedCurrency(undefined);
     onOpenChange(false);
   };
 
@@ -182,8 +192,21 @@ export function CreateTaskDialog({
       setWebhooksExpanded(false);
       setPendingFiles([]);
       setAttachmentError(null);
+      setPrices([]);
+      setPriceAmountStrings({});
+      // Inherit currency from parent task if creating a subtask
+      const parentCurrency = parentId
+        ? tasks.find((t) => t.id === parentId)?.currency
+        : undefined;
+      if (parentCurrency) {
+        setCurrency(parentCurrency);
+        setInheritedCurrency(parentCurrency);
+      } else {
+        setCurrency('USD');
+        setInheritedCurrency(undefined);
+      }
     }
-  }, [open, defaultStatus, defaultProjectId, selectedProjectId, parentId, defaultTitle, defaultDescription, defaultParentId]);
+  }, [open, defaultStatus, defaultProjectId, selectedProjectId, parentId, defaultTitle, defaultDescription, defaultParentId, tasks]);
 
   useEffect(() => {
     if (open && !attachmentConfig) fetchAttachmentConfig();
@@ -264,6 +287,8 @@ export function CreateTaskDialog({
         assigneeId,
         visibility,
         visibleUserIds,
+        ...(prices.length > 0 ? { prices } : {}),
+        ...(prices.length > 0 ? { currency } : {}),
       });
 
       if (newTask && webhookBindings.length > 0) {
@@ -523,6 +548,98 @@ export function CreateTaskDialog({
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Prices */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-muted-foreground text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <DollarSignIcon className="size-3.5" />
+                  Prices
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={currency}
+                    onValueChange={inheritedCurrency ? undefined : setCurrency}
+                    disabled={!!inheritedCurrency}
+                  >
+                    <SelectTrigger className="h-6 w-[80px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCIES.map((c) => (
+                        <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {prices.map((price, idx) => (
+                <div key={price.id} className="flex items-center gap-2 text-sm">
+                  <Input
+                    value={price.description}
+                    onChange={(e) => {
+                      const next = [...prices];
+                      next[idx] = { ...next[idx], description: e.target.value };
+                      setPrices(next);
+                    }}
+                    placeholder="Description"
+                    className="h-7 text-xs flex-1 min-w-0"
+                  />
+                  <Input
+                    value={priceAmountStrings[idx] ?? String(price.amount)}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const sanitized = raw.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+                      setPriceAmountStrings((prev) => ({ ...prev, [idx]: sanitized }));
+                      const next = [...prices];
+                      next[idx] = { ...next[idx], amount: parseFloat(sanitized) || 0 };
+                      setPrices(next);
+                    }}
+                    placeholder="0"
+                    className="h-7 text-xs w-20"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => {
+                      setPrices((prev) => prev.filter((_, i) => i !== idx));
+                      setPriceAmountStrings((prev) => {
+                        const next = { ...prev };
+                        delete next[idx];
+                        return next;
+                      });
+                    }}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              ))}
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground"
+                onClick={() => {
+                  setPrices((prev) => [
+                    ...prev,
+                    {
+                      id: `price_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                      description: '',
+                      amount: 0,
+                      status: 'planned' as const,
+                      createdAt: new Date().toISOString(),
+                    },
+                  ]);
+                }}
+              >
+                <Plus className="size-3 mr-1" />
+                Add Price
+              </Button>
             </div>
 
             {!parentId && (

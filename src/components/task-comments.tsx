@@ -19,7 +19,7 @@ import {
 import { useAppStore } from '@/store/app-store';
 import { AttachmentList } from '@/components/attachment-list';
 import { computeFileHash, formatFileSize, validateAttachmentFiles, uploadFilesConcurrently } from '@/lib/attachment-utils';
-import type { Comment, PendingAttachment } from '@/lib/types';
+import type { Comment, PendingAttachment, TaskPrice } from '@/lib/types';
 import { CommentAttachmentsContext, useCommentAttachments } from '@/components/comment-attachments-context';
 
 const MAX_VISIBLE_LINES = 4;
@@ -28,6 +28,8 @@ const INDENT_PX = 24;
 
 interface TaskCommentsProps {
   taskId: string;
+  prices?: TaskPrice[];
+  currency?: string;
 }
 
 function buildTree(flat: Comment[]): Comment[] {
@@ -72,6 +74,8 @@ function CommentItem({
   onCreateTaskFromComment,
   depth,
   currentUserId,
+  prices,
+  currency,
 }: {
   comment: Comment;
   allComments: Comment[];
@@ -93,6 +97,8 @@ function CommentItem({
   onCreateTaskFromComment: (content: string) => void;
   depth: number;
   currentUserId: string;
+  prices?: TaskPrice[];
+  currency?: string;
 }) {
   const {
     replyPendingFiles,
@@ -168,6 +174,7 @@ function CommentItem({
                     value={editingContent}
                     onChange={onEditContentChange}
                     onKeyDown={(e) => onEditKeyDown(e, comment.id)}
+                    prices={prices}
                     className="min-h-14 text-xs py-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     autoFocus
                   />
@@ -187,7 +194,7 @@ function CommentItem({
               ) : (
                 <>
                   <div className="text-xs text-foreground/80 break-words leading-relaxed">
-                    <MarkdownRenderer content={visibleContent} compact />
+                    <MarkdownRenderer content={visibleContent} compact prices={prices} currency={currency} />
                   </div>
                   {isLong && (
                     <button
@@ -252,6 +259,7 @@ function CommentItem({
                       value={replyContent}
                       onChange={onReplyContentChange}
                       onKeyDown={onReplyKeyDown}
+                      prices={prices}
                       placeholder="Reply..."
                       className="min-h-8 text-xs resize-none flex-1 py-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       rows={1}
@@ -333,6 +341,8 @@ function CommentItem({
                   onCreateTaskFromComment={onCreateTaskFromComment}
                   depth={depth + 1}
                   currentUserId={currentUserId}
+                  prices={prices}
+                  currency={currency}
                 />
               </motion.div>
             ))}
@@ -343,7 +353,7 @@ function CommentItem({
   );
 }
 
-export function TaskComments({ taskId }: TaskCommentsProps) {
+export function TaskComments({ taskId, prices, currency }: TaskCommentsProps) {
   const {
     comments,
     tasks,
@@ -642,6 +652,8 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
                     onCreateTaskFromComment={handleCreateTaskFromComment}
                     depth={0}
                     currentUserId={currentUserId || ''}
+                    prices={prices}
+                    currency={currency}
                   />
                 </motion.div>
               ))}
@@ -660,6 +672,7 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
           <MentionTextarea
             value={newContent}
             onChange={(val) => setNewContent(val)}
+            prices={prices}
             placeholder="Add a comment..."
             className="min-h-8 text-xs resize-none flex-1 py-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             rows={1}

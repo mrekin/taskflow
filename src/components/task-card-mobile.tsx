@@ -1,7 +1,7 @@
 'use client';
 
 import { format, parseISO, isPast } from 'date-fns';
-import { Calendar, FolderOpen, Share2 } from 'lucide-react';
+import { Calendar, FolderOpen, Share2, DollarSign } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -144,6 +144,13 @@ export function TaskCardMobile({ task, isSubtask = false }: TaskCardMobileProps)
               />
             ))}
           </div>
+        )}
+
+        {task.priceSummary && task.priceSummary.total > 0 && (
+          <Badge variant="secondary" className="px-1.5 py-0 text-[10px] leading-4 h-4 gap-0.5">
+            <DollarSign className="size-3" />
+            {task.priceSummary.done} ({task.priceSummary.total}){task.currency ? ` ${task.currency}` : ''}
+          </Badge>
         )}
       </div>
     </div>

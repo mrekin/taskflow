@@ -11,10 +11,9 @@ import {
   forwardRef,
   useImperativeHandle,
 } from 'react';
-import { createPortal } from 'react-dom';
 import { useAppStore } from '@/store/app-store';
 import { api } from '@/lib/api-utils';
-import { filterEntities, isLocalEntityUrl, type MentionItem, type UserMentionItem } from '@/lib/smart-links';
+import { filterEntities, isLocalEntityUrl, filterPrices, type MentionItem, type UserMentionItem, type PriceMentionItem } from '@/lib/smart-links';
 import { cn } from '@/lib/utils';
 
 interface MentionTextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
@@ -22,6 +21,7 @@ interface MentionTextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaE
   onChange: (value: string) => void;
   children?: ReactNode;
   onFilePaste?: (e: React.ClipboardEvent<HTMLTextAreaElement>) => boolean;
+  prices?: PriceMentionItem[];
 }
 
 const TYPE_ICONS: Record<string, string> = {
@@ -30,6 +30,7 @@ const TYPE_ICONS: Record<string, string> = {
   note: 'N',
   area: 'A',
   user: '@',
+  price: '$',
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -38,12 +39,17 @@ const TYPE_LABELS: Record<string, string> = {
   note: 'Notes',
   area: 'Areas',
   user: 'Users',
+  price: 'Prices',
 };
 
-type DropdownItem = MentionItem | (UserMentionItem & { type: 'user' });
+type DropdownItem = MentionItem | (UserMentionItem & { type: 'user' }) | (PriceMentionItem & { type: 'price' });
 
 function isUserItem(item: DropdownItem): item is UserMentionItem & { type: 'user' } {
   return 'type' in item && item.type === 'user';
+}
+
+function isPriceItem(item: DropdownItem): item is PriceMentionItem & { type: 'price' } {
+  return 'type' in item && item.type === 'price';
 }
 
 function getCaretCoordinates(textarea: HTMLTextAreaElement, position: number): { top: number; left: number } {
@@ -110,22 +116,37 @@ function Dropdown({
     return acc;
   }, {});
 
-  const typeOrder = ['user', 'task', 'project', 'note', 'area'];
+  const typeOrder = ['user', 'price', 'task', 'project', 'note', 'area'];
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const selected = dropdownRef.current?.querySelector('[data-selected="true"]');
     selected?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex]);
 
+  // Capture wheel events on the scroll area to prevent background scrolling
+  useEffect(() => {
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      el.scrollTop += e.deltaY;
+    };
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  }, []);
+
   return (
     <div
       ref={dropdownRef}
       className="fixed z-[9999] min-w-[240px] max-w-[320px] bg-popover border border-border rounded-lg shadow-lg overflow-hidden"
+      data-mention-dropdown=""
       style={{ top: viewportPos.top, left: viewportPos.left }}
     >
-      <div className="max-h-[280px] overflow-y-auto custom-scrollbar p-1">
+      <div ref={scrollAreaRef} className="max-h-[280px] overflow-y-auto p-1"
+    >
         {typeOrder.map((type) => {
           const group = groupedItems[type];
           if (!group || group.length === 0) return null;
@@ -149,6 +170,7 @@ function Dropdown({
                         : 'hover:bg-muted'
                     )}
                     onMouseDown={(e) => {
+                      console.log('[DD] React onMouseDown fired', item.id);
                       e.preventDefault();
                       e.stopPropagation();
                       onSelect(item);
@@ -160,6 +182,13 @@ function Dropdown({
                     </span>
                     {isUserItem(item) ? (
                       <span className="truncate">{item.label}</span>
+                    ) : isPriceItem(item) ? (
+                      <>
+                        <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 shrink-0">
+                          ${item.amount}
+                        </span>
+                        <span className="truncate">{item.description}</span>
+                      </>
                     ) : (
                       <>
                         <span className="font-mono text-[10px] text-muted-foreground shrink-0">
@@ -182,7 +211,7 @@ function Dropdown({
 
 
 export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaProps>(
-  function MentionTextarea({ value, onChange, children, className, onKeyDown, onFilePaste, ...rest }, forwardedRef) {
+  function MentionTextarea({ value, onChange, children, className, onKeyDown, onFilePaste, prices, ...rest }, forwardedRef) {
     const innerRef = useRef<HTMLTextAreaElement>(null);
     useImperativeHandle(forwardedRef, () => innerRef.current!, []);
 
@@ -190,7 +219,7 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
 
     const [isOpen, setIsOpen] = useState(false);
     const [triggerIndex, setTriggerIndex] = useState(-1);
-    const [triggerType, setTriggerType] = useState<'#' | '@'>('#');
+    const [triggerType, setTriggerType] = useState<'#' | '@' | '$'>('#');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [viewportPos, setViewportPos] = useState({ top: 0, left: 0 });
     const [items, setItems] = useState<DropdownItem[]>([]);
@@ -243,24 +272,40 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
 
         const hashIndex = textBefore.lastIndexOf('#');
         const atIndex = textBefore.lastIndexOf('@');
+        const dollarIndex = textBefore.lastIndexOf('$');
 
-        let activeTrigger: '#' | '@' | null = null;
+        let activeTrigger: '#' | '@' | '$' | null = null;
         let activeIndex = -1;
 
-        if (atIndex > hashIndex) {
+        // Find the last trigger closest to cursor
+        const candidates: Array<{ trigger: '#' | '@' | '$'; index: number }> = [];
+
+        if (atIndex !== -1) {
           const beforeAt = textBefore.substring(0, atIndex);
           if (beforeAt.length === 0 || /[\s\n\r]$/.test(beforeAt)) {
-            activeTrigger = '@';
-            activeIndex = atIndex;
+            candidates.push({ trigger: '@', index: atIndex });
           }
         }
 
-        if (!activeTrigger && hashIndex !== -1) {
+        if (hashIndex !== -1) {
           const beforeHash = textBefore.substring(0, hashIndex);
           if (beforeHash.length === 0 || /[\s\n\r]$/.test(beforeHash)) {
-            activeTrigger = '#';
-            activeIndex = hashIndex;
+            candidates.push({ trigger: '#', index: hashIndex });
           }
+        }
+
+        if (dollarIndex !== -1) {
+          const beforeDollar = textBefore.substring(0, dollarIndex);
+          if (beforeDollar.length === 0 || /[\s\n\r]$/.test(beforeDollar)) {
+            candidates.push({ trigger: '$', index: dollarIndex });
+          }
+        }
+
+        // Pick the trigger closest to cursor (highest index)
+        if (candidates.length > 0) {
+          candidates.sort((a, b) => b.index - a.index);
+          activeTrigger = candidates[0].trigger;
+          activeIndex = candidates[0].index;
         }
 
         if (!activeTrigger || activeIndex === -1) {
@@ -315,9 +360,24 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
                 closeDropdown();
               }
             });
+        } else if (activeTrigger === '$') {
+          setTriggerIndex(activeIndex);
+          setTriggerType('$');
+          const filtered = filterPrices(q, prices || []);
+          const priceItems: DropdownItem[] = filtered.map((p) => ({ ...p, type: 'price' as const }));
+          setItems(priceItems);
+          setSelectedIndex(0);
+
+          if (priceItems.length > 0) {
+            updatePosition();
+            setIsOpen(true);
+            isOpenRef.current = true;
+          } else {
+            closeDropdown();
+          }
         }
       },
-      [tasks, projects, notes, areas, closeDropdown, updatePosition]
+      [tasks, projects, notes, areas, prices, closeDropdown, updatePosition]
     );
 
     const insertMention = useCallback(
@@ -333,6 +393,8 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
         if (isUserItem(item)) {
           const displayName = item.name || item.email || item.label;
           insertion = `[@${displayName}](user:${item.id}) `;
+        } else if (isPriceItem(item)) {
+          insertion = `[$${item.amount}](price:${item.id}) `;
         } else {
           insertion = `[#${item.shortId}](entity:${item.type[0].toUpperCase()}:${item.id}) `;
         }
@@ -415,9 +477,20 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
     useEffect(() => {
       if (!isOpen) return;
 
+      const dropdownEl = document.querySelector('[data-mention-dropdown]');
+
       const handleClickOutside = (e: MouseEvent) => {
         const textarea = innerRef.current;
-        if (textarea && e.target !== textarea && !textarea.contains(e.target as Node)) {
+        const target = e.target as Node;
+        const targetTag = (target as HTMLElement)?.tagName;
+        const inside = dropdownEl?.contains(target);
+        console.log('[DD] native clickOutside', { targetTag, inside: !!inside, dropdownFound: !!dropdownEl });
+        if (textarea && target !== textarea && !textarea.contains(target)) {
+          if (dropdownEl && dropdownEl.contains(target)) {
+            console.log('[DD] clickOutside: inside dropdown, skip');
+            return;
+          }
+          console.log('[DD] clickOutside: CLOSING');
           closeDropdown();
         }
       };
@@ -426,17 +499,40 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen, closeDropdown]);
 
-    const portalContent = isOpen && items.length > 0
-      ? createPortal(
-          <Dropdown
-            items={items}
-            selectedIndex={selectedIndex}
-            viewportPos={viewportPos}
-            onSelect={insertMention}
-            onHover={setSelectedIndex}
-          />,
-          document.body
-        )
+    // Reposition or close dropdown on scroll
+    useEffect(() => {
+      if (!isOpen) return;
+
+      const handleScroll = () => {
+        if (!innerRef.current) { closeDropdown(); return; }
+        updatePosition();
+      };
+
+      // Listen on all scrollable ancestors
+      const textarea = innerRef.current;
+      const ancestors: Element[] = [];
+      let el: Element | null = textarea;
+      while (el) {
+        ancestors.push(el);
+        el = el.parentElement;
+      }
+      ancestors.forEach((a) => a.addEventListener('scroll', handleScroll, { passive: true }));
+      window.addEventListener('scroll', handleScroll, { passive: true });
+
+      return () => {
+        ancestors.forEach((a) => a.removeEventListener('scroll', handleScroll));
+        window.removeEventListener('scroll', handleScroll);
+      };
+    }, [isOpen, closeDropdown, updatePosition]);
+
+    const dropdownContent = isOpen && items.length > 0
+      ? <Dropdown
+          items={items}
+          selectedIndex={selectedIndex}
+          viewportPos={viewportPos}
+          onSelect={insertMention}
+          onHover={setSelectedIndex}
+        />
       : null;
 
     const ENTITY_URL_REPLACE_REGEX =
@@ -491,7 +587,7 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
           className={cn(className)}
           {...rest}
         />
-        {portalContent}
+        {dropdownContent}
         {children}
       </>
     );

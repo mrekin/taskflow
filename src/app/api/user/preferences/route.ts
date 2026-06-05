@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUserId } from '@/lib/auth-utils';
 import { db } from '@/lib/db';
-import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig, type ProfileVisibility } from '@/lib/constants';
+import { DEFAULT_PREFERENCES, DEFAULT_CURRENCY, CURRENCIES, type UserPreferences, type StatusConfig, type ProfileVisibility } from '@/lib/constants';
 
 export async function GET() {
   const userId = await getCurrentUserId();
@@ -30,6 +30,9 @@ export async function GET() {
     entityShortLinks: metadata.entityShortLinks !== undefined ? Boolean(metadata.entityShortLinks) : DEFAULT_PREFERENCES.entityShortLinks,
     profileVisibility: parseProfileVisibility(metadata.profileVisibility),
     groupTasksByProject: metadata.groupTasksByProject !== undefined ? Boolean(metadata.groupTasksByProject) : DEFAULT_PREFERENCES.groupTasksByProject,
+    defaultCurrency: typeof metadata.defaultCurrency === 'string' && (CURRENCIES as readonly string[]).includes(metadata.defaultCurrency)
+      ? metadata.defaultCurrency
+      : DEFAULT_PREFERENCES.defaultCurrency,
   };
 
   return NextResponse.json(preferences);
@@ -69,6 +72,9 @@ export async function PUT(request: Request) {
   const entityShortLinks = typeof body.entityShortLinks === 'boolean' ? body.entityShortLinks : undefined;
   const profileVisibility = body.profileVisibility ? parseProfileVisibility(body.profileVisibility) : undefined;
   const groupTasksByProject = typeof body.groupTasksByProject === 'boolean' ? body.groupTasksByProject : undefined;
+  const defaultCurrency = typeof body.defaultCurrency === 'string' && (CURRENCIES as readonly string[]).includes(body.defaultCurrency)
+    ? body.defaultCurrency
+    : undefined;
 
   const user = await db.user.findUnique({ where: { id: userId }, select: { metadata: true } });
   let existing: Record<string, unknown>;
@@ -86,6 +92,7 @@ export async function PUT(request: Request) {
   if (entityShortLinks !== undefined) existing.entityShortLinks = entityShortLinks;
   if (profileVisibility !== undefined) existing.profileVisibility = profileVisibility;
   if (groupTasksByProject !== undefined) existing.groupTasksByProject = groupTasksByProject;
+  if (defaultCurrency !== undefined) existing.defaultCurrency = defaultCurrency;
 
   await db.user.update({
     where: { id: userId },
@@ -101,6 +108,9 @@ export async function PUT(request: Request) {
     entityShortLinks: existing.entityShortLinks !== undefined ? Boolean(existing.entityShortLinks) : DEFAULT_PREFERENCES.entityShortLinks,
     profileVisibility: parseProfileVisibility(existing.profileVisibility),
     groupTasksByProject: existing.groupTasksByProject !== undefined ? Boolean(existing.groupTasksByProject) : DEFAULT_PREFERENCES.groupTasksByProject,
+    defaultCurrency: typeof existing.defaultCurrency === 'string' && (CURRENCIES as readonly string[]).includes(existing.defaultCurrency)
+      ? existing.defaultCurrency
+      : DEFAULT_PREFERENCES.defaultCurrency,
   };
 
   return NextResponse.json(preferences);

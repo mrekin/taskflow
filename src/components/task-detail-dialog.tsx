@@ -16,9 +16,12 @@ import {
   ChevronRight,
   Webhook as WebhookIcon,
   ChevronDown,
+  DollarSign as DollarSignIcon,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import type { TaskPrice } from '@/lib/types';
+import { CURRENCIES } from '@/lib/constants';
 import {
   Sheet,
   SheetContent,
@@ -35,6 +38,7 @@ import { MarkdownToolbar } from '@/components/markdown-toolbar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -96,9 +100,11 @@ export function TaskDetailDialog() {
     deleteWebhookTrigger,
     users,
     currentUserId,
+    userPreferences,
   } = useAppStore();
 
   const task = tasks.find((t) => t.id === selectedTaskId);
+  const parentCurrency = task?.parentId ? tasks.find((t) => t.id === task.parentId)?.currency : undefined;
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -111,6 +117,7 @@ export function TaskDetailDialog() {
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDeleteSubtaskDialog, setShowDeleteSubtaskDialog] = useState(false);
+  const [showCurrencyChangeConfirm, setShowCurrencyChangeConfirm] = useState(false);
   const [pendingDeleteSubtaskId, setPendingDeleteSubtaskId] = useState<string | null>(null);
   const [showCreateSubtask, setShowCreateSubtask] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -122,6 +129,9 @@ export function TaskDetailDialog() {
   const [localAssigneeId, setLocalAssigneeId] = useState<string | null>(null);
   const [localVisibility, setLocalVisibility] = useState<string | null>(null);
   const [localVisibleUserIds, setLocalVisibleUserIds] = useState<string[]>([]);
+  const [localPrices, setLocalPrices] = useState<TaskPrice[]>([]);
+  const [localCurrency, setLocalCurrency] = useState<string>('USD');
+  const [priceAmountStrings, setPriceAmountStrings] = useState<Record<number, string>>({});
 
   const navigatedFromParentRef = useRef(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -143,7 +153,9 @@ export function TaskDetailDialog() {
     (dueDate ? dueTime : '09:00') !== (task.dueDate ? format(parseISO(task.dueDate), 'HH:mm') : '09:00') ||
     projectId !== (task.projectId ?? null) ||
     localTagIds.join(',') !== (task.tagIds || []).join(',') ||
-    localAssigneeId !== (task.assigneeId ?? null)
+    localAssigneeId !== (task.assigneeId ?? null) ||
+    JSON.stringify(localPrices) !== JSON.stringify(task.prices || []) ||
+    localCurrency !== (task.currency || 'USD')
   );
 
   const resetEditState = useCallback(() => {
@@ -158,7 +170,10 @@ export function TaskDetailDialog() {
     setProjectId(task.projectId ?? null);
     setLocalTagIds(task.tagIds || []);
     setLocalAssigneeId(task.assigneeId ?? null);
-  }, [task]);
+    setLocalPrices(task.prices || []);
+    setLocalCurrency(task.currency || parentCurrency || 'USD');
+    setPriceAmountStrings({});
+  }, [task, parentCurrency]);
 
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [discardAction, setDiscardAction] = useState<'cancel-edit' | 'close-sheet'>('close-sheet');
@@ -214,13 +229,16 @@ export function TaskDetailDialog() {
       setLocalAssigneeId(task.assigneeId ?? null);
       setLocalVisibility(task.visibility);
       setLocalVisibleUserIds(task.visibleUserIds || []);
+      setLocalPrices(task.prices || []);
+      setLocalCurrency(task.currency || parentCurrency || userPreferences.defaultCurrency);
+      setPriceAmountStrings({});
       setIsEditing(false);
       setEditingSubtaskId(null);
       setWebhookBindings([]);
       setWebhooksExpanded(false);
       navigatedFromParentRef.current = false;
     }
-  }, [task?.id]);
+  }, [task?.id, userPreferences.defaultCurrency]);
 
   useEffect(() => {
     if (task) {
@@ -244,9 +262,22 @@ export function TaskDetailDialog() {
 
   const handleSave = async () => {
     if (!task || !title.trim()) return;
+
+    // Check if currency changed and task has subtasks with prices
+    const currencyChanged = localCurrency !== (task.currency || 'USD');
+    const hasSubtasksWithPrices = subtasks.some((s) => s.prices && s.prices.length > 0);
+    if (currencyChanged && hasSubtasksWithPrices) {
+      setShowCurrencyChangeConfirm(true);
+      return;
+    }
+
+    await doSave();
+  };
+
+  const doSave = async () => {
     setIsSaving(true);
     try {
-      await updateTask(task.id, {
+      await updateTask(task!.id, {
         title: title.trim(),
         description: description.trim() || null,
         status,
@@ -262,7 +293,44 @@ export function TaskDetailDialog() {
         assigneeId: localAssigneeId,
         visibility: localVisibility,
         visibleUserIds: localVisibleUserIds,
+        prices: localPrices,
+        currency: localCurrency,
       });
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCurrencyChangeConfirm = async () => {
+    setShowCurrencyChangeConfirm(false);
+    setIsSaving(true);
+    try {
+      // Update parent task
+      await updateTask(task!.id, {
+        title: title.trim(),
+        description: description.trim() || null,
+        status,
+        priority,
+        dueDate: dueDate ? (() => {
+          const [h, m] = dueTime.split(':').map(Number);
+          const d = new Date(dueDate);
+          d.setHours(h, m, 0, 0);
+          return d.toISOString();
+        })() : null,
+        projectId,
+        tagIds: localTagIds,
+        assigneeId: localAssigneeId,
+        visibility: localVisibility,
+        visibleUserIds: localVisibleUserIds,
+        prices: localPrices,
+        currency: localCurrency,
+      });
+      // Propagate currency to all subtasks that have prices
+      const subtasksWithPrices = subtasks.filter((s) => s.prices && s.prices.length > 0);
+      await Promise.all(
+        subtasksWithPrices.map((s) => updateTask(s.id, { currency: localCurrency }))
+      );
       setIsEditing(false);
     } finally {
       setIsSaving(false);
@@ -557,6 +625,7 @@ export function TaskDetailDialog() {
                             value={description}
                             onChange={(val) => setDescription(val)}
                             onFilePaste={inlineUpload.onPaste}
+                            prices={localPrices}
                             placeholder="Add a description... (Markdown supported)"
                             rows={18}
                             className="font-mono text-sm w-full rounded-t-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -576,7 +645,7 @@ export function TaskDetailDialog() {
                     ) : (
                       task.description ? (
                         <div className="text-sm">
-                          <MarkdownRenderer content={task.description} />
+                          <MarkdownRenderer content={task.description} prices={task.prices} currency={task.currency || localCurrency} />
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground">No description</p>
@@ -1034,6 +1103,132 @@ export function TaskDetailDialog() {
                     </>
                   )}
 
+                  {/* Prices */}
+                  {(isEditing || (localPrices.length > 0)) && (
+                    <>
+                      <Separator />
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-muted-foreground text-xs uppercase tracking-wider flex items-center gap-1.5">
+                            <DollarSignIcon className="size-3.5" />
+                            Prices
+                          </Label>
+                          {isEditing && (
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={localCurrency}
+                                onValueChange={parentCurrency ? undefined : setLocalCurrency}
+                                disabled={!!parentCurrency}
+                              >
+                                <SelectTrigger className="h-6 w-[80px] text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {CURRENCIES.map((c) => (
+                                    <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </div>
+
+                        {localPrices.map((price, idx) => (
+                          <div key={price.id} className="flex items-center gap-2 text-sm">
+                            {isEditing ? (
+                              <>
+                                <Input
+                                  value={price.description}
+                                  onChange={(e) => {
+                                    const next = [...localPrices];
+                                    next[idx] = { ...next[idx], description: e.target.value };
+                                    setLocalPrices(next);
+                                  }}
+                                  placeholder="Description"
+                                  className="h-7 text-xs flex-1 min-w-0"
+                                />
+                                <Input
+                                  value={priceAmountStrings[idx] ?? String(price.amount)}
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    const sanitized = raw.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+                                    setPriceAmountStrings((prev) => ({ ...prev, [idx]: sanitized }));
+                                    const next = [...localPrices];
+                                    next[idx] = { ...next[idx], amount: parseFloat(sanitized) || 0 };
+                                    setLocalPrices(next);
+                                  }}
+                                  placeholder="0"
+                                  className="h-7 text-xs w-20"
+                                />
+                                <div className="flex items-center gap-1">
+                                  <Switch
+                                    checked={price.status === 'done'}
+                                    onCheckedChange={(checked) => {
+                                      const next = [...localPrices];
+                                      next[idx] = { ...next[idx], status: checked ? 'done' : 'planned' };
+                                      setLocalPrices(next);
+                                    }}
+                                    className="scale-75"
+                                  />
+                                  <span className={cn(
+                                    'text-[10px] font-medium',
+                                    price.status === 'done' ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground',
+                                  )}>
+                                    {price.status === 'done' ? 'Done' : 'Planned'}
+                                  </span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setLocalPrices((prev) => prev.filter((_, i) => i !== idx))}
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <span className={cn(
+                                  'text-xs px-1.5 py-0.5 rounded',
+                                  price.status === 'done'
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                    : 'bg-muted text-muted-foreground',
+                                )}>
+                                  {price.status}
+                                </span>
+                                <span className="flex-1 truncate text-xs">{price.description}</span>
+                                <span className="text-xs font-mono font-medium">{price.amount} {localCurrency}</span>
+                              </>
+                            )}
+                          </div>
+                        ))}
+
+                        {isEditing && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-muted-foreground"
+                            onClick={() => {
+                              setLocalPrices((prev) => [
+                                ...prev,
+                                {
+                                  id: `price_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                                  description: '',
+                                  amount: 0,
+                                  status: 'planned' as const,
+                                  createdAt: new Date().toISOString(),
+                                },
+                              ]);
+                            }}
+                          >
+                            <Plus className="size-3.5 mr-1" />
+                            Add price
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
+
                   {/* Webhooks */}
                   <>
                     <Separator />
@@ -1296,7 +1491,7 @@ export function TaskDetailDialog() {
                   {/* Comments */}
                   <>
                     <Separator />
-                    <TaskComments taskId={task.id} />
+                    <TaskComments taskId={task.id} prices={task.prices} currency={task.currency || localCurrency} />
                   </>
 
                   {/* Attachments */}
@@ -1374,6 +1569,21 @@ export function TaskDetailDialog() {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setShowDiscardConfirm(false)}>Continue editing</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDiscard}>Discard</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showCurrencyChangeConfirm} onOpenChange={(open) => !open && setShowCurrencyChangeConfirm(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change currency for all subtasks?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This task has subtasks with prices. Changing the currency will also update the currency in all subtasks from <strong>{task?.currency || 'USD'}</strong> to <strong>{localCurrency}</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowCurrencyChangeConfirm(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCurrencyChangeConfirm}>Change currency</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

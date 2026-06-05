@@ -9,8 +9,9 @@ import { Separator } from '@/components/ui/separator';
 import { useAppStore } from '@/store/app-store';
 import { processContent, isLocalEntityUrl } from '@/lib/smart-links';
 import { useState, useEffect } from 'react';
-import { Check, Link2, User } from 'lucide-react';
+import { Check, Link2, User, DollarSign } from 'lucide-react';
 import { copyToClipboard } from '@/lib/utils';
+import type { TaskPrice } from '@/lib/types';
 
 interface MarkdownRendererProps {
   content: string;
@@ -164,7 +165,47 @@ function UserMentionBadge({ userId, children }: { userId: string; children: Reac
   );
 }
 
-export function MarkdownRenderer({ content, className = '', compact = false, stripFirstH1 = false }: MarkdownRendererProps) {
+interface PriceMentionBadgeProps {
+  priceId: string;
+  prices?: TaskPrice[];
+  currency?: string;
+}
+
+export function PriceMentionBadge({ priceId, prices, currency }: PriceMentionBadgeProps) {
+  const price = prices?.find((p) => p.id === priceId);
+
+  if (!price) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+        <DollarSign className="size-3" />
+        ...
+      </span>
+    );
+  }
+
+  const title = price.description
+    ? `${price.description} (${price.status})`
+    : `Price ${price.amount} (${price.status})`;
+
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-mono border border-emerald-500/20 px-1.5 py-0.5"
+      title={title}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <DollarSign className="size-3" />
+      <span>{price.amount}</span>
+      {currency && <span className="opacity-60">{currency}</span>}
+    </span>
+  );
+}
+
+interface MarkdownRendererWithPricesProps extends MarkdownRendererProps {
+  prices?: TaskPrice[];
+  currency?: string;
+}
+
+export function MarkdownRenderer({ content, className = '', compact = false, stripFirstH1 = false, prices, currency }: MarkdownRendererWithPricesProps) {
   if (!content.trim()) {
     return <span className="text-muted-foreground text-xs">No content</span>;
   }
@@ -268,6 +309,11 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
             if (href?.startsWith('user:')) {
               const userId = href.substring(5);
               return <UserMentionBadge userId={userId}>{children}</UserMentionBadge>;
+            }
+
+            if (href?.startsWith('price:')) {
+              const priceId = href.substring(6);
+              return <PriceMentionBadge priceId={priceId} prices={prices} currency={currency} />;
             }
 
             const entityUrlMatch = href && href.match(/^https?:\/\/[^/]+\/[^\s]*[?&](task|project|note|area)=([TPNAtpna]-\d+)/i);

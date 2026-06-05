@@ -68,6 +68,10 @@ export const PRIORITY_COLORS: Record<string, string> = {
   urgent: '#ef4444',
 };
 
+export const DEFAULT_CURRENCY = 'USD';
+
+export const CURRENCIES = ['USD', 'EUR', 'GBP', 'RUB', 'UAH', 'BYN', 'PLN', 'CNY', 'JPY', 'CHF'] as const;
+
 export const DEFAULT_COLORS = [
   '#6366f1', '#8b5cf6', '#a855f7', '#d946ef',
   '#ec4899', '#f43f5e', '#ef4444', '#f97316',
@@ -102,6 +106,7 @@ export interface UserPreferences {
   entityShortLinks: boolean;
   profileVisibility: ProfileVisibility;
   groupTasksByProject: boolean;
+  defaultCurrency: string;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -113,6 +118,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   entityShortLinks: false,
   profileVisibility: { nickname: false, email: false },
   groupTasksByProject: false,
+  defaultCurrency: DEFAULT_CURRENCY,
 };
 
 export function resolveStatuses(

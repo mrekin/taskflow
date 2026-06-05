@@ -69,6 +69,9 @@ export interface Task {
   subtasks?: Task[];
   _count?: { subtasks: number; attachments: number };
   completedSubtasks?: number;
+  prices?: TaskPrice[];
+  currency?: string;
+  priceSummary?: { done: number; total: number };
 }
 
 export interface Comment {
@@ -203,4 +206,12 @@ export interface AttachmentConfig {
   allowedPatterns: string[];
   userMaxSize: number;
   userStorageUsed: number;
+}
+
+export interface TaskPrice {
+  id: string;
+  description: string;
+  amount: number;
+  status: 'planned' | 'done';
+  createdAt: string;
 }

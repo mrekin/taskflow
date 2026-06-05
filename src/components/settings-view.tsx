@@ -38,6 +38,7 @@ import {
   ChevronDown,
   File,
   Trash2,
+  DollarSign,
 } from 'lucide-react';
 import { GitHubIcon } from '@/components/github-icon';
 import { Switch } from '@/components/ui/switch';
@@ -60,7 +61,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { useAppStore } from '@/store/app-store';
-import { DEFAULT_PAGE_OPTIONS, DEFAULT_PREFERENCES } from '@/lib/constants';
+import { DEFAULT_PAGE_OPTIONS, DEFAULT_PREFERENCES, CURRENCIES } from '@/lib/constants';
 
 const emptySubscribe = () => () => {};
 function useIsMounted() {
@@ -509,6 +510,33 @@ export function SettingsView() {
             <Separator />
 
             <StatusColumnsSettings />
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Label>Default Currency</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Currency used for new tasks by default
+                </p>
+              </div>
+              <Select
+                value={prefs.defaultCurrency || 'USD'}
+                onValueChange={(v) => updateUserPreference('defaultCurrency', v)}
+              >
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
 

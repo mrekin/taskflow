@@ -127,6 +127,51 @@ export const entityUrlProcessor: ContentProcessor = {
 registerProcessor(entityRefProcessor);
 registerProcessor(entityUrlProcessor);
 
+const PRICE_REF_REGEX = /\$price:([\w]+)/gi;
+
+export const priceRefProcessor: ContentProcessor = {
+  name: 'priceRef',
+  process(content: string): string {
+    const parts = splitByCodeBlocks(content);
+    return parts
+      .map((part) => {
+        if (part.isCode) return part.text;
+        return part.text.replace(
+          PRICE_REF_REGEX,
+          (_match, id: string) =>
+            `[$ref](price:${id})`
+        );
+      })
+      .join('');
+  },
+};
+
+registerProcessor(priceRefProcessor);
+
+export interface PriceMentionItem {
+  id: string;
+  description: string;
+  amount: number;
+  status: 'planned' | 'done';
+}
+
+export function filterPrices(
+  query: string,
+  prices: PriceMentionItem[]
+): PriceMentionItem[] {
+  if (!prices || prices.length === 0) return [];
+  const q = query.toLowerCase();
+  if (!q) return prices.slice(0, 8);
+
+  return prices
+    .filter((p) => {
+      const desc = p.description.toLowerCase();
+      const amt = String(p.amount);
+      return desc.includes(q) || amt.includes(q);
+    })
+    .slice(0, 8);
+}
+
 export interface UserMentionItem {
   id: string;
   name: string | null;
