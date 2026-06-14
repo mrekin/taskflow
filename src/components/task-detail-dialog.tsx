@@ -38,7 +38,6 @@ import { MarkdownToolbar } from '@/components/markdown-toolbar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -72,6 +71,7 @@ import {
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { TaskComments } from '@/components/task-comments';
 import { AttachmentList } from '@/components/attachment-list';
+import { CostRow } from '@/components/cost-row';
 import { useInlineFileUpload } from '@/hooks/use-inline-file-upload';
 import { TagPicker } from '@/components/tag-picker';
 import { TagBadges } from '@/components/tag-badges';
@@ -131,7 +131,6 @@ export function TaskDetailDialog() {
   const [localVisibleUserIds, setLocalVisibleUserIds] = useState<string[]>([]);
   const [localPrices, setLocalPrices] = useState<TaskPrice[]>([]);
   const [localCurrency, setLocalCurrency] = useState<string>('USD');
-  const [priceAmountStrings, setPriceAmountStrings] = useState<Record<number, string>>({});
 
   const navigatedFromParentRef = useRef(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -172,7 +171,6 @@ export function TaskDetailDialog() {
     setLocalAssigneeId(task.assigneeId ?? null);
     setLocalPrices(task.prices || []);
     setLocalCurrency(task.currency || parentCurrency || 'USD');
-    setPriceAmountStrings({});
   }, [task, parentCurrency]);
 
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
@@ -231,7 +229,6 @@ export function TaskDetailDialog() {
       setLocalVisibleUserIds(task.visibleUserIds || []);
       setLocalPrices(task.prices || []);
       setLocalCurrency(task.currency || parentCurrency || userPreferences.defaultCurrency);
-      setPriceAmountStrings({});
       setIsEditing(false);
       setEditingSubtaskId(null);
       setWebhookBindings([]);
@@ -1134,73 +1131,16 @@ export function TaskDetailDialog() {
                         </div>
 
                         {localPrices.map((price, idx) => (
-                          <div key={price.id} className="flex items-center gap-2 text-sm">
-                            {isEditing ? (
-                              <>
-                                <Input
-                                  value={price.description}
-                                  onChange={(e) => {
-                                    const next = [...localPrices];
-                                    next[idx] = { ...next[idx], description: e.target.value };
-                                    setLocalPrices(next);
-                                  }}
-                                  placeholder="Description"
-                                  className="h-7 text-xs flex-1 min-w-0"
-                                />
-                                <Input
-                                  value={priceAmountStrings[idx] ?? String(price.amount)}
-                                  onChange={(e) => {
-                                    const raw = e.target.value;
-                                    const sanitized = raw.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
-                                    setPriceAmountStrings((prev) => ({ ...prev, [idx]: sanitized }));
-                                    const next = [...localPrices];
-                                    next[idx] = { ...next[idx], amount: parseFloat(sanitized) || 0 };
-                                    setLocalPrices(next);
-                                  }}
-                                  placeholder="0"
-                                  className="h-7 text-xs w-20"
-                                />
-                                <div className="flex items-center gap-1">
-                                  <Switch
-                                    checked={price.status === 'done'}
-                                    onCheckedChange={(checked) => {
-                                      const next = [...localPrices];
-                                      next[idx] = { ...next[idx], status: checked ? 'done' : 'planned' };
-                                      setLocalPrices(next);
-                                    }}
-                                    className="scale-75"
-                                  />
-                                  <span className={cn(
-                                    'text-[10px] font-medium',
-                                    price.status === 'done' ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground',
-                                  )}>
-                                    {price.status === 'done' ? 'Done' : 'Planned'}
-                                  </span>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-                                  onClick={() => setLocalPrices((prev) => prev.filter((_, i) => i !== idx))}
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <span className={cn(
-                                  'text-xs px-1.5 py-0.5 rounded',
-                                  price.status === 'done'
-                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                    : 'bg-muted text-muted-foreground',
-                                )}>
-                                  {price.status}
-                                </span>
-                                <span className="flex-1 truncate text-xs">{price.description}</span>
-                                <span className="text-xs font-mono font-medium">{price.amount} {localCurrency}</span>
-                              </>
-                            )}
-                          </div>
+                          <CostRow
+                            key={price.id}
+                            price={price}
+                            currency={localCurrency}
+                            mode={isEditing ? 'edit' : 'view'}
+                            onChange={(next) =>
+                              setLocalPrices((prev) => prev.map((p, i) => (i === idx ? next : p)))
+                            }
+                            onDelete={() => setLocalPrices((prev) => prev.filter((_, i) => i !== idx))}
+                          />
                         ))}
 
                         {isEditing && (

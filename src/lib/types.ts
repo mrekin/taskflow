@@ -208,10 +208,19 @@ export interface AttachmentConfig {
   userStorageUsed: number;
 }
 
+export type TaskPriceStatus = 'planned' | 'in_progress' | 'done';
+
+export interface TaskPayment {
+  id: string;
+  amount: number;
+  date: string;
+}
+
 export interface TaskPrice {
   id: string;
   description: string;
   amount: number;
-  status: 'planned' | 'done';
+  status: TaskPriceStatus;
   createdAt: string;
+  payments?: TaskPayment[];
 }

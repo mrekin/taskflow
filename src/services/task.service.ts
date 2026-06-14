@@ -14,6 +14,7 @@ import {
 import { cleanupAttachments } from "@/lib/attachment-cleanup";
 import type { ServiceResult } from "./types";
 import type { TaskPrice } from "@/lib/types";
+import { summarize } from "@/lib/prices";
 
 export interface ListTasksFilters {
   projectId?: string;
@@ -56,17 +57,6 @@ export interface UpdateTaskData {
   visibleUserIds?: string[];
   prices?: TaskPrice[];
   currency?: string;
-}
-
-function computePriceSummary(prices: TaskPrice[]): { done: number; total: number } {
-  return prices.reduce(
-    (acc, p) => {
-      acc.total += p.amount;
-      if (p.status === 'done') acc.done += p.amount;
-      return acc;
-    },
-    { done: 0, total: 0 },
-  );
 }
 
 function extractPricesFromMetadata(metadata: Record<string, unknown>): TaskPrice[] {
@@ -196,7 +186,7 @@ export const TaskService = {
         completedSubtasks: subtasks.filter((s) => s.status === "done").length,
         prices,
         currency: resolvedCurrency,
-        priceSummary: allPrices.length > 0 ? computePriceSummary(allPrices) : undefined,
+        priceSummary: allPrices.length > 0 ? summarize(allPrices) : undefined,
         subtasks: subtasks.map((s) => {
           const sParsed = (() => {
             try {
@@ -343,7 +333,7 @@ export const TaskService = {
       completedSubtasks: subtasks.filter((s) => s.status === "done").length,
       prices: taskPrices,
       currency: resolvedTaskCurrency,
-      priceSummary: allPrices.length > 0 ? computePriceSummary(allPrices) : undefined,
+      priceSummary: allPrices.length > 0 ? summarize(allPrices) : undefined,
       subtasks: mappedSubtasks,
       comments: comments.map((c) => ({
         ...c,
@@ -630,7 +620,7 @@ export const TaskService = {
         completedSubtasks: subtasks.filter((s) => s.status === "done").length,
         prices: updatedPrices,
         currency: updatedCurrency,
-        priceSummary: allPrices.length > 0 ? computePriceSummary(allPrices) : undefined,
+        priceSummary: allPrices.length > 0 ? summarize(allPrices) : undefined,
       },
     };
   },

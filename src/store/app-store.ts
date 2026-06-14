@@ -3,6 +3,7 @@ import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, Webh
 import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig, resolveStatuses, DEFAULT_STATUSES } from '@/lib/constants';
 
 import { api } from '@/lib/api-utils';
+import { summarize } from '@/lib/prices';
 
 // Aggregate a task's price summary from its own prices plus its direct subtasks' prices.
 // Mirrors the server-side computation in TaskService.listTasks/getTask (one level of subtasks).
@@ -12,14 +13,7 @@ function aggregateTaskPriceSummary(task: Task): { done: number; total: number } 
     ...(task.subtasks ?? []).flatMap((s) => s.prices ?? []),
   ];
   if (!allPrices.length) return undefined;
-  return allPrices.reduce(
-    (acc, p) => {
-      acc.total += p.amount;
-      if (p.status === 'done') acc.done += p.amount;
-      return acc;
-    },
-    { done: 0, total: 0 },
-  );
+  return summarize(allPrices);
 }
 
 // Recompute a task's subtask-derived aggregates. Call AFTER the `subtasks` array has

@@ -1,4 +1,4 @@
-import type { Task, Project, Note, Area } from '@/lib/types';
+import type { Task, Project, Note, Area, TaskPriceStatus } from '@/lib/types';
 
 export interface ContentProcessor {
   name: string;
@@ -152,7 +152,7 @@ export interface PriceMentionItem {
   id: string;
   description: string;
   amount: number;
-  status: 'planned' | 'done';
+  status: TaskPriceStatus;
 }
 
 export function filterPrices(

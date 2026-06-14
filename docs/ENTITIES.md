@@ -126,8 +126,17 @@ HTTP-запрос, который отправляется при наступл
 | `id` | `string` | Уникальный ID (`cost_<timestamp>_<random>`) |
 | `description` | `string` | Описание затраты |
 | `amount` | `number` | Сумма |
-| `status` | `'planned' \| 'done'` | Статус: запланировано / выполнено |
+| `status` | `'planned' \| 'in_progress' \| 'done'` | Статус: запланировано / в процессе / выполнено. `in_progress` выставляется автоматически при частичном погашении, вручную не задаётся |
 | `createdAt` | `string` | ISO-дата создания |
+| `payments` | `TaskPayment[]` (опц.) | История погашений. У старых затрат отсутствует |
+
+**TaskPayment** (элемент массива `payments`):
+
+| Поле | Тип | Описание |
+|---|---|---|
+| `id` | `string` | Уникальный ID (`pay_<timestamp>_<random>`) |
+| `amount` | `number` | Сумма погашения |
+| `date` | `string` | ISO-дата погашения (выбирается пользователем) |
 
 **Currency** (в `metadata.currency` — строка):
 Код валюты из списка: `USD`, `EUR`, `GBP`, `RUB`, `UAH`, `BYN`, `PLN`, `CNY`, `JPY`, `CHF`.
@@ -157,7 +166,21 @@ $ 100 (250) USD
   ↑done  ↑total  ↑currency
 ```
 
+- `done` — фактически уплачено: сумма всех погашений (`Σ payments.amount`) по каждой затрате; для затрат без истории погашений берётся `amount`, если статус `done` (обратная совместимость), иначе `0`.
+- `total` — плановая сумма: `Σ amount` по всем затратам.
+
 Если у задачи нет собственной валюты, но подзадачи имеют затраты с валютой — валюта наследуется от первой подзадачи.
+
+### Частичные погашения (payments)
+
+Затрату можно гасить по частям:
+- Первое частичное погашение переводит статус в `in_progress`; при достижении полной суммы — в `done`.
+- Переплата: если платёж превышает остаток, запрашивается подтверждение на увеличение `amount` до новой уплаченной суммы.
+- Switch двигает только в `done`: из `planned` создаётся платёж на всю сумму, из `in_progress` — на остаток. Возврат в `planned` возможен только из `done` и удаляет всю историю погашений (с предупреждением).
+- Отдельные записи погашений можно удалять; при удалении статус и суммы пересчитываются.
+- Из `in_progress` вернуться в `planned` тогглом нельзя — только удалив все платежи.
+
+Вся логика агрегации и пересчёта статусов вынесена в чистый модуль `src/lib/prices.ts` (используется и сервером, и клиентом).
 
 ### Упоминания в Markdown
 
@@ -167,11 +190,13 @@ $ 100 (250) USD
 
 | Файл | Назначение |
 |---|---|
-| `src/lib/types.ts` | Интерфейс `TaskPrice` |
+| `src/lib/types.ts` | `TaskPrice`, `TaskPayment`, `TaskPriceStatus` |
+| `src/lib/prices.ts` | Чистая логика: `paidAmount`, `summarize`, `applyPayment`, `removePayment`, `markDone`, `resetToPlanned` |
 | `src/lib/constants.ts` | `CURRENCIES`, `DEFAULT_CURRENCY` |
 | `src/lib/smart-links.ts` | `filterPrices()`, `PriceMentionItem` |
-| `src/services/task.service.ts` | `extractPricesFromMetadata()`, `extractCurrencyFromMetadata()`, `computePriceSummary()`, propagation валюты |
+| `src/services/task.service.ts` | `extractPricesFromMetadata()`, `extractCurrencyFromMetadata()`, `summarize()`, propagation валюты |
 | `src/components/task-detail-dialog.tsx` | UI затрат и валюты, подтверждение смены валюты |
+| `src/components/cost-row.tsx` | Строка затраты: прогресс, платежи, история, подтверждения |
 | `src/components/create-task-dialog.tsx` | Создание задачи с затратами |
 | `src/components/task-card.tsx` / `task-card-mobile.tsx` | Сводка затрат на карточке |
 | `src/components/markdown-renderer.tsx` | `PriceMentionBadge`, рендер `$mention` |

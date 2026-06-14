@@ -183,9 +183,11 @@ export function PriceMentionBadge({ priceId, prices, currency }: PriceMentionBad
     );
   }
 
+  const statusLabel =
+    price.status === 'in_progress' ? 'In progress' : price.status === 'done' ? 'Done' : 'Planned';
   const title = price.description
-    ? `${price.description} (${price.status})`
-    : `Price ${price.amount} (${price.status})`;
+    ? `${price.description} (${statusLabel})`
+    : `Price ${price.amount} (${statusLabel})`;
 
   return (
     <span
