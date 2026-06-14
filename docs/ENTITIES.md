@@ -112,3 +112,68 @@ HTTP-запрос, который отправляется при наступл
     → отправляет HTTP-запрос по настройкам Webhook (URL, method, headers, body)
     → создаёт WebhookDelivery с результатом
 ```
+
+## Costs (затраты)
+
+Затраты привязываются к задачам и позволяют отслеживать планируемые и выполненные расходы. Хранятся в поле `metadata` задачи (JSON) — отдельной модели в БД нет.
+
+### Структура данных
+
+**TaskCost** (в `metadata.prices` — массив):
+
+| Поле | Тип | Описание |
+|---|---|---|
+| `id` | `string` | Уникальный ID (`cost_<timestamp>_<random>`) |
+| `description` | `string` | Описание затраты |
+| `amount` | `number` | Сумма |
+| `status` | `'planned' \| 'done'` | Статус: запланировано / выполнено |
+| `createdAt` | `string` | ISO-дата создания |
+
+**Currency** (в `metadata.currency` — строка):
+Код валюты из списка: `USD`, `EUR`, `GBP`, `RUB`, `UAH`, `BYN`, `PLN`, `CNY`, `JPY`, `CHF`.
+
+### Иерархия и наследование валюты
+
+```
+Задача (валюта: USD)
+  ├── Подзадача A → наследует USD, нельзя сменить
+  └── Подзадача B → наследует USD, нельзя сменить
+
+Задача (валюта не задана)
+  └── Подзадача C → можно задать валюту → она распространится на задачу
+```
+
+**Правила:**
+- Если у родительской задачи задана валюта → подзадача наследует её, селектор заблокирован
+- Если у родительской задачи нет валюты → подзадача может задать свою → валюта автоматически запишется в родителя
+- При смене валюты в задаче, у которой есть подзадачи с затратами → показывается подтверждение, валюта обновляется во всех подзадачах
+
+### Отображение (priceSummary)
+
+На карточке задачи показывается сводка по затратам — сумма всех затрат задачи + её подзадач:
+
+```
+$ 100 (250) USD
+  ↑done  ↑total  ↑currency
+```
+
+Если у задачи нет собственной валюты, но подзадачи имеют затраты с валютой — валюта наследуется от первой подзадачи.
+
+### Упоминания в Markdown
+
+В описаниях задач и комментариев используется синтаксис `$description` для вставки ссылки на конкретную затрату. Рендерится через `PriceMentionBadge` в `markdown-renderer.tsx`.
+
+### Связанные файлы
+
+| Файл | Назначение |
+|---|---|
+| `src/lib/types.ts` | Интерфейс `TaskPrice` |
+| `src/lib/constants.ts` | `CURRENCIES`, `DEFAULT_CURRENCY` |
+| `src/lib/smart-links.ts` | `filterPrices()`, `PriceMentionItem` |
+| `src/services/task.service.ts` | `extractPricesFromMetadata()`, `extractCurrencyFromMetadata()`, `computePriceSummary()`, propagation валюты |
+| `src/components/task-detail-dialog.tsx` | UI затрат и валюты, подтверждение смены валюты |
+| `src/components/create-task-dialog.tsx` | Создание задачи с затратами |
+| `src/components/task-card.tsx` / `task-card-mobile.tsx` | Сводка затрат на карточке |
+| `src/components/markdown-renderer.tsx` | `PriceMentionBadge`, рендер `$mention` |
+| `src/components/mention-autocomplete.tsx` | Автодополнение `$` для затрат |
+| `src/components/task-comments.tsx` | Затраты в комментариях |

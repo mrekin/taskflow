@@ -1,8 +1,38 @@
 import { create } from 'zustand';
-import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery, WebhookTrigger, Attachment, AttachmentConfig } from '@/lib/types';
+import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery, WebhookTrigger, Attachment, AttachmentConfig, TaskPrice } from '@/lib/types';
 import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig, resolveStatuses, DEFAULT_STATUSES } from '@/lib/constants';
 
 import { api } from '@/lib/api-utils';
+
+// Aggregate a task's price summary from its own prices plus its direct subtasks' prices.
+// Mirrors the server-side computation in TaskService.listTasks/getTask (one level of subtasks).
+function aggregateTaskPriceSummary(task: Task): { done: number; total: number } | undefined {
+  const allPrices: TaskPrice[] = [
+    ...(task.prices ?? []),
+    ...(task.subtasks ?? []).flatMap((s) => s.prices ?? []),
+  ];
+  if (!allPrices.length) return undefined;
+  return allPrices.reduce(
+    (acc, p) => {
+      acc.total += p.amount;
+      if (p.status === 'done') acc.done += p.amount;
+      return acc;
+    },
+    { done: 0, total: 0 },
+  );
+}
+
+// Recompute a task's subtask-derived aggregates. Call AFTER the `subtasks` array has
+// already been updated (add / edit / remove). Single source of truth shared by
+// createTask / updateTask / deleteTask. Mirrors server-side logic.
+function recomputeSubtaskAggregates(task: Task) {
+  const subtasks = task.subtasks ?? [];
+  return {
+    _count: { subtasks: subtasks.length, attachments: task._count?.attachments ?? 0 },
+    completedSubtasks: subtasks.filter((s) => s.status === 'done').length,
+    priceSummary: aggregateTaskPriceSummary(task),
+  };
+}
 
 type ViewType = 'areas' | 'projects' | 'tasks' | 'kanban' | 'notes' | 'note-editor' | 'settings' | 'quick-create';
 
@@ -444,7 +474,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           const parentIdx = tasks.findIndex((t) => t.id === newTask.parentId);
           if (parentIdx !== -1) {
             const parent = { ...tasks[parentIdx] };
-            parent.subtasks = [...(parent.subtasks ?? []), {
+            const subtasks = [...(parent.subtasks ?? []), {
               id: newTask.id,
               title: newTask.title,
               status: newTask.status,
@@ -452,10 +482,14 @@ export const useAppStore = create<AppState>((set, get) => ({
               parentId: newTask.parentId,
               shortIdNum: newTask.shortIdNum,
               shortId: newTask.shortId,
+              prices: newTask.prices,
+              currency: newTask.currency,
             } as Task];
-            parent._count = { subtasks: (parent._count?.subtasks ?? 0) + 1, attachments: parent._count?.attachments ?? 0 };
-            parent.completedSubtasks = (parent.completedSubtasks ?? 0) + (newTask.status === 'done' ? 1 : 0);
-            tasks[parentIdx] = parent;
+            tasks[parentIdx] = {
+              ...parent,
+              subtasks,
+              ...recomputeSubtaskAggregates({ ...parent, subtasks }),
+            };
           }
         }
         return { tasks };
@@ -486,10 +520,11 @@ export const useAppStore = create<AppState>((set, get) => ({
             };
           }
           if (t.subtasks?.some((s) => s.id === id)) {
+            const subtasks = t.subtasks.map((s) => (s.id === id ? { ...s, ...updatedTask } : s));
             return {
               ...t,
-              subtasks: t.subtasks.map((s) => s.id === id ? { ...s, ...updatedTask } : s),
-              completedSubtasks: updatedTask.completedSubtasks ?? t.completedSubtasks,
+              subtasks,
+              ...recomputeSubtaskAggregates({ ...t, subtasks }),
             };
           }
           return t;
@@ -515,8 +550,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               return {
                 ...t,
                 subtasks,
-                _count: { subtasks: (t._count?.subtasks ?? 0) - 1, attachments: t._count?.attachments ?? 0 },
-                completedSubtasks: (t.completedSubtasks ?? 0) - (deleted.status === 'done' ? 1 : 0),
+                ...recomputeSubtaskAggregates({ ...t, subtasks }),
               };
             }),
           selectedTaskId: state.selectedTaskId === id ? null : state.selectedTaskId,

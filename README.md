@@ -14,6 +14,7 @@ Self-hosted task and notes management application for individual use or small te
 - **Kanban board** — Drag-and-drop task board with status columns
 - **Markdown notes** — Full editor with live preview, tagging, and import/export
 - **Comments** — Comments on tasks with inline editing
+- **Task costs** — Track planned and completed costs per task with multi-currency support, subtask inheritance, and `$mention` references in Markdown
 - **Tags** — Cross-entity tagging with color coding
 - **Quick create** — Streamlined entity creation from a single text input
 - **Entity links & mentions** — Reference tasks, projects, and notes with short IDs (T-5, P-2, N-3) and `#mentions` in Markdown
@@ -135,6 +136,7 @@ Also update `NEXTAUTH_URL` to include the subpath, e.g. `https://domain.com/task
 
 ## Documentation
 
+- [Entities reference](docs/ENTITIES.md) — data models, relationships, and feature documentation
 - [Build instructions](docs/BUILD.md) — production builds, Docker, cross-compilation
 - [Deployment guide](docs/DEPLOYMENT.md) — Docker, manual deploy, reverse proxy, OIDC, backups
 
