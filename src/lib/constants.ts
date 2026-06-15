@@ -107,6 +107,7 @@ export interface UserPreferences {
   profileVisibility: ProfileVisibility;
   groupTasksByProject: boolean;
   defaultCurrency: string;
+  tabIndent: boolean;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -119,6 +120,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   profileVisibility: { nickname: false, email: false },
   groupTasksByProject: false,
   defaultCurrency: DEFAULT_CURRENCY,
+  tabIndent: false,
 };
 
 export function resolveStatuses(

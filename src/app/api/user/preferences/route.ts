@@ -33,6 +33,7 @@ export async function GET() {
     defaultCurrency: typeof metadata.defaultCurrency === 'string' && (CURRENCIES as readonly string[]).includes(metadata.defaultCurrency)
       ? metadata.defaultCurrency
       : DEFAULT_PREFERENCES.defaultCurrency,
+    tabIndent: metadata.tabIndent !== undefined ? Boolean(metadata.tabIndent) : DEFAULT_PREFERENCES.tabIndent,
   };
 
   return NextResponse.json(preferences);
@@ -75,6 +76,7 @@ export async function PUT(request: Request) {
   const defaultCurrency = typeof body.defaultCurrency === 'string' && (CURRENCIES as readonly string[]).includes(body.defaultCurrency)
     ? body.defaultCurrency
     : undefined;
+  const tabIndent = typeof body.tabIndent === 'boolean' ? body.tabIndent : undefined;
 
   const user = await db.user.findUnique({ where: { id: userId }, select: { metadata: true } });
   let existing: Record<string, unknown>;
@@ -93,6 +95,7 @@ export async function PUT(request: Request) {
   if (profileVisibility !== undefined) existing.profileVisibility = profileVisibility;
   if (groupTasksByProject !== undefined) existing.groupTasksByProject = groupTasksByProject;
   if (defaultCurrency !== undefined) existing.defaultCurrency = defaultCurrency;
+  if (tabIndent !== undefined) existing.tabIndent = tabIndent;
 
   await db.user.update({
     where: { id: userId },
@@ -111,6 +114,7 @@ export async function PUT(request: Request) {
     defaultCurrency: typeof existing.defaultCurrency === 'string' && (CURRENCIES as readonly string[]).includes(existing.defaultCurrency)
       ? existing.defaultCurrency
       : DEFAULT_PREFERENCES.defaultCurrency,
+    tabIndent: existing.tabIndent !== undefined ? Boolean(existing.tabIndent) : DEFAULT_PREFERENCES.tabIndent,
   };
 
   return NextResponse.json(preferences);

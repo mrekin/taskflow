@@ -492,11 +492,12 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
               />
             );
           },
-          p({ children }) {
+          p({ children, node, ...rest }) {
+            const cls = (node?.properties?.className as string[] | undefined) || [];
             return compact ? (
-              <p className="m-0 leading-relaxed">{children}</p>
+              <p className={cn('m-0 leading-relaxed', ...cls)} {...rest}>{children}</p>
             ) : (
-              <p>{children}</p>
+              <p className={cn(cls)} {...rest}>{children}</p>
             );
           },
         }}

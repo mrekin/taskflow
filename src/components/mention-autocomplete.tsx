@@ -216,6 +216,7 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
     useImperativeHandle(forwardedRef, () => innerRef.current!, []);
 
     const { tasks, projects, notes, areas } = useAppStore();
+    const tabIndent = useAppStore((s) => s.userPreferences?.tabIndent ?? false);
 
     const [isOpen, setIsOpen] = useState(false);
     const [triggerIndex, setTriggerIndex] = useState(-1);
@@ -453,9 +454,24 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
           }
         }
 
+        if (e.key === 'Tab' && tabIndent && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          const ta = e.currentTarget;
+          const start = ta.selectionStart;
+          const end = ta.selectionEnd;
+          const next = ta.value.substring(0, start) + '    ' + ta.value.substring(end);
+          onChange(next);
+          requestAnimationFrame(() => {
+            ta.focus();
+            const pos = start + 4;
+            ta.setSelectionRange(pos, pos);
+          });
+          return;
+        }
+
         onKeyDown?.(e);
       },
-      [isOpen, items, selectedIndex, insertMention, onKeyDown, closeDropdown]
+      [isOpen, items, selectedIndex, insertMention, onKeyDown, closeDropdown, tabIndent, onChange]
     );
 
     useLayoutEffect(() => {

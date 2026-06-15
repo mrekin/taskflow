@@ -27,6 +27,7 @@ import {
   LayoutGrid,
   StickyNote,
   ListChecks,
+  Indent,
   Tags,
   Link2,
   Loader2,
@@ -590,6 +591,27 @@ export function SettingsView() {
                   updateUserPreference('notesTree', v);
                   window.dispatchEvent(new CustomEvent('notes-tree-toggle', { detail: v }));
                 }}
+              />
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Indent className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Label htmlFor="tab-indent">Use Tab to indent</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {prefs.tabIndent
+                    ? 'Tab key inserts 4 spaces in notes, task descriptions, and comments'
+                    : 'Tab key moves focus between fields (browser default)'}
+                </p>
+              </div>
+              <Switch
+                id="tab-indent"
+                checked={prefs.tabIndent}
+                onCheckedChange={(v) => updateUserPreference('tabIndent', v)}
               />
             </div>
           </CardContent>
