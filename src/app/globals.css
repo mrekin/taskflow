@@ -208,6 +208,9 @@
 .markdown-alert > :last-child {
   margin-bottom: 0;
 }
+.markdown-alert > :first-child {
+  margin-top: 0;
+}
 .markdown-alert-title {
   display: flex;
   align-items: center;
