@@ -193,3 +193,48 @@
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
 }
+
+/* GFM Alerts (rendered by remark-github-blockquote-alert) */
+.markdown-alert {
+  --alert-fg: #0969da;
+  --alert-border: #0969da;
+  --alert-bg: color-mix(in srgb, #0969da 8%, transparent);
+  border-left: 0.25rem solid var(--alert-border);
+  background: var(--alert-bg);
+  border-radius: 0.375rem;
+  padding: 0.625rem 1rem;
+  margin: 0.5rem 0;
+}
+.markdown-alert > :last-child {
+  margin-bottom: 0;
+}
+.markdown-alert-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--alert-fg);
+  margin-bottom: 0.25rem;
+}
+.markdown-alert-title svg {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+.markdown-alert > .markdown-alert-title + * {
+  margin-top: 0;
+}
+
+.markdown-alert-note    { --alert-fg: #0969da; --alert-border: #0969da; --alert-bg: color-mix(in srgb, #0969da 8%, transparent); }
+.markdown-alert-tip     { --alert-fg: #1a7f37; --alert-border: #1a7f37; --alert-bg: color-mix(in srgb, #1a7f37 8%, transparent); }
+.markdown-alert-important { --alert-fg: #8250df; --alert-border: #8250df; --alert-bg: color-mix(in srgb, #8250df 8%, transparent); }
+.markdown-alert-warning { --alert-fg: #9a6700; --alert-border: #bf8700; --alert-bg: color-mix(in srgb, #bf8700 10%, transparent); }
+.markdown-alert-caution { --alert-fg: #cf222e; --alert-border: #cf222e; --alert-bg: color-mix(in srgb, #cf222e 8%, transparent); }
+
+.dark .markdown-alert-note    { --alert-fg: #58a6ff; --alert-border: #58a6ff; --alert-bg: color-mix(in srgb, #58a6ff 12%, transparent); }
+.dark .markdown-alert-tip     { --alert-fg: #3fb950; --alert-border: #3fb950; --alert-bg: color-mix(in srgb, #3fb950 12%, transparent); }
+.dark .markdown-alert-important { --alert-fg: #a371f7; --alert-border: #a371f7; --alert-bg: color-mix(in srgb, #a371f7 12%, transparent); }
+.dark .markdown-alert-warning { --alert-fg: #d29922; --alert-border: #d29922; --alert-bg: color-mix(in srgb, #d29922 12%, transparent); }
+.dark .markdown-alert-caution { --alert-fg: #f85149; --alert-border: #f85149; --alert-bg: color-mix(in srgb, #f85149 12%, transparent); }

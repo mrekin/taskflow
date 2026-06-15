@@ -3,13 +3,16 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import remarkToc from 'remark-toc';
+import rehypeSlug from 'rehype-slug';
+import { remarkAlert } from 'remark-github-blockquote-alert';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Separator } from '@/components/ui/separator';
 import { useAppStore } from '@/store/app-store';
 import { processContent, isLocalEntityUrl } from '@/lib/smart-links';
 import { useState, useEffect } from 'react';
-import { Check, Link2, User, DollarSign } from 'lucide-react';
+import { Check, Copy, FileCode, Link2, User, DollarSign } from 'lucide-react';
 import { copyToClipboard } from '@/lib/utils';
 import type { TaskPrice } from '@/lib/types';
 
@@ -202,6 +205,63 @@ export function PriceMentionBadge({ priceId, prices, currency }: PriceMentionBad
   );
 }
 
+interface CodeBlockProps {
+  language: string;
+  filename?: string;
+  code: string;
+  compact?: boolean;
+}
+
+function CodeBlock({ language, filename, code, compact }: CodeBlockProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    const ok = await copyToClipboard(code);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
+
+  return (
+    <div className="group relative rounded-lg overflow-hidden my-2 max-w-full">
+      {filename && (
+        <div className="flex items-center gap-1.5 bg-[#282c34] text-zinc-300 text-xs px-3 py-1.5 border-b border-white/10 font-mono">
+          <FileCode className="size-3.5 shrink-0 opacity-70" />
+          <span className="truncate">{filename}</span>
+        </div>
+      )}
+      <SyntaxHighlighter
+        style={oneDark}
+        language={language}
+        PreTag="div"
+        customStyle={{
+          margin: 0,
+          borderRadius: filename ? '0 0 0.5rem 0.5rem' : '0.5rem',
+          fontSize: compact ? '0.7rem' : '0.8125rem',
+          maxWidth: '100%',
+          overflowX: 'auto',
+        }}
+      >
+        {code}
+      </SyntaxHighlighter>
+      <button
+        type="button"
+        onClick={handleCopy}
+        onPointerDown={(e) => e.stopPropagation()}
+        title={copied ? 'Copied!' : 'Copy code'}
+        className="absolute top-2 right-2 p-1.5 rounded-md bg-black/20 hover:bg-black/40 text-zinc-300 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        {copied ? (
+          <Check className="size-3.5 text-emerald-400" />
+        ) : (
+          <Copy className="size-3.5" />
+        )}
+      </button>
+    </div>
+  );
+}
+
 interface MarkdownRendererWithPricesProps extends MarkdownRendererProps {
   prices?: TaskPrice[];
   currency?: string;
@@ -223,14 +283,15 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
   const proseSize = compact ? 'prose-xs' : 'prose-sm';
 
   return (
-    <div className={`prose ${proseSize} dark:prose-invert max-w-none prose-headings:font-semibold prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent prose-code:before:content-none prose-code:after:content-none ${className}`}>
+    <div className={`prose ${proseSize} dark:prose-invert max-w-none prose-headings:font-semibold prose-headings:scroll-mt-20 prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent prose-code:before:content-none prose-code:after:content-none ${className}`}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
+        remarkPlugins={[remarkGfm, remarkBreaks, [remarkToc, { heading: 'toc|table[ -]of[ -]contents?|contents|оглавление|содержание', maxDepth: 6, tight: true }], remarkAlert]}
+        rehypePlugins={[rehypeSlug]}
         urlTransform={(url) => url}
         components={{
           code(props) {
-            const { children, className, ...rest } = props;
-            const match = /language-(\w+)/.exec(className || '');
+            const { children, className, node, ...rest } = props;
+            const match = (className || '').match(/language-(\w+)/);
             const isInline = !match;
 
             if (isInline) {
@@ -244,44 +305,46 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
               );
             }
 
+            const meta = typeof node?.data?.meta === 'string' ? node.data.meta : '';
+            let filename: string | undefined;
+            const bracketMatch = meta.trim().match(/^\[(.+?)\]$/);
+            if (bracketMatch) {
+              filename = bracketMatch[1];
+            } else {
+              const titleMatch = meta.match(/(?:^|\s)title=["']([^"']+)["']/);
+              if (titleMatch) {
+                filename = titleMatch[1];
+              }
+            }
+
             return (
-              <div className="rounded-lg overflow-hidden my-2 max-w-full">
-                <SyntaxHighlighter
-                  style={oneDark}
-                  language={match[1]}
-                  PreTag="div"
-                  customStyle={{
-                    margin: 0,
-                    borderRadius: '0.5rem',
-                    fontSize: compact ? '0.7rem' : '0.8125rem',
-                    maxWidth: '100%',
-                    overflowX: 'auto',
-                  }}
-                >
-                  {String(children).replace(/\n$/, '')}
-                </SyntaxHighlighter>
-              </div>
+              <CodeBlock
+                language={match[1]}
+                filename={filename}
+                code={String(children).replace(/\n$/, '')}
+                compact={compact}
+              />
             );
           },
-          h1({ children }) {
+          h1({ children, node, ...rest }) {
             return compact ? (
               <p className="font-bold text-sm m-0">{children}</p>
             ) : (
-              <h1 className="text-2xl">{children}</h1>
+              <h1 className="text-2xl" {...rest}>{children}</h1>
             );
           },
-          h2({ children }) {
+          h2({ children, node, ...rest }) {
             return compact ? (
               <p className="bold text-sm m-0">{children}</p>
             ) : (
-              <h2 className="text-xl">{children}</h2>
+              <h2 className="text-xl" {...rest}>{children}</h2>
             );
           },
-          h3({ children }) {
+          h3({ children, node, ...rest }) {
             return compact ? (
               <p className="font-semibold text-xs m-0">{children}</p>
             ) : (
-              <h3 className="text-lg">{children}</h3>
+              <h3 className="text-lg" {...rest}>{children}</h3>
             );
           },
           blockquote({ children }) {
@@ -292,6 +355,25 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
             );
           },
           a({ children, href }) {
+            if (href?.startsWith('#')) {
+              const slug = href.slice(1);
+              return (
+                <a
+                  href={href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const el = slug ? document.getElementById(slug) : null;
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }}
+                  className="text-primary underline underline-offset-2 hover:text-primary/80"
+                >
+                  {children}
+                </a>
+              );
+            }
+
             if (href?.startsWith('entity:')) {
               const colonIndex = href.indexOf(':', 7);
               if (colonIndex > 7) {
