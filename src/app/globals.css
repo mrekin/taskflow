@@ -238,3 +238,12 @@
 .dark .markdown-alert-important { --alert-fg: #a371f7; --alert-border: #a371f7; --alert-bg: color-mix(in srgb, #a371f7 12%, transparent); }
 .dark .markdown-alert-warning { --alert-fg: #d29922; --alert-border: #d29922; --alert-bg: color-mix(in srgb, #d29922 12%, transparent); }
 .dark .markdown-alert-caution { --alert-fg: #f85149; --alert-border: #f85149; --alert-bg: color-mix(in srgb, #f85149 12%, transparent); }
+
+/* Table of contents (rendered by remark-toc, marked by markTocList) */
+.markdown-toc {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem 0.5rem 1.75rem;
+  margin: 0.5rem 0;
+  background: var(--muted);
+}

@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { MentionTextarea } from '@/components/mention-autocomplete';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
+import { MarkdownToolbar } from '@/components/markdown-toolbar';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -371,6 +372,7 @@ export function TaskComments({ taskId, prices, currency }: TaskCommentsProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const newContentRef = useRef<HTMLTextAreaElement>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
@@ -668,8 +670,14 @@ export function TaskComments({ taskId, prices, currency }: TaskCommentsProps) {
 
       {/* New comment input */}
       <div className="space-y-1.5">
+        <MarkdownToolbar
+          textareaRef={newContentRef}
+          value={newContent}
+          onChange={setNewContent}
+        />
         <div className="flex gap-2 items-end">
           <MentionTextarea
+            ref={newContentRef}
             value={newContent}
             onChange={(val) => setNewContent(val)}
             prices={prices}

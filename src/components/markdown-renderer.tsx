@@ -13,7 +13,7 @@ import { useAppStore } from '@/store/app-store';
 import { processContent, isLocalEntityUrl } from '@/lib/smart-links';
 import { useState, useEffect } from 'react';
 import { Check, Copy, FileCode, Link2, User, DollarSign } from 'lucide-react';
-import { copyToClipboard } from '@/lib/utils';
+import { copyToClipboard, cn } from '@/lib/utils';
 import type { TaskPrice } from '@/lib/types';
 
 interface MarkdownRendererProps {
@@ -262,6 +262,26 @@ function CodeBlock({ language, filename, code, compact }: CodeBlockProps) {
   );
 }
 
+const TOC_HEADING_RE = /^(toc|table[ -]of[ -]contents?|contents|оглавление|содержание)$/i;
+
+// Помечает список, сгенерированный remark-toc (идёт сразу после heading-маркера),
+// классом 'markdown-toc', чтобы обвести оглавление рамкой в рендере.
+function markTocList() {
+  return (tree: { children?: unknown[] }) => {
+    const children = Array.isArray(tree.children) ? tree.children : [];
+    for (let i = 0; i < children.length; i++) {
+      const node = children[i] as { type?: string; children?: { value?: string }[]; data?: Record<string, unknown> };
+      if (node.type !== 'heading') continue;
+      const text = (node.children || []).map((c) => (typeof c.value === 'string' ? c.value : '')).join('').trim();
+      if (!TOC_HEADING_RE.test(text)) continue;
+      const next = children[i + 1] as { type?: string; data?: Record<string, unknown> } | undefined;
+      if (next && next.type === 'list') {
+        next.data = { ...(next.data || {}), hProperties: { className: ['markdown-toc'] } };
+      }
+    }
+  };
+}
+
 interface MarkdownRendererWithPricesProps extends MarkdownRendererProps {
   prices?: TaskPrice[];
   currency?: string;
@@ -285,7 +305,7 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
   return (
     <div className={`prose ${proseSize} dark:prose-invert max-w-none prose-headings:font-semibold prose-headings:scroll-mt-20 prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent prose-code:before:content-none prose-code:after:content-none ${className}`}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks, [remarkToc, { heading: 'toc|table[ -]of[ -]contents?|contents|оглавление|содержание', maxDepth: 6, tight: true }], remarkAlert]}
+        remarkPlugins={[remarkGfm, remarkBreaks, [remarkToc, { heading: 'toc|table[ -]of[ -]contents?|contents|оглавление|содержание', maxDepth: 6, tight: true }], markTocList, remarkAlert]}
         rehypePlugins={[rehypeSlug]}
         urlTransform={(url) => url}
         components={{
@@ -446,8 +466,19 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
               </td>
             );
           },
-          ul({ children }) {
-            return <ul className="list-disc pl-5 space-y-0.5">{children}</ul>;
+          ul({ children, node }) {
+            const cls = (node?.properties?.className as string[] | undefined) || [];
+            const isToc = cls.includes('markdown-toc');
+            return (
+              <ul
+                className={cn(
+                  'list-disc space-y-0.5',
+                  isToc ? 'markdown-toc' : 'pl-5',
+                )}
+              >
+                {children}
+              </ul>
+            );
           },
           ol({ children }) {
             return <ol className="list-decimal pl-5 space-y-0.5">{children}</ol>;

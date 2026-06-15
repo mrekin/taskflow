@@ -19,27 +19,18 @@ import {
 import { DeleteDialog } from '@/components/delete-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { MarkdownToolbar } from '@/components/markdown-toolbar';
 import {
   ToggleGroup,
   ToggleGroupItem,
 } from '@/components/ui/toggle-group';
 import {
   ArrowLeft,
-  Bold,
-  Italic,
-  Heading1,
-  List,
-  Code,
-  Link,
   Trash2,
   Save,
   Loader2,
   CheckCircle2,
   FileText,
-  Heading2,
-  ListOrdered,
-  Quote,
-  Minus,
   Columns2,
   Eye,
   Pencil,
@@ -47,7 +38,6 @@ import {
   FolderOpen,
   AtSign,
   ChevronRight,
-  Table,
   Paperclip,
 } from 'lucide-react';
 import {
@@ -137,7 +127,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
       visibility !== lastSavedVisibility ||
       JSON.stringify(visibleUserIds) !== JSON.stringify(lastSavedVisibleUserIds)
     );
-  }, [title, content, projectId, tagIds, lastSavedTitle, lastSavedContent, lastSavedProjectId, lastSavedTagIds]);
+  }, [title, content, projectId, tagIds, visibility, visibleUserIds, lastSavedTitle, lastSavedContent, lastSavedProjectId, lastSavedTagIds, lastSavedVisibility, lastSavedVisibleUserIds]);
 
   // Save function (shared between auto-save and manual save)
   const performSave = useCallback(async () => {
@@ -233,49 +223,6 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
   useEffect(() => {
     syncPreviewScroll();
   }, [content, syncPreviewScroll]);
-
-  const insertMarkdown = useCallback((prefix: string, suffix: string = '', defaultText: string = '') => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = textarea.value.substring(start, end);
-    const textToInsert = selectedText || defaultText;
-
-    const newContent =
-      textarea.value.substring(0, start) +
-      prefix +
-      textToInsert +
-      suffix +
-      textarea.value.substring(end);
-
-    setContent(newContent);
-
-    requestAnimationFrame(() => {
-      const newCursorPos = start + prefix.length + textToInsert.length + suffix.length;
-      textarea.focus();
-      textarea.setSelectionRange(start + prefix.length, newCursorPos - suffix.length);
-      const insertLine = newContent.substring(0, newCursorPos).split('\n').length;
-      const lineHeight = parseFloat(getComputedStyle(textarea).lineHeight) || 20;
-      textarea.scrollTop = Math.max(0, insertLine * lineHeight - textarea.clientHeight / 2);
-    });
-  }, []);
-
-  // Static toolbar config - no ref access at render time
-  const toolbarConfig = [
-    { icon: Bold, label: 'Bold', prefix: '**', suffix: '**', defaultText: 'bold text' },
-    { icon: Italic, label: 'Italic', prefix: '*', suffix: '*', defaultText: 'italic text' },
-    { icon: Heading1, label: 'Heading 1', prefix: '# ', suffix: '', defaultText: 'Heading 1' },
-    { icon: Heading2, label: 'Heading 2', prefix: '## ', suffix: '', defaultText: 'Heading 2' },
-    { icon: List, label: 'Bullet List', prefix: '- ', suffix: '', defaultText: 'list item' },
-    { icon: ListOrdered, label: 'Numbered List', prefix: '1. ', suffix: '', defaultText: 'list item' },
-    { icon: Code, label: 'Code', prefix: '`', suffix: '`', defaultText: 'code' },
-    { icon: Quote, label: 'Quote', prefix: '> ', suffix: '', defaultText: 'quote' },
-    { icon: Link, label: 'Link', prefix: '[', suffix: '](url)', defaultText: 'link text' },
-    { icon: Minus, label: 'Divider', prefix: '\n---\n', suffix: '', defaultText: '' },
-    { icon: Table, label: 'Table', prefix: '\n| Header | Header | Header |\n|--------|--------|--------|\n| Cell   | Cell   | Cell   |\n| Cell   | Cell   | Cell   |\n', suffix: '', defaultText: '' },
-  ] as const;
 
   // Insert entity reference
   const insertEntityRef = useCallback((prefix: string, id: string) => {
@@ -453,105 +400,98 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
 
       {editorMode !== 'preview' && !isReadOnly && (
         <div className="sticky top-0 z-10 flex items-center gap-1 px-3 py-1.5 border-b shrink-0 bg-background">
-          {toolbarConfig.map((tool) => (
+          <MarkdownToolbar
+            textareaRef={textareaRef}
+            value={content}
+            onChange={setContent}
+          >
             <Button
-              key={tool.label}
               variant="ghost"
               size="icon"
               className="h-7 w-7"
-              onClick={() => insertMarkdown(tool.prefix, tool.suffix, tool.defaultText)}
-              title={tool.label}
+              onClick={inlineUpload.triggerFilePicker}
+              disabled={inlineUpload.uploadingFiles.length > 0}
+              title="Upload file"
             >
-              <tool.icon className="h-3.5 w-3.5" />
+              {inlineUpload.uploadingFiles.length > 0 ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Paperclip className="h-3.5 w-3.5" />
+              )}
             </Button>
-          ))}
+            {inlineUpload.fileInputElement}
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={inlineUpload.triggerFilePicker}
-            disabled={inlineUpload.uploadingFiles.length > 0}
-            title="Upload file"
-          >
-            {inlineUpload.uploadingFiles.length > 0 ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Paperclip className="h-3.5 w-3.5" />
-            )}
-          </Button>
-          {inlineUpload.fileInputElement}
-
-          {/* Entity reference inserter */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" title="Insert reference">
-                <AtSign className="h-3.5 w-3.5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-2" align="start" side="bottom">
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground px-1">Insert entity reference</p>
-                {tasks.length > 0 && (
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Tasks</p>
-                    <div className="max-h-24 overflow-y-auto custom-scrollbar">
-                      {tasks.filter((t) => !t.parentId).slice(0, 10).map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          className="w-full text-left text-xs px-2 py-1 rounded hover:bg-muted transition-colors truncate flex items-center gap-1.5"
-                          onClick={() => insertEntityRef('T', shortId(t.id))}
-                        >
-                          <span className="text-primary font-mono text-[10px]">T</span>
-                          <span className="truncate">{t.title}</span>
-                        </button>
-                      ))}
+            {/* Entity reference inserter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7" title="Insert reference">
+                  <AtSign className="h-3.5 w-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-2" align="start" side="bottom">
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground px-1">Insert entity reference</p>
+                  {tasks.length > 0 && (
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Tasks</p>
+                      <div className="max-h-24 overflow-y-auto custom-scrollbar">
+                        {tasks.filter((t) => !t.parentId).slice(0, 10).map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            className="w-full text-left text-xs px-2 py-1 rounded hover:bg-muted transition-colors truncate flex items-center gap-1.5"
+                            onClick={() => insertEntityRef('T', shortId(t.id))}
+                          >
+                            <span className="text-primary font-mono text-[10px]">T</span>
+                            <span className="truncate">{t.title}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-                {projects.length > 0 && (
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Projects</p>
-                    <div className="max-h-24 overflow-y-auto custom-scrollbar">
-                      {projects.slice(0, 10).map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          className="w-full text-left text-xs px-2 py-1 rounded hover:bg-muted transition-colors truncate flex items-center gap-1.5"
-                          onClick={() => insertEntityRef('P', shortId(p.id))}
-                        >
-                          <span className="text-primary font-mono text-[10px]">P</span>
-                          <span className="truncate">{p.name}</span>
-                        </button>
-                      ))}
+                  )}
+                  {projects.length > 0 && (
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Projects</p>
+                      <div className="max-h-24 overflow-y-auto custom-scrollbar">
+                        {projects.slice(0, 10).map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className="w-full text-left text-xs px-2 py-1 rounded hover:bg-muted transition-colors truncate flex items-center gap-1.5"
+                            onClick={() => insertEntityRef('P', shortId(p.id))}
+                          >
+                            <span className="text-primary font-mono text-[10px]">P</span>
+                            <span className="truncate">{p.name}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-                {notes.length > 0 && (
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Notes</p>
-                    <div className="max-h-24 overflow-y-auto custom-scrollbar">
-                      {notes.slice(0, 10).map((n) => (
-                        <button
-                          key={n.id}
-                          type="button"
-                          className="w-full text-left text-xs px-2 py-1 rounded hover:bg-muted transition-colors truncate flex items-center gap-1.5"
-                          onClick={() => insertEntityRef('N', shortId(n.id))}
-                        >
-                          <span className="text-primary font-mono text-[10px]">N</span>
-                          <span className="truncate">{n.title}</span>
-                        </button>
-                      ))}
+                  )}
+                  {notes.length > 0 && (
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Notes</p>
+                      <div className="max-h-24 overflow-y-auto custom-scrollbar">
+                        {notes.slice(0, 10).map((n) => (
+                          <button
+                            key={n.id}
+                            type="button"
+                            className="w-full text-left text-xs px-2 py-1 rounded hover:bg-muted transition-colors truncate flex items-center gap-1.5"
+                            onClick={() => insertEntityRef('N', shortId(n.id))}
+                          >
+                            <span className="text-primary font-mono text-[10px]">N</span>
+                            <span className="truncate">{n.title}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-                <p className="text-[10px] text-muted-foreground px-1 pt-1 border-t">
-                  Format: #T-id, #P-id, #N-id
-                </p>
-              </div>
-            </PopoverContent>
-          </Popover>
+                  )}
+                  <p className="text-[10px] text-muted-foreground px-1 pt-1 border-t">
+                    Format: #T-id, #P-id, #N-id
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </MarkdownToolbar>
 
           <div className="flex-1" />
           <span className="text-[10px] text-muted-foreground shrink-0">
