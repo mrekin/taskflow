@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUserId } from '@/lib/auth-utils';
 import { db } from '@/lib/db';
-import { DEFAULT_PREFERENCES, DEFAULT_CURRENCY, CURRENCIES, type UserPreferences, type StatusConfig, type ProfileVisibility } from '@/lib/constants';
+import { DEFAULT_PREFERENCES, DEFAULT_CURRENCY, CURRENCIES, UI_SCALE_OPTIONS, type UserPreferences, type StatusConfig, type ProfileVisibility } from '@/lib/constants';
+
+function resolveUiScale(value: unknown): number {
+  return typeof value === 'number' && (UI_SCALE_OPTIONS as readonly number[]).includes(value)
+    ? value
+    : DEFAULT_PREFERENCES.uiScale;
+}
 
 export async function GET() {
   const userId = await getCurrentUserId();
@@ -34,6 +40,7 @@ export async function GET() {
       ? metadata.defaultCurrency
       : DEFAULT_PREFERENCES.defaultCurrency,
     tabIndent: metadata.tabIndent !== undefined ? Boolean(metadata.tabIndent) : DEFAULT_PREFERENCES.tabIndent,
+    uiScale: resolveUiScale(metadata.uiScale),
   };
 
   return NextResponse.json(preferences);
@@ -77,6 +84,9 @@ export async function PUT(request: Request) {
     ? body.defaultCurrency
     : undefined;
   const tabIndent = typeof body.tabIndent === 'boolean' ? body.tabIndent : undefined;
+  const uiScale = typeof body.uiScale === 'number' && (UI_SCALE_OPTIONS as readonly number[]).includes(body.uiScale)
+    ? body.uiScale
+    : undefined;
 
   const user = await db.user.findUnique({ where: { id: userId }, select: { metadata: true } });
   let existing: Record<string, unknown>;
@@ -96,6 +106,7 @@ export async function PUT(request: Request) {
   if (groupTasksByProject !== undefined) existing.groupTasksByProject = groupTasksByProject;
   if (defaultCurrency !== undefined) existing.defaultCurrency = defaultCurrency;
   if (tabIndent !== undefined) existing.tabIndent = tabIndent;
+  if (uiScale !== undefined) existing.uiScale = uiScale;
 
   await db.user.update({
     where: { id: userId },
@@ -115,6 +126,7 @@ export async function PUT(request: Request) {
       ? existing.defaultCurrency
       : DEFAULT_PREFERENCES.defaultCurrency,
     tabIndent: existing.tabIndent !== undefined ? Boolean(existing.tabIndent) : DEFAULT_PREFERENCES.tabIndent,
+    uiScale: resolveUiScale(existing.uiScale),
   };
 
   return NextResponse.json(preferences);

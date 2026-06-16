@@ -40,6 +40,7 @@ import {
   File,
   Trash2,
   DollarSign,
+  Scaling,
 } from 'lucide-react';
 import { GitHubIcon } from '@/components/github-icon';
 import { Switch } from '@/components/ui/switch';
@@ -62,7 +63,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { useAppStore } from '@/store/app-store';
-import { DEFAULT_PAGE_OPTIONS, DEFAULT_PREFERENCES, CURRENCIES } from '@/lib/constants';
+import { DEFAULT_PAGE_OPTIONS, DEFAULT_PREFERENCES, CURRENCIES, UI_SCALE_OPTIONS } from '@/lib/constants';
 
 const emptySubscribe = () => () => {};
 function useIsMounted() {
@@ -409,6 +410,28 @@ export function SettingsView() {
                     <Monitor className="size-3.5" />
                     System
                   </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Scaling className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Label htmlFor="ui-scale">Interface size</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">Scale text and icons across the app</p>
+              </div>
+              <Select value={String(prefs.uiScale)} onValueChange={(v) => updateUserPreference('uiScale', Number(v))}>
+                <SelectTrigger id="ui-scale" className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {UI_SCALE_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={String(s)}>{s}%</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

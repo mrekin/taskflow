@@ -108,7 +108,10 @@ export interface UserPreferences {
   groupTasksByProject: boolean;
   defaultCurrency: string;
   tabIndent: boolean;
+  uiScale: number;
 }
+
+export const UI_SCALE_OPTIONS = [80, 90, 100, 110, 120, 130, 140, 150] as const;
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
   noteAutoSave: true,
@@ -121,6 +124,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   groupTasksByProject: false,
   defaultCurrency: DEFAULT_CURRENCY,
   tabIndent: false,
+  uiScale: 100,
 };
 
 export function resolveStatuses(

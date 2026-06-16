@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/components/auth-provider";
 import { ThemeProvider } from "@/components/theme-provider";
+import { UiScaleApplier } from "@/components/ui-scale-applier";
 import { DemoBanner } from "@/components/demo-banner";
 
 const geistSans = Geist({
@@ -49,6 +50,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <ThemeProvider>
+          <UiScaleApplier />
           <DemoBanner />
           <AuthProvider>
             {children}

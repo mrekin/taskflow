@@ -19,6 +19,13 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     // React rules
     "react-hooks/exhaustive-deps": "off",
     "react-hooks/purity": "off",
+    // React Compiler correctness rules — advisory only, the compiler (babel-plugin-react-compiler)
+    // is not enabled in this project, so these patterns (ref mirroring, loading flags in effects,
+    // icon aliasing, manual memoization) are valid in non-compiler React.
+    "react-hooks/set-state-in-effect": "off",
+    "react-hooks/static-components": "off",
+    "react-hooks/refs": "off",
+    "react-hooks/preserve-manual-memoization": "off",
     "react/no-unescaped-entities": "off",
     "react/display-name": "off",
     "react/prop-types": "off",
