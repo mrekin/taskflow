@@ -55,6 +55,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Extract repository name (lowercase)
         id: repo
@@ -67,13 +68,21 @@ jobs:
         run: |
           VERSION=$(grep '"version"' package.json | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
           VERSION="${VERSION#v}"
+          REF="${GITEA_REF:-$GITHUB_REF}"
           if [ "${{ gitea.event_name }}" = "push" ]; then
-            if [ "${GITEA_REF#refs/tags/}" != "${GITEA_REF}" ]; then
+            if [ "${REF#refs/tags/}" != "${REF}" ]; then
               BUILD_TYPE=release
-              TAG="${GITEA_REF#refs/tags/v}"
+              TAG="${REF#refs/tags/v}"
               TAGS="${{ steps.repo.outputs.image }}:${TAG}"$'\n'"${{ steps.repo.outputs.image }}:latest"
               BASE_PATH="/taskflow"
             else
+              # Branch push. If this commit is also tagged, a tag-triggered release
+              # build runs in parallel — skip this test build to avoid a duplicate.
+              if [ -n "$(git tag --points-at HEAD)" ]; then
+                echo "skip=true" >> "$GITHUB_OUTPUT"
+                echo "Skipping branch build: commit is tagged (release build handles it)."
+                exit 0
+              fi
               if git diff --name-only ${{ gitea.event.before }} ${{ gitea.event.after }} | grep -q "package.json"; then
                 if git diff ${{ gitea.event.before }} ${{ gitea.event.after }} package.json | grep -q '"version"'; then
                   BUILD_TYPE=dev
@@ -111,6 +120,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push Docker image
+        if: steps.meta.outputs.skip != 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
