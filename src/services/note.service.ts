@@ -36,6 +36,7 @@ export interface UpdateNoteData {
   tagIds?: string[];
   visibility?: string | null;
   visibleUserIds?: string[];
+  versioningEnabled?: boolean;
 }
 
 export const NoteService = {
@@ -223,6 +224,7 @@ export const NoteService = {
     if (data.tagIds !== undefined) updateData.tagIds = JSON.stringify(data.tagIds);
     if (data.visibility !== undefined) updateData.visibility = data.visibility;
     if (data.visibleUserIds !== undefined) updateData.visibleUserIds = JSON.stringify(data.visibleUserIds);
+    if (data.versioningEnabled !== undefined) updateData.versioningEnabled = data.versioningEnabled;
 
     if (data.title !== undefined || data.folderId !== undefined || data.projectId !== undefined) {
       const checkTitle = data.title !== undefined ? data.title.trim() : existing.title;

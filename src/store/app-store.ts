@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery, WebhookTrigger, Attachment, AttachmentConfig, TaskPrice } from '@/lib/types';
+import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery, WebhookTrigger, Attachment, AttachmentConfig, TaskPrice, NoteVersionMeta } from '@/lib/types';
 import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig, resolveStatuses, DEFAULT_STATUSES } from '@/lib/constants';
 
 import { api } from '@/lib/api-utils';
@@ -132,6 +132,19 @@ interface AppState {
   createNote: (data: Partial<Note>) => Promise<void>;
   updateNote: (id: string, data: Partial<Note>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
+  // Actions - Note versions
+  saveNoteVersion: (id: string, data: {
+    title: string;
+    content: string;
+    projectId?: string | null;
+    tagIds?: string[];
+    visibility?: string | null;
+    visibleUserIds?: string[];
+    comment?: string | null;
+  }) => Promise<NoteVersionMeta | null>;
+  restoreNoteVersion: (id: string, number: number) => Promise<NoteVersionMeta | null>;
+  deleteNoteVersions: (id: string, numbers: number[]) => Promise<number>;
+  setVersionKept: (id: string, number: number, kept: boolean) => Promise<void>;
 
   // Actions - CRUD Folders
   fetchFolders: (projectId?: string) => Promise<void>;
@@ -602,6 +615,74 @@ export const useAppStore = create<AppState>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to delete note:', error);
+    }
+  },
+
+  // CRUD Note versions — versions are NOT cached in the store; UI fetches them on
+  // demand. These actions only persist changes and refresh the live note in state.
+  saveNoteVersion: async (id, data) => {
+    try {
+      const res = await fetch(api(`/api/notes/${id}/versions`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to save version' }));
+        throw new Error(err.error || 'Failed to save version');
+      }
+      const { note, version } = await res.json() as { note: Note; version: NoteVersionMeta };
+      set((state) => ({ notes: state.notes.map((n) => (n.id === id ? note : n)) }));
+      return version;
+    } catch (error) {
+      console.error('Failed to save note version:', error);
+      throw error;
+    }
+  },
+
+  restoreNoteVersion: async (id, number) => {
+    try {
+      const res = await fetch(api(`/api/notes/${id}/versions/${number}/restore`), {
+        method: 'POST',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to restore version' }));
+        throw new Error(err.error || 'Failed to restore version');
+      }
+      const { note, version } = await res.json() as { note: Note; version: NoteVersionMeta };
+      set((state) => ({ notes: state.notes.map((n) => (n.id === id ? note : n)) }));
+      return version;
+    } catch (error) {
+      console.error('Failed to restore note version:', error);
+      throw error;
+    }
+  },
+
+  deleteNoteVersions: async (id, numbers) => {
+    try {
+      const res = await fetch(api(`/api/notes/${id}/versions`), {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numbers }),
+      });
+      if (!res.ok) throw new Error('Failed to delete versions');
+      const { deleted } = await res.json() as { deleted: number };
+      return deleted;
+    } catch (error) {
+      console.error('Failed to delete note versions:', error);
+      return 0;
+    }
+  },
+
+  setVersionKept: async (id, number, kept) => {
+    try {
+      await fetch(api(`/api/notes/${id}/versions/${number}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kept }),
+      });
+    } catch (error) {
+      console.error('Failed to set version kept:', error);
     }
   },
 

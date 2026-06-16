@@ -147,11 +147,43 @@ export interface Note {
   sortOrder: number;
   visibility: string | null;
   visibleUserIds: string[];
+  versioningEnabled: boolean;
   createdAt: string;
   updatedAt: string;
   project?: Project;
   folder?: NoteFolder;
   _count?: { attachments: number };
+}
+
+export type NoteVersionOperation = 'manual' | 'restore';
+
+export interface NoteVersionAuthor {
+  id: string;
+  name: string | null;
+  image: string | null;
+}
+
+/** Full version state — returned when viewing a single version. */
+export interface NoteVersion extends NoteVersionMeta {
+  title: string;
+  content: string;
+  projectId: string | null;
+  tagIds: string[];
+  visibility: string | null;
+  visibleUserIds: string[];
+}
+
+/** Version metadata only — returned for the versions list. */
+export interface NoteVersionMeta {
+  id: string;
+  noteId: string;
+  number: number;
+  operation: NoteVersionOperation;
+  comment: string | null;
+  authorId: string;
+  author: NoteVersionAuthor;
+  kept: boolean;
+  createdAt: string;
 }
 
 export interface NoteFolder {

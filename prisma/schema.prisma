@@ -32,6 +32,7 @@ model User {
   webhooks      Webhook[]
   scheduledJobs ScheduledJob[]
   fileBlobs     FileBlob[]
+  noteVersions  NoteVersion[]
 }
 
 model Area {
@@ -120,12 +121,37 @@ model Note {
   sortOrder       Int      @default(0)
   visibility      String?
   visibleUserIds  String   @default("[]")
+  versioningEnabled Boolean @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  project Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  folder  NoteFolder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  owner   User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  project  Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  folder   NoteFolder?   @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  owner    User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  versions NoteVersion[]
+}
+
+model NoteVersion {
+  id             String   @id @default(cuid())
+  noteId         String
+  number         Int
+  title          String
+  content        String
+  projectId      String?
+  tagIds         String   @default("[]")
+  visibility     String?
+  visibleUserIds String   @default("[]")
+  operation      String
+  comment        String?
+  authorId       String
+  kept           Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  note   Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, number])
+  @@index([noteId, number])
 }
 
 model NoteFolder {

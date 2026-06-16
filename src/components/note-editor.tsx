@@ -39,20 +39,26 @@ import {
   AtSign,
   ChevronRight,
   Paperclip,
+  History,
+  RotateCcw,
+  ExternalLink,
 } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { shortId } from '@/lib/utils';
+import { shortId, getEntityLink, copyToClipboard } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
-import type { Note } from '@/lib/types';
+import type { Note, NoteVersion as NoteVersionData } from '@/lib/types';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import { VisibilityLock } from '@/components/visibility-lock';
 import { AttachmentList } from '@/components/attachment-list';
+import { NoteVersionHistory } from '@/components/note-version-history';
 import { useInlineFileUpload } from '@/hooks/use-inline-file-upload';
+import { api } from '@/lib/api-utils';
+import { toast } from 'sonner';
 
 type SaveStatus = 'saved' | 'saving' | 'unsaved';
 type EditorMode = 'edit' | 'preview' | 'split';
@@ -60,9 +66,10 @@ type EditorMode = 'edit' | 'preview' | 'split';
 interface NoteEditorProps {
   noteId: string;
   initialMode?: EditorMode;
+  versionParam?: number;
 }
 
-export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps) {
+export function NoteEditor({ noteId, initialMode = 'preview', versionParam }: NoteEditorProps) {
   const {
     notes,
     projects,
@@ -79,11 +86,14 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
     users,
     currentUserId,
   } = useAppStore();
+  const saveNoteVersion = useAppStore((s) => s.saveNoteVersion);
+  const restoreNoteVersion = useAppStore((s) => s.restoreNoteVersion);
 
   const autoSaveEnabled = useAppStore((s) => s.userPreferences.noteAutoSave);
 
   const note = notes.find((n) => n.id === noteId);
   const isReadOnly = !!note && !!currentUserId && note.ownerId !== currentUserId;
+  const versioningOn = !!note?.versioningEnabled;
 
   // Initialize state from note - noteId is stable (set via key prop on parent)
   const [title, setTitle] = useState(() => note?.title ?? '');
@@ -103,6 +113,10 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
   const [lastSavedVisibility, setLastSavedVisibility] = useState<string | null>(() => note?.visibility ?? null);
   const [lastSavedVisibleUserIds, setLastSavedVisibleUserIds] = useState<string[]>(() => note?.visibleUserIds ?? []);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [versionComment, setVersionComment] = useState('');
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [viewingVersion, setViewingVersion] = useState<NoteVersionData | null>(null);
+  const [versionLoading, setVersionLoading] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -143,7 +157,23 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
         visibleUserIds,
       };
 
-      await updateNote(note.id, data);
+      if (versioningOn && !isReadOnly) {
+        // Versioning mode: manual save creates a new version (and persists live state).
+        const version = await saveNoteVersion(note.id, {
+          title: title.trim(),
+          content,
+          projectId: projectId === 'none' ? null : projectId,
+          tagIds,
+          visibility,
+          visibleUserIds,
+          comment: versionComment.trim() || undefined,
+        });
+        setVersionComment('');
+        if (version) toast.success(`Saved version v${version.number}`);
+      } else {
+        await updateNote(note.id, data);
+      }
+
       setLastSavedTitle(title);
       setLastSavedContent(content);
       setLastSavedProjectId(projectId);
@@ -153,13 +183,15 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
       setSaveStatus('saved');
     } catch (error) {
       console.error('Save failed:', error);
+      const msg = error instanceof Error ? error.message : 'Save failed';
+      toast.error(msg);
       setSaveStatus('unsaved');
     }
-  }, [note, title, content, projectId, tagIds, visibility, visibleUserIds, updateNote]);
+  }, [note, title, content, projectId, tagIds, visibility, visibleUserIds, updateNote, versioningOn, isReadOnly, versionComment, saveNoteVersion]);
 
-  // Auto-save with debounce (only when enabled)
+  // Auto-save with debounce (only when enabled and versioning is off)
   useEffect(() => {
-    if (!note || !hasUnsavedChanges || !autoSaveEnabled) return;
+    if (!note || !hasUnsavedChanges || !autoSaveEnabled || versioningOn) return;
 
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -174,14 +206,87 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [title, content, projectId, tagIds, visibility, visibleUserIds, note, hasUnsavedChanges, autoSaveEnabled, performSave]);
+  }, [title, content, projectId, tagIds, visibility, visibleUserIds, note, hasUnsavedChanges, autoSaveEnabled, versioningOn, performSave]);
 
   const handleBack = () => {
-    if (hasUnsavedChanges && note) {
+    if (hasUnsavedChanges && note && !versioningOn) {
       performSave();
     }
     selectNote(null);
     setCurrentView('notes');
+  };
+
+  // Load a specific version when deep-linked via ?v=N. Falls back to the latest
+  // existing version if the requested one is gone (deleted), or to the live note
+  // if there are no versions at all.
+  const loadVersion = useCallback(async (target: number) => {
+    if (!note) return;
+    setVersionLoading(true);
+    try {
+      const direct = await fetch(api(`/api/notes/${note.id}/versions/${target}`));
+      if (direct.ok) {
+        setViewingVersion(await direct.json());
+        return;
+      }
+      // Requested version missing → fall back to the latest existing version.
+      const listRes = await fetch(api(`/api/notes/${note.id}/versions`));
+      if (listRes.ok) {
+        const list = await listRes.json();
+        if (Array.isArray(list) && list.length > 0) {
+          const latest: { number: number } = list[0];
+          const fallback = await fetch(api(`/api/notes/${note.id}/versions/${latest.number}`));
+          if (fallback.ok) {
+            const v = await fallback.json();
+            setViewingVersion(v);
+            toast.info(`Version v${target} not found — showing latest v${latest.number}`);
+            return;
+          }
+        }
+      }
+      // No versions at all → show the live note.
+      setViewingVersion(null);
+    } catch (error) {
+      console.error('Failed to load version:', error);
+      setViewingVersion(null);
+    } finally {
+      setVersionLoading(false);
+    }
+  }, [note]);
+
+  useEffect(() => {
+    if (versionParam !== undefined && versionParam !== null && note) {
+      void loadVersion(versionParam);
+    } else {
+      setViewingVersion(null);
+    }
+  }, [versionParam, note, loadVersion]);
+
+  const handleRestoreViewedVersion = async () => {
+    if (!note || !viewingVersion) return;
+    try {
+      await restoreNoteVersion(note.id, viewingVersion.number);
+      toast.success(`Restored from v${viewingVersion.number}`);
+      setViewingVersion(null);
+      // Drop the ?v= param so the editor shows the live (restored) note.
+      const url = getEntityLink('note', note.shortId || 'N-?', note.id);
+      window.history.replaceState(null, '', url);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to restore';
+      toast.error(msg);
+    }
+  };
+
+  const handleGoToCurrent = () => {
+    if (!note) return;
+    setViewingVersion(null);
+    const url = getEntityLink('note', note.shortId || 'N-?', note.id);
+    window.history.replaceState(null, '', url);
+  };
+
+  const handleCopyVersionLink = async () => {
+    if (!note || !viewingVersion) return;
+    const url = window.location.origin + getEntityLink('note', note.shortId || 'N-?', note.id, viewingVersion.number);
+    if (await copyToClipboard(url)) toast.success('Version link copied');
   };
 
   useEffect(() => {
@@ -297,22 +402,34 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
               <OwnerIndicator ownerId={note.ownerId} currentUserId={currentUserId} />
             </>
           )}
-          {/* Manual Save button when autosave is off */}
-          {!autoSaveEnabled && hasUnsavedChanges && !isReadOnly && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 px-2.5 text-xs gap-1.5"
-              onClick={performSave}
-              disabled={saveStatus === 'saving'}
-            >
-              {saveStatus === 'saving' ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Save className="h-3 w-3" />
+          {/* Manual Save button when autosave is off or versioning is on */}
+          {(!autoSaveEnabled || versioningOn) && hasUnsavedChanges && !isReadOnly && !viewingVersion && (
+            <>
+              {versioningOn && (
+                <input
+                  type="text"
+                  value={versionComment}
+                  onChange={(e) => setVersionComment(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void performSave(); } }}
+                  placeholder="Version comment (optional)"
+                  className="h-7 w-40 rounded-md border border-input bg-background px-2 text-xs placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
               )}
-              Save
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2.5 text-xs gap-1.5"
+                onClick={performSave}
+                disabled={saveStatus === 'saving'}
+              >
+                {saveStatus === 'saving' ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Save className="h-3 w-3" />
+                )}
+                {versioningOn ? 'Save version' : 'Save'}
+              </Button>
+            </>
           )}
         </div>
 
@@ -329,7 +446,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
           />
 
           {/* Mode toggle */}
-          {!isReadOnly && (
+          {!isReadOnly && !viewingVersion && (
             <ToggleGroup
               type="single"
               value={editorMode}
@@ -381,8 +498,17 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
             </Select>
           )}
 
-          {!isReadOnly && (
+          {!isReadOnly && !viewingVersion && (
             <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 text-muted-foreground"
+                title="Version history"
+                onClick={() => setShowHistoryDialog(true)}
+              >
+                <History className="h-4 w-4" />
+              </Button>
               <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" onClick={() => setShowDeleteDialog(true)}>
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -398,7 +524,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
         </div>
       </div>
 
-      {editorMode !== 'preview' && !isReadOnly && (
+      {editorMode !== 'preview' && !isReadOnly && !viewingVersion && (
         <div className="sticky top-0 z-10 flex items-center gap-1 px-3 py-1.5 border-b shrink-0 bg-background">
           <MarkdownToolbar
             textareaRef={textareaRef}
@@ -500,7 +626,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
         </div>
       )}
 
-      {!isReadOnly && (
+      {!isReadOnly && !viewingVersion && (
         <div className="px-3 py-1.5 border-b shrink-0">
           <TagPicker
             selectedTagIds={tagIds}
@@ -511,6 +637,69 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
 
       {/* Content area - takes most of the screen */}
       <div className="flex-1 overflow-hidden">
+        {versionLoading && versionParam !== undefined ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading version…
+          </div>
+        ) : viewingVersion ? (
+          <div className="h-full overflow-y-auto custom-scrollbar">
+            <div className="w-full md:w-[90%] mx-auto px-4 md:px-6 py-6">
+              {/* Version banner */}
+              <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+                <History className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                <span className="font-medium">
+                  Viewing v{viewingVersion.number}
+                </span>
+                <span className="text-muted-foreground">
+                  · {viewingVersion.operation === 'restore' ? 'Restored' : 'Manual save'}
+                </span>
+                <span className="text-muted-foreground" title={viewingVersion.createdAt}>
+                  · {formatDistanceToNow(new Date(viewingVersion.createdAt), { addSuffix: true })}
+                </span>
+                {viewingVersion.author?.name && (
+                  <span className="text-muted-foreground">· {viewingVersion.author.name}</span>
+                )}
+                {viewingVersion.comment && (
+                  <span className="text-muted-foreground truncate">· {viewingVersion.comment}</span>
+                )}
+                <div className="ml-auto flex items-center gap-1">
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => void handleCopyVersionLink()}>
+                    <ExternalLink className="h-3 w-3" />
+                    Copy link
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={handleGoToCurrent}>
+                    Go to current
+                  </Button>
+                  {!isReadOnly && (
+                    <Button variant="default" size="sm" className="h-7 text-xs gap-1.5" onClick={() => void handleRestoreViewedVersion()}>
+                      <RotateCcw className="h-3 w-3" />
+                      Restore
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight">{viewingVersion.title}</h1>
+                <EntityIdBadge id={note.id} shortId={note.shortId || 'N-?'} type="note" version={viewingVersion.number} />
+              </div>
+
+              <Separator className="my-6" />
+
+              {!viewingVersion.content.trim() ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50">
+                  <FileText className="h-12 w-12 mb-3 opacity-30" />
+                  <p className="text-sm">This version is empty</p>
+                </div>
+              ) : (
+                <div className="prose-container">
+                  <MarkdownRenderer content={viewingVersion.content} stripFirstH1={true} />
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Preview / View mode - content-centric */}
         {editorMode === 'preview' && (
           <div className="h-full overflow-y-auto custom-scrollbar">
@@ -709,10 +898,12 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
             </div>
           </div>
         )}
+        </>
+        )}
       </div>
 
       {/* Attachments */}
-      {note && (
+      {note && !viewingVersion && (
         <div className="border-t pt-4 mt-4 px-3 pb-16 md:pb-2">
           <AttachmentList
             entityId={note.id}
@@ -720,6 +911,14 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
             ownerId={note.ownerId}
           />
         </div>
+      )}
+
+      {note && (
+        <NoteVersionHistory
+          note={note}
+          open={showHistoryDialog}
+          onOpenChange={setShowHistoryDialog}
+        />
       )}
     </div>
   );

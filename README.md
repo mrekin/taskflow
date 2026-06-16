@@ -109,6 +109,7 @@ bun run dev
 | `ATTACHMENT_USER_MAX_SIZE` | no | `512` | Per-user storage limit in MB. `0` = unlimited |
 | `STORAGE_ADAPTER` | no | `local` | Storage backend: `local` (more adapters in future) |
 | `STORAGE_LOCAL_PATH` | no | `/app/uploads` | Local storage path for uploaded files |
+| `NOTE_VERSIONS_MAX` | no | `100` | Max versions kept per note. Oldest non-"pinned" versions are pruned FIFO when exceeded |
 
 ## Subpath Deployment
 

@@ -11,10 +11,12 @@ interface EntityIdBadgeProps {
   /** The internal CUID for link generation */
   id: string;
   type: EntityType;
+  /** Optional version number — shown in the label and included in the copied link */
+  version?: number;
   className?: string;
 }
 
-export function EntityIdBadge({ shortId, id, type, className }: EntityIdBadgeProps) {
+export function EntityIdBadge({ shortId, id, type, version, className }: EntityIdBadgeProps) {
   const [copiedId, setCopiedId] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -29,7 +31,7 @@ export function EntityIdBadge({ shortId, id, type, className }: EntityIdBadgePro
 
   const handleCopyLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const link = window.location.origin + getEntityLink(type, shortId, id);
+    const link = window.location.origin + getEntityLink(type, shortId, id, version);
     const ok = await copyToClipboard(link);
     if (ok) {
       setCopiedLink(true);
@@ -52,6 +54,7 @@ export function EntityIdBadge({ shortId, id, type, className }: EntityIdBadgePro
         title="Copy ID"
       >
         {copiedId ? <Check className="size-2.5 inline -mt-0.5 mr-0.5" /> : null}{shortId}
+        {version !== undefined ? <span className="text-primary/70">·v{version}</span> : null}
       </button>
       <button
         type="button"

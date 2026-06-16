@@ -39,11 +39,14 @@ export function shortId(id: string): string {
 /**
  * Build a direct link URL for an entity.
  * Uses shortId format (e.g., ?task=T-7, ?project=P-3) for human-readable URLs.
+ * Optional `version` appends &v=N (used for note version deep-links).
  */
-export function getEntityLink(type: EntityType, shortId: string, entityId?: string): string {
+export function getEntityLink(type: EntityType, shortId: string, entityId?: string, version?: number): string {
   const base = window.location.pathname;
   const param = `${type}=${shortId}`;
-  return entityId ? `${base}?${param}&id=${entityId}` : `${base}?${param}`;
+  let url = entityId ? `${base}?${param}&id=${entityId}` : `${base}?${param}`;
+  if (version !== undefined) url += `&v=${version}`;
+  return url;
 }
 
 /**

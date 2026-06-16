@@ -709,7 +709,16 @@ function HomeContent() {
         return <ScrollPage><NotesList /></ScrollPage>;
       case 'note-editor':
         if (selectedNoteId) {
-          return <NoteEditor key={selectedNoteId} noteId={selectedNoteId} initialMode="preview" />;
+          const vParam = searchParams.get('v');
+          const versionNumber = vParam ? parseInt(vParam, 10) : NaN;
+          return (
+            <NoteEditor
+              key={selectedNoteId}
+              noteId={selectedNoteId}
+              initialMode="preview"
+              versionParam={Number.isFinite(versionNumber) ? versionNumber : undefined}
+            />
+          );
         }
         return <ScrollPage><NotesList /></ScrollPage>;
       case 'settings':
