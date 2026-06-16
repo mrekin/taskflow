@@ -11,6 +11,7 @@ import {
   forwardRef,
   useImperativeHandle,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { useAppStore } from '@/store/app-store';
 import { api } from '@/lib/api-utils';
 import { filterEntities, isLocalEntityUrl, filterPrices, type MentionItem, type UserMentionItem, type PriceMentionItem } from '@/lib/smart-links';
@@ -138,7 +139,7 @@ function Dropdown({
     return () => el.removeEventListener('wheel', handler);
   }, []);
 
-  return (
+  return createPortal(
     <div
       ref={dropdownRef}
       className="fixed z-[9999] min-w-[240px] max-w-[320px] bg-popover border border-border rounded-lg shadow-lg overflow-hidden"
@@ -170,7 +171,6 @@ function Dropdown({
                         : 'hover:bg-muted'
                     )}
                     onMouseDown={(e) => {
-                      console.log('[DD] React onMouseDown fired', item.id);
                       e.preventDefault();
                       e.stopPropagation();
                       onSelect(item);
@@ -204,7 +204,8 @@ function Dropdown({
           );
         })}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -498,15 +499,10 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
       const handleClickOutside = (e: MouseEvent) => {
         const textarea = innerRef.current;
         const target = e.target as Node;
-        const targetTag = (target as HTMLElement)?.tagName;
-        const inside = dropdownEl?.contains(target);
-        console.log('[DD] native clickOutside', { targetTag, inside: !!inside, dropdownFound: !!dropdownEl });
         if (textarea && target !== textarea && !textarea.contains(target)) {
           if (dropdownEl && dropdownEl.contains(target)) {
-            console.log('[DD] clickOutside: inside dropdown, skip');
             return;
           }
-          console.log('[DD] clickOutside: CLOSING');
           closeDropdown();
         }
       };
