@@ -17,6 +17,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DeleteDialog } from '@/components/delete-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { MarkdownToolbar } from '@/components/markdown-toolbar';
@@ -66,10 +76,9 @@ type EditorMode = 'edit' | 'preview' | 'split';
 interface NoteEditorProps {
   noteId: string;
   initialMode?: EditorMode;
-  versionParam?: number;
 }
 
-export function NoteEditor({ noteId, initialMode = 'preview', versionParam }: NoteEditorProps) {
+export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps) {
   const {
     notes,
     projects,
@@ -117,6 +126,7 @@ export function NoteEditor({ noteId, initialMode = 'preview', versionParam }: No
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [viewingVersion, setViewingVersion] = useState<NoteVersionData | null>(null);
   const [versionLoading, setVersionLoading] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -208,12 +218,32 @@ export function NoteEditor({ noteId, initialMode = 'preview', versionParam }: No
     };
   }, [title, content, projectId, tagIds, visibility, visibleUserIds, note, hasUnsavedChanges, autoSaveEnabled, versioningOn, performSave]);
 
-  const handleBack = () => {
-    if (hasUnsavedChanges && note && !versioningOn) {
-      performSave();
+  // Reflect unsaved edits in the status indicator (the "Saved" badge must not
+  // persist after further edits — important in manual/versioning mode where there
+  // is no auto-save to flip it for us).
+  useEffect(() => {
+    if (hasUnsavedChanges && saveStatus === 'saved') {
+      setSaveStatus('unsaved');
     }
+  }, [hasUnsavedChanges, saveStatus]);
+
+  const doCloseNote = () => {
     selectNote(null);
     setCurrentView('notes');
+  };
+
+  const handleBack = () => {
+    // Confirm before discarding unsaved edits (mirrors the task editor flow).
+    if (hasUnsavedChanges && !viewingVersion) {
+      setShowDiscardConfirm(true);
+      return;
+    }
+    doCloseNote();
+  };
+
+  const handleConfirmDiscard = () => {
+    setShowDiscardConfirm(false);
+    doCloseNote();
   };
 
   // Load a specific version when deep-linked via ?v=N. Falls back to the latest
@@ -253,13 +283,22 @@ export function NoteEditor({ noteId, initialMode = 'preview', versionParam }: No
     }
   }, [note]);
 
+  // Deep-linked version (?v=N) is a ONE-TIME view: load it once when the note
+  // is available, then strip ?v= from the URL so leaving and returning to the
+  // note (or editing it) shows the current version instead of reopening it.
+  const deepLinkVersionLoadedRef = useRef(false);
   useEffect(() => {
-    if (versionParam !== undefined && versionParam !== null && note) {
-      void loadVersion(versionParam);
+    if (deepLinkVersionLoadedRef.current || !note) return;
+    deepLinkVersionLoadedRef.current = true;
+    const raw = new URLSearchParams(window.location.search).get('v');
+    const target = raw ? parseInt(raw, 10) : NaN;
+    if (Number.isFinite(target)) {
+      window.history.replaceState(null, '', getEntityLink('note', note.shortId || 'N-?', note.id));
+      void loadVersion(target);
     } else {
       setViewingVersion(null);
     }
-  }, [versionParam, note, loadVersion]);
+  }, [note, loadVersion]);
 
   const handleRestoreViewedVersion = async () => {
     if (!note || !viewingVersion) return;
@@ -267,9 +306,6 @@ export function NoteEditor({ noteId, initialMode = 'preview', versionParam }: No
       await restoreNoteVersion(note.id, viewingVersion.number);
       toast.success(`Restored from v${viewingVersion.number}`);
       setViewingVersion(null);
-      // Drop the ?v= param so the editor shows the live (restored) note.
-      const url = getEntityLink('note', note.shortId || 'N-?', note.id);
-      window.history.replaceState(null, '', url);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to restore';
       toast.error(msg);
@@ -279,14 +315,13 @@ export function NoteEditor({ noteId, initialMode = 'preview', versionParam }: No
   const handleGoToCurrent = () => {
     if (!note) return;
     setViewingVersion(null);
-    const url = getEntityLink('note', note.shortId || 'N-?', note.id);
-    window.history.replaceState(null, '', url);
   };
 
   const handleCopyVersionLink = async () => {
     if (!note || !viewingVersion) return;
     const url = window.location.origin + getEntityLink('note', note.shortId || 'N-?', note.id, viewingVersion.number);
     if (await copyToClipboard(url)) toast.success('Version link copied');
+    else toast.error('Failed to copy link');
   };
 
   useEffect(() => {
@@ -411,7 +446,7 @@ export function NoteEditor({ noteId, initialMode = 'preview', versionParam }: No
                   value={versionComment}
                   onChange={(e) => setVersionComment(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void performSave(); } }}
-                  placeholder="Version comment (optional)"
+                  placeholder="Comment (optional)"
                   className="h-7 w-40 rounded-md border border-input bg-background px-2 text-xs placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
               )}
@@ -427,7 +462,7 @@ export function NoteEditor({ noteId, initialMode = 'preview', versionParam }: No
                 ) : (
                   <Save className="h-3 w-3" />
                 )}
-                {versioningOn ? 'Save version' : 'Save'}
+                Save
               </Button>
             </>
           )}
@@ -637,7 +672,7 @@ export function NoteEditor({ noteId, initialMode = 'preview', versionParam }: No
 
       {/* Content area - takes most of the screen */}
       <div className="flex-1 overflow-hidden">
-        {versionLoading && versionParam !== undefined ? (
+        {versionLoading ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading version…
           </div>
@@ -920,6 +955,26 @@ export function NoteEditor({ noteId, initialMode = 'preview', versionParam }: No
           onOpenChange={setShowHistoryDialog}
         />
       )}
+
+      <AlertDialog open={showDiscardConfirm} onOpenChange={setShowDiscardConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Are you sure you want to close this note? All unsaved edits will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continue editing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDiscard}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -94,20 +94,44 @@ export function formatEntityRef(type: EntityType, shortIdNum: number): string {
 /**
  * Copy text to clipboard with fallback
  */
-export async function copyToClipboard(text: string): Promise<boolean> {
+function legacyExecCopy(text: string): boolean {
   try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    // Fallback for older browsers
     const textarea = document.createElement('textarea');
     textarea.value = text;
+    // Place off-screen and make it non-editable to avoid mobile keyboards.
+    textarea.setAttribute('readonly', '');
     textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '0';
     textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
+    // Mount inside the active focus-trapped dialog when there is one. Otherwise
+    // the dialog's focus trap steals focus back from the textarea before the
+    // copy runs, so execCommand('copy') reports success yet copies nothing.
+    const scope = document.activeElement?.closest<HTMLElement>('[role="dialog"], [role="alertdialog"]');
+    (scope ?? document.body).appendChild(textarea);
+    textarea.focus();
     textarea.select();
+    textarea.setSelectionRange(0, text.length);
     const result = document.execCommand('copy');
-    document.body.removeChild(textarea);
+    textarea.remove();
     return result;
+  } catch {
+    return false;
   }
+}
+
+export async function copyToClipboard(text: string): Promise<boolean> {
+  // Primary: async Clipboard API (secure contexts — https or localhost).
+  // It is reliable inside modal dialogs, where it does not depend on DOM
+  // focus/selection — unlike execCommand, which focus-trap dialogs break.
+  if (typeof navigator !== 'undefined' && navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to legacy
+    }
+  }
+  // Fallback: synchronous execCommand path for non-secure contexts / older browsers.
+  return legacyExecCopy(text);
 }

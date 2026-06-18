@@ -104,14 +104,25 @@ export function NoteVersionHistory({ note, open, onOpenChange }: NoteVersionHist
     setSelected(checked ? new Set(versions.map((v) => v.number)) : new Set());
   };
 
+  const noteUrl = (number?: number) =>
+    window.location.origin + getEntityLink('note', note.shortId || `N-${note.shortIdNum}`, note.id, number);
+
   const openVersionLink = (number: number) => {
-    const url = getEntityLink('note', note.shortId || `N-${note.shortIdNum}`, note.id, number);
-    window.open(`${window.location.origin}${url}`, '_blank');
+    window.open(noteUrl(number), '_blank');
   };
 
   const handleCopyLink = async (number: number) => {
-    const url = window.location.origin + getEntityLink('note', note.shortId || `N-${note.shortIdNum}`, note.id, number);
-    if (await copyToClipboard(url)) toast.success('Version link copied');
+    if (await copyToClipboard(noteUrl(number))) toast.success('Version link copied');
+    else toast.error('Failed to copy link');
+  };
+
+  const openCurrentLink = () => {
+    window.open(noteUrl(), '_blank');
+  };
+
+  const handleCopyCurrentLink = async () => {
+    if (await copyToClipboard(noteUrl())) toast.success('Note link copied');
+    else toast.error('Failed to copy link');
   };
 
   const handleRestore = async (number: number) => {
@@ -151,6 +162,42 @@ export function NoteVersionHistory({ note, open, onOpenChange }: NoteVersionHist
     }
   };
 
+  // The live (current) note state, shown at the top of the list. It is not a
+  // saved snapshot, so it has no version number and cannot be restored/pinned/
+  // deleted — only opened or linked (to the live note, with no ?v=).
+  const currentRow = (
+    <div className="flex items-center gap-2 rounded-md border border-primary/40 bg-primary/5 px-2.5 py-2 text-sm">
+      <div className="flex w-5 shrink-0 justify-center">
+        <span className="h-2 w-2 rounded-full bg-primary" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs font-semibold">Current</span>
+          <span className="truncate text-xs text-muted-foreground">Live note</span>
+        </div>
+        <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span title={format(new Date(note.updatedAt), 'PPpp')}>
+            {formatDistanceToNow(new Date(note.updatedAt), { addSuffix: true })}
+          </span>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-0.5">
+        <Button variant="ghost" size="icon" className="size-7" title="Open current note" onClick={openCurrentLink}>
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          title="Copy current note link"
+          onClick={() => void handleCopyCurrentLink()}
+        >
+          <Copy className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+
   const versioningOn = note.versioningEnabled;
 
   return (
@@ -186,14 +233,18 @@ export function NoteVersionHistory({ note, open, onOpenChange }: NoteVersionHist
               <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading versions…
             </div>
           ) : versions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/70">
-              <History className="h-10 w-10 mb-3 opacity-30" />
-              <p className="text-sm">
-                {versioningOn ? 'No versions yet — save manually to create one.' : 'No versions.'}
-              </p>
-            </div>
+            <>
+              {currentRow}
+              <div className="flex flex-col items-center justify-center py-10 text-muted-foreground/70">
+                <History className="h-8 w-8 mb-2 opacity-30" />
+                <p className="text-xs">
+                  {versioningOn ? 'No saved versions yet — save manually to create one.' : 'No saved versions.'}
+                </p>
+              </div>
+            </>
           ) : (
             <>
+              {currentRow}
               {isOwner && (
                 <div className="sticky top-0 z-10 flex items-center gap-2 bg-background/95 backdrop-blur border-b py-2 mb-1">
                   <Checkbox

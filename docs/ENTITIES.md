@@ -10,7 +10,8 @@ User
  │    └── Project  (проект)
  │         ├── Task       (задача → подзадачи)
  │         │    └── Comment  (комментарий)
- │         ├── Note       (заметка)
+ │         ├── Note       (заметка → версии)
+ │         │    └── NoteVersion (версия заметки)
  │         └── NoteFolder (папка заметок)
  ├── Tag           (тег — привязывается к Area, Project, Task, Note)
  └── Webhook       (вебхук)
@@ -28,6 +29,7 @@ User
 | Проект | `Project` | `src/app/api/projects/route.ts`<br>`src/app/api/projects/[id]/route.ts` | `src/components/project-detail.tsx`<br>`src/components/create-project-dialog.tsx`<br>`src/components/sidebar-nav.tsx` | `src/store/app-store.ts`<br>`src/lib/webhook-engine.ts` |
 | Задача | `Task` | `src/app/api/tasks/route.ts`<br>`src/app/api/tasks/[id]/route.ts` | `src/components/task-list.tsx`<br>`src/components/task-card.tsx`<br>`src/components/task-detail-dialog.tsx`<br>`src/components/create-task-dialog.tsx`<br>`src/components/task-comments.tsx`<br>`src/components/kanban-board.tsx` | `src/store/app-store.ts`<br>`src/lib/webhook-engine.ts` |
 | Заметка | `Note` | `src/app/api/notes/route.ts`<br>`src/app/api/notes/[id]/route.ts` | `src/components/note-editor.tsx`<br>`src/components/notes-list.tsx`<br>`src/components/create-note-dialog.tsx`<br>`src/components/markdown-renderer.tsx` | `src/store/app-store.ts` |
+| Версия заметки | `NoteVersion` | `src/app/api/notes/[id]/versions/route.ts`<br>`src/app/api/notes/[id]/versions/[number]/route.ts`<br>`src/app/api/notes/[id]/versions/[number]/restore/route.ts` | `src/components/note-version-history.tsx`<br>`src/components/note-editor.tsx`<br>`src/components/entity-id-badge.tsx` | `src/store/app-store.ts`<br>`src/services/note-version.service.ts` |
 | Папка заметок | `NoteFolder` | `src/app/api/folders/route.ts`<br>`src/app/api/folders/[id]/route.ts` | `src/components/notes-list.tsx`<br>`src/components/create-note-dialog.tsx` | `src/store/app-store.ts` |
 | Комментарий | `Comment` | `src/app/api/comments/route.ts`<br>`src/app/api/comments/[id]/route.ts` | `src/components/task-comments.tsx` | `src/store/app-store.ts` |
 | Тег | `Tag` | `src/app/api/tags/route.ts`<br>`src/app/api/tags/[id]/route.ts` | `src/components/tag-picker.tsx`<br>`src/components/tag-badges.tsx` | `src/store/app-store.ts`<br>`src/lib/api-utils.ts` |
@@ -113,8 +115,53 @@ HTTP-запрос, который отправляется при наступл
     → создаёт WebhookDelivery с результатом
 ```
 
-## Costs (затраты)
+## Versions (история версий заметок)
 
+Опциональное версионирование заметок. Включается тоглом `versioningEnabled` на отдельной заметке (не глобально). Пока включено — автосохранение для этой заметки отключено, пользователь сохраняет вручную, и каждое сохранение создаёт новую версию.
+
+### Модель NoteVersion
+
+Снимок **полного состояния** заметки на момент сохранения:
+
+| Поле | Тип | Описание |
+|---|---|---|
+| `id` | `string` | Уникальный ID |
+| `noteId` | `string` | ID заметки (cascade delete) |
+| `number` | `int` | Инкрементальный номер (с 0), иммутабельный; после удаления версий остаются дыры |
+| `title`, `content` | `string` | Заголовок и Markdown-контент |
+| `projectId`, `tagIds`, `visibility`, `visibleUserIds` | — | Принадлежность/теги/видимость (всё состояние, кроме `folderId`/`sortOrder`) |
+| `operation` | `'manual' \| 'restore'` | «Ручное сохранение» или «восстановление версии» |
+| `comment` | `string?` | Комментарий. При restore — `restored from v{N}` |
+| `authorId` | `string` | Автор версии |
+| `kept` | `boolean` | Защита от авто-чистки (pin) |
+| `createdAt` | `DateTime` | Дата создания |
+
+### Поведение
+
+- **Создание версии** (`operation: manual`) — при ручном сохранении в одной транзакции обновляется живая заметка и вставляется версия.
+- **Восстановление** (`operation: restore`) — создаётся НОВАЯ версия с состоянием выбранной; живая заметка приводится к нему. В комментарии — источник (`restored from v{N}`).
+- **Удаление** — по одной или массово (bulk); номера не перенумеровываются, остаются дыры.
+- **Кап версий** — env `NOTE_VERSIONS_MAX` (по умолчанию 100). При превышении старые не-`kept` версии удаляются FIFO. `kept=true` защищает версию от авто-чистки (может вести к превышению капа — это допускается).
+- **Тогл OFF** — история замораживается (без финального снимка), автосохранение возобновляется, существующие версии не меняются и остаются доступны.
+
+### Ссылки на версию
+
+Прямая ссылка на версию: `?note=N-3&id=<cuid>&v=2`. Если версия удалена/не существует — открывается последняя существующая версия (или живая заметка, если версий нет). В бейдже ссылки отображается номер (`N-3 · v2`). Обычные `#N-3`-упоминания версию не выбирают.
+
+### Связанные файлы
+
+| Файл | Назначение |
+|---|---|
+| `prisma/schema.prisma` | `Note.versioningEnabled`, модель `NoteVersion` |
+| `src/lib/types.ts` | `NoteVersion`, `NoteVersionMeta` |
+| `src/services/note-version.service.ts` | Логика версий + транзакции + FIFO-чистка |
+| `src/app/api/notes/[id]/versions/` | REST-маршруты версий |
+| `src/store/app-store.ts` | `saveNoteVersion`, `restoreNoteVersion`, `deleteNoteVersions`, `setVersionKept` |
+| `src/components/note-version-history.tsx` | Диалог истории: список, bulk-delete, pin, restore, copy link |
+| `src/components/note-editor.tsx` | Подавление автосейва, ручной сейв, просмотр версии, баннер |
+| `src/components/entity-id-badge.tsx` | Отображение `·v{N}` |
+
+## Costs (затраты)
 Затраты привязываются к задачам и позволяют отслеживать планируемые и выполненные расходы. Хранятся в поле `metadata` задачи (JSON) — отдельной модели в БД нет.
 
 ### Структура данных
