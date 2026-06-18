@@ -31,6 +31,13 @@ on:
           - dev
           - release
 
+concurrency:
+  # Serialize builds per ref: a new push waits for the running build to finish
+  # instead of racing it (prevents a stale :test build from overwriting a newer one).
+  # At most one running + one pending per group; older queued runs are superseded.
+  group: ${{ gitea.workflow }}-${{ gitea.ref }}
+  cancel-in-progress: false
+
 env:
   REGISTRY: registry.mrekin.ru
   IMAGE_NAME: ${{ gitea.repository }}
