@@ -75,10 +75,23 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger }) {
       if (user) {
         token.id = user.id;
         token.email = user.email;
+      }
+      // Profile changed (e.g. name update from settings) — re-read the fresh
+      // name from the DB, which is the single source of truth for the display
+      // name. Email is intentionally NOT refreshed here: it is an immutable
+      // external auth identifier and must never change from this flow.
+      if (trigger === "update" && token.id) {
+        const fresh = await db.user.findUnique({
+          where: { id: token.id as string },
+          select: { name: true },
+        });
+        if (fresh) {
+          token.name = fresh.name;
+        }
       }
       // OIDC login - auto-create user in DB
       if (account?.provider === "oidc" && user?.email) {

@@ -96,7 +96,11 @@ export function SettingsView() {
 
   const prefs = userPreferences;
   const email = session?.user?.email || '';
-  const displayName = session?.user?.name || '';
+  // Display name is read from the DB (single source of truth), not the session
+  // token, which is only refreshed on update. Falls back to the session value
+  // while the profile is loading so there is no empty flash.
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const displayName = profileName ?? session?.user?.name ?? '';
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || 'unknown';
   const buildType = process.env.NEXT_PUBLIC_BUILD_TYPE || 'test';
 
@@ -155,6 +159,19 @@ export function SettingsView() {
   }, []);
 
   useEffect(() => {
+    const basePath = process.env.NEXT_BASE_PATH || '';
+    fetch(`${basePath}/api/user/profile`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => { if (data?.name) setProfileName(data.name); })
+      .catch(() => {});
+  }, []);
+
+  // Keep the edit field in sync with the current (DB) name when not editing.
+  useEffect(() => {
+    if (!nameEditing) setNameValue(displayName);
+  }, [displayName, nameEditing]);
+
+  useEffect(() => {
     if (!filesOpen || userFiles) return;
     const basePath = process.env.NEXT_BASE_PATH || '';
     fetch(`${basePath}/api/attachments/user-files`)
@@ -192,11 +209,18 @@ export function SettingsView() {
         return;
       }
 
+      const updated = await res.json();
+      setProfileName(updated.name);
+      setNameValue(updated.name);
+
       setNameSuccess(true);
       setNameEditing(false);
       setTimeout(() => setNameSuccess(false), 2000);
 
-      await updateSession?.();
+      // Refresh the session token so the header and other session consumers
+      // reflect the new name without requiring a re-login. The server re-reads
+      // the name from the DB (source of truth) — the payload is only a trigger.
+      await updateSession?.({ name: trimmed });
     } catch {
       setNameError('Failed to update name');
     } finally {

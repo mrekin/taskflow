@@ -73,7 +73,12 @@ export default function Page() {
     );
   }
 
-  if (status === 'loading' || !session) {
+  // Only show the splash while there is no session yet (initial load / signed out).
+  // An already-authenticated session must stay mounted during the brief
+  // `status: "loading"` flicker that NextAuth emits while `update()` runs —
+  // otherwise <Home> unmounts and remounts, which resets local state and the
+  // current view (deep-link effect → default page).
+  if (!session) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex items-center gap-2">
