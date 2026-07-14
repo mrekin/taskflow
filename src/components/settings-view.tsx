@@ -38,11 +38,15 @@ import {
   HardDrive,
   ChevronDown,
   File,
+  FileArchive,
   Trash2,
   DollarSign,
   Scaling,
 } from 'lucide-react';
 import { GitHubIcon } from '@/components/github-icon';
+import { toast } from 'sonner';
+import { api } from '@/lib/api-utils';
+import { ImportDataDialog } from '@/components/import-data-dialog';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -228,46 +232,67 @@ export function SettingsView() {
     }
   }, [nameValue, displayName, updateSession]);
 
-  const handleExportData = () => {
-    const data = {
-      exportedAt: new Date().toISOString(),
-      version: appVersion,
-      data: {
-        message: 'Export functionality placeholder - will be implemented in a future version',
-      },
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `taskflow-export-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const [exportBusy, setExportBusy] = useState(false);
+  const [filesBusy, setFilesBusy] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
+  const handleExportData = async () => {
+    if (exportBusy) return;
+    setExportBusy(true);
+    try {
+      const res = await fetch(api('/api/export'));
+      if (!res.ok) {
+        toast.error('Failed to export data');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `taskflow-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Data exported');
+    } catch {
+      toast.error('Failed to export data');
+    } finally {
+      setExportBusy(false);
+    }
   };
 
-  const handleImportData = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            JSON.parse(reader.result as string);
-            alert('Import functionality will be implemented in a future version.');
-          } catch {
-            alert('Invalid JSON file. Please select a valid TaskFlow export file.');
-          }
-        };
-        reader.readAsText(file);
+  const handleDownloadFiles = async () => {
+    if (filesBusy) return;
+    setFilesBusy(true);
+    try {
+      const res = await fetch(api('/api/export-files'));
+      if (res.status === 404) {
+        toast.error('No files to export');
+        return;
       }
-    };
-    input.click();
+      if (!res.ok) {
+        toast.error('Failed to export files');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `taskflow-files-${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Files exported');
+    } catch {
+      toast.error('Failed to export files');
+    } finally {
+      setFilesBusy(false);
+    }
   };
+
+  const handleImportData = () => setImportOpen(true);
 
   return (
     <div className="flex flex-col">
@@ -790,7 +815,7 @@ export function SettingsView() {
               <Database className="h-4 w-4 text-primary" />
               Data
             </CardTitle>
-            <CardDescription>Manage your data</CardDescription>
+            <CardDescription>Back up, restore, and migrate your data</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-3">
@@ -798,8 +823,9 @@ export function SettingsView() {
                 variant="outline"
                 className="flex items-center gap-2"
                 onClick={handleExportData}
+                disabled={exportBusy}
               >
-                <Download className="h-4 w-4" />
+                {exportBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 Export Data
               </Button>
               <Button
@@ -810,12 +836,25 @@ export function SettingsView() {
                 <Upload className="h-4 w-4" />
                 Import Data
               </Button>
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={handleDownloadFiles}
+                disabled={filesBusy}
+              >
+                {filesBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}
+                Download All Files
+              </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Export downloads all your data as a JSON file. Import restores data from a previously exported file.
+              Export downloads all your data as a JSON file. Import restores data from a previously
+              exported file (attachments are not included). Download All Files saves every uploaded
+              attachment as a ZIP with a manifest binding files to their entities.
             </p>
           </CardContent>
         </Card>
+
+        <ImportDataDialog open={importOpen} onOpenChange={setImportOpen} />
 
         {/* About Section */}
         <Card>
