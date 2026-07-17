@@ -132,6 +132,12 @@ export function TaskDetailDialog() {
   const [localPrices, setLocalPrices] = useState<TaskPrice[]>([]);
   const [localCurrency, setLocalCurrency] = useState<string>('USD');
 
+  // Inline cost creation (view mode)
+  const [addingCost, setAddingCost] = useState(false);
+  const [draftCostDesc, setDraftCostDesc] = useState('');
+  const [draftCostAmount, setDraftCostAmount] = useState('');
+  const [isAddingCost, setIsAddingCost] = useState(false);
+
   const navigatedFromParentRef = useRef(false);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
@@ -233,6 +239,9 @@ export function TaskDetailDialog() {
       setEditingSubtaskId(null);
       setWebhookBindings([]);
       setWebhooksExpanded(false);
+      setAddingCost(false);
+      setDraftCostDesc('');
+      setDraftCostAmount('');
       navigatedFromParentRef.current = false;
     }
   }, [task?.id, userPreferences.defaultCurrency]);
@@ -491,6 +500,32 @@ export function TaskDetailDialog() {
     },
     [editingSubtaskTitle]
   );
+
+  // Add a cost directly from view mode (partial update — server merges prices
+  // into existing metadata, currency and other fields are preserved).
+  const handleAddCostFromView = async () => {
+    if (!task) return;
+    const amount = parseFloat(draftCostAmount) || 0;
+    if (amount <= 0) return;
+    const newPrice: TaskPrice = {
+      id: `price_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      description: draftCostDesc.trim(),
+      amount,
+      status: 'planned',
+      createdAt: new Date().toISOString(),
+    };
+    const newPrices = [...localPrices, newPrice];
+    setLocalPrices(newPrices);
+    setAddingCost(false);
+    setDraftCostDesc('');
+    setDraftCostAmount('');
+    setIsAddingCost(true);
+    try {
+      await updateTask(task.id, { prices: newPrices });
+    } finally {
+      setIsAddingCost(false);
+    }
+  };
 
   return (
     <>
@@ -1101,73 +1136,157 @@ export function TaskDetailDialog() {
                   )}
 
                   {/* Costs */}
-                  {(isEditing || (localPrices.length > 0)) && (
-                    <>
-                      <Separator />
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-muted-foreground text-xs uppercase tracking-wider flex items-center gap-1.5">
-                            <DollarSignIcon className="size-3.5" />
-                            Costs
-                          </Label>
-                          {isEditing && (
-                            <div className="flex items-center gap-2">
-                              <Select
-                                value={localCurrency}
-                                onValueChange={parentCurrency ? undefined : setLocalCurrency}
-                                disabled={!!parentCurrency}
-                              >
-                                <SelectTrigger className="h-6 w-[80px] text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {CURRENCIES.map((c) => (
-                                    <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        </div>
-
-                        {localPrices.map((price, idx) => (
-                          <CostRow
-                            key={price.id}
-                            price={price}
-                            currency={localCurrency}
-                            mode={isEditing ? 'edit' : 'view'}
-                            onChange={(next) =>
-                              setLocalPrices((prev) => prev.map((p, i) => (i === idx ? next : p)))
-                            }
-                            onDelete={() => setLocalPrices((prev) => prev.filter((_, i) => i !== idx))}
-                          />
-                        ))}
-
-                        {isEditing && (
+                  <>
+                    <Separator />
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-muted-foreground text-xs uppercase tracking-wider flex items-center gap-1.5">
+                          <DollarSignIcon className="size-3.5" />
+                          Costs
+                        </Label>
+                        {isEditing ? (
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={localCurrency}
+                              onValueChange={parentCurrency ? undefined : setLocalCurrency}
+                              disabled={!!parentCurrency}
+                            >
+                              <SelectTrigger className="h-6 w-[80px] text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CURRENCIES.map((c) => (
+                                  <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-xs text-muted-foreground"
-                            onClick={() => {
-                              setLocalPrices((prev) => [
-                                ...prev,
-                                {
-                                  id: `price_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-                                  description: '',
-                                  amount: 0,
-                                  status: 'planned' as const,
-                                  createdAt: new Date().toISOString(),
-                                },
-                              ]);
-                            }}
+                            className="h-7 text-xs"
+                            onClick={() => setAddingCost(true)}
+                            disabled={addingCost || isAddingCost}
                           >
-                            <Plus className="size-3.5 mr-1" />
-                            Add cost
+                            <Plus className="size-3 mr-1" /> Add cost
                           </Button>
                         )}
                       </div>
-                    </>
-                  )}
+
+                      {localPrices.map((price, idx) => (
+                        <CostRow
+                          key={price.id}
+                          price={price}
+                          currency={localCurrency}
+                          mode={isEditing ? 'edit' : 'view'}
+                          onChange={(next) =>
+                            setLocalPrices((prev) => prev.map((p, i) => (i === idx ? next : p)))
+                          }
+                          onDelete={() => setLocalPrices((prev) => prev.filter((_, i) => i !== idx))}
+                        />
+                      ))}
+
+                      {/* Empty state — view mode */}
+                      {!isEditing && localPrices.length === 0 && !addingCost && (
+                        <p className="text-xs text-muted-foreground py-1">No costs yet</p>
+                      )}
+
+                      {/* Inline add form — view mode */}
+                      {!isEditing && addingCost && (
+                        <div className="flex items-center gap-2 rounded-md border border-border/60 px-2 py-1.5">
+                          <Input
+                            value={draftCostDesc}
+                            onChange={(e) => setDraftCostDesc(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddCostFromView();
+                              } else if (e.key === 'Escape') {
+                                setAddingCost(false);
+                                setDraftCostDesc('');
+                                setDraftCostAmount('');
+                              }
+                            }}
+                            placeholder="Description"
+                            className="h-7 text-xs flex-1 min-w-0"
+                            autoFocus
+                          />
+                          <Input
+                            value={draftCostAmount}
+                            onChange={(e) =>
+                              setDraftCostAmount(e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddCostFromView();
+                              } else if (e.key === 'Escape') {
+                                setAddingCost(false);
+                                setDraftCostDesc('');
+                                setDraftCostAmount('');
+                              }
+                            }}
+                            placeholder="0"
+                            className="h-7 text-xs w-20 shrink-0"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-emerald-600 dark:text-emerald-400 shrink-0"
+                            onClick={handleAddCostFromView}
+                            disabled={isAddingCost || !(parseFloat(draftCostAmount) > 0)}
+                            type="button"
+                          >
+                            {isAddingCost ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <>
+                                <Plus className="size-3 mr-0.5" />
+                                Add
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              setAddingCost(false);
+                              setDraftCostDesc('');
+                              setDraftCostAmount('');
+                            }}
+                            type="button"
+                          >
+                            <X className="size-3.5" />
+                          </Button>
+                        </div>
+                      )}
+
+                      {isEditing && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs text-muted-foreground"
+                          onClick={() => {
+                            setLocalPrices((prev) => [
+                              ...prev,
+                              {
+                                id: `price_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                                description: '',
+                                amount: 0,
+                                status: 'planned' as const,
+                                createdAt: new Date().toISOString(),
+                              },
+                            ]);
+                          }}
+                        >
+                          <Plus className="size-3.5 mr-1" />
+                          Add cost
+                        </Button>
+                      )}
+                    </div>
+                  </>
 
                   {/* Webhooks */}
                   <>

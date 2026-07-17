@@ -50,3 +50,4 @@ database.db
 database.db-shm
 database.db-wal
 taskflow-files/
+graphify-out/
