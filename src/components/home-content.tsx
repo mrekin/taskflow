@@ -44,6 +44,7 @@ import { TaskList } from '@/components/task-list';
 import { AreaDetail } from '@/components/area-detail';
 import { ProjectDetail } from '@/components/project-detail';
 import { TaskDetailDialog } from '@/components/task-detail-dialog';
+import { CostBreakdownDialog } from '@/components/cost-breakdown-dialog';
 import { NotesList } from '@/components/notes-list';
 import { NoteEditor } from '@/components/note-editor';
 import { SettingsView } from '@/components/settings-view';
@@ -1285,6 +1286,9 @@ function HomeContent() {
 
       {/* Task Detail Dialog (global) */}
       <TaskDetailDialog />
+      {/* Cost Breakdown Dialog (global — rendered outside any task card so its
+          clicks don't bubble to a card's onClick/drag handlers) */}
+      <CostBreakdownDialog />
 
       {/* Create Area Dialog */}
       <CreateAreaDialog open={showCreateArea} onOpenChange={setShowCreateArea} />

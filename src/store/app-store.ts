@@ -37,6 +37,8 @@ interface AppState {
   selectedProjectId: string | null;
   selectedTaskId: string | null;
   selectedNoteId: string | null;
+  /** Id of the task whose cost breakdown dialog is open (top-level, rendered once). */
+  costBreakdownTaskId: string | null;
   selectedFolderId: string | null;
 
   // Data
@@ -81,6 +83,7 @@ interface AppState {
   selectArea: (id: string | null) => void;
   selectProject: (id: string | null) => void;
   selectTask: (id: string | null) => void;
+  setCostBreakdownTask: (id: string | null) => void;
   selectNote: (id: string | null) => void;
   selectFolder: (id: string | null) => void;
   toggleSidebar: () => void;
@@ -189,6 +192,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedProjectId: null,
   selectedTaskId: null,
   selectedNoteId: null,
+  costBreakdownTaskId: null,
   selectedFolderId: null,
 
   // Data initial state
@@ -233,6 +237,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectArea: (id) => set({ selectedAreaId: id }),
   selectProject: (id) => set({ selectedProjectId: id }),
   selectTask: (id) => set({ selectedTaskId: id }),
+  setCostBreakdownTask: (id) => set({ costBreakdownTaskId: id }),
   selectNote: (id) => set({ selectedNoteId: id }),
   selectFolder: (id) => set({ selectedFolderId: id }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),

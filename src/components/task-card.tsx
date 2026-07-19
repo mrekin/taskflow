@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
-import { Calendar, GripVertical, ListChecks, FolderOpen, User, Paperclip, DollarSign } from 'lucide-react';
+import { Calendar, GripVertical, ListChecks, FolderOpen, User, Paperclip } from 'lucide-react';
 import { format, isPast, parseISO } from 'date-fns';
 
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ import type { Task } from '@/lib/types';
 import { PRIORITY_LABELS, PRIORITY_COLORS, getColumnLabelAndColor } from '@/lib/constants';
 import { useAppStore } from '@/store/app-store';
 import { TagBadges } from '@/components/tag-badges';
+import { CostSummaryBadge } from '@/components/cost-breakdown-dialog';
 
 interface TaskCardProps {
   task: Task;
@@ -190,12 +191,11 @@ export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: Tas
             )}
 
             {/* Price summary */}
-            {task.priceSummary && task.priceSummary.total > 0 && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 gap-1 font-normal">
-                <DollarSign className="size-3" />
-                {task.priceSummary.done} ({task.priceSummary.total}){task.currency ? ` ${task.currency}` : ''}
-              </Badge>
-            )}
+            <CostSummaryBadge
+              task={task}
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 h-5 gap-1 font-normal"
+            />
 
             {/* Project name */}
             {project && (
