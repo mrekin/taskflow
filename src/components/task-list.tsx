@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { TagBadges } from '@/components/tag-badges';
 import { EntityIdBadge } from '@/components/entity-id-badge';
+import { CostSummaryBadge } from '@/components/cost-breakdown-dialog';
 import { VisibilityBadge } from '@/components/visibility-badge';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import { useAppStore } from '@/store/app-store';
@@ -443,7 +444,7 @@ export function TaskList() {
           exit={{ opacity: 0, y: -5 }}
           transition={{ duration: 0.15 }}
           className={cn(
-            'grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_80px_80px] gap-2 px-4 py-3 border-b items-center',
+            'grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_130px_80px_80px] gap-2 px-4 py-3 border-b items-center',
             'hover:bg-muted/30 cursor-pointer transition-colors',
             isSelected && 'bg-primary/5 border-l-2 border-l-primary',
             subtasks.length === 0 && 'last:border-b-0',
@@ -529,6 +530,11 @@ export function TaskList() {
           ) : (
             <span className="text-xs text-muted-foreground">—</span>
           )}
+          {task.priceSummary && task.priceSummary.total > 0 ? (
+            <CostSummaryBadge task={task} variant="outline" className="text-[10px] px-1.5 h-5 font-normal max-w-full overflow-hidden" />
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
           <span className="text-xs text-muted-foreground">
             {format(parseISO(task.createdAt), 'MMM d')}
           </span>
@@ -546,7 +552,7 @@ export function TaskList() {
             exit={{ opacity: 0, x: -8 }}
             transition={{ duration: 0.12 }}
             className={cn(
-              'grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_80px_80px] gap-2 pl-10 pr-4 py-2 border-b items-center',
+              'grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_130px_80px_80px] gap-2 pl-10 pr-4 py-2 border-b items-center',
               'hover:bg-muted/20 cursor-pointer transition-colors',
               'bg-muted/10',
               idx === subtasks.length - 1 && 'last:border-b-0',
@@ -609,6 +615,7 @@ export function TaskList() {
             ) : (
               <span className="text-[10px] text-muted-foreground">—</span>
             )}
+            <span className="text-[10px] text-muted-foreground">—</span>
             <span className="text-[10px] text-muted-foreground">—</span>
             <span className="text-[10px] text-muted-foreground">—</span>
           </motion.div>
@@ -870,7 +877,7 @@ export function TaskList() {
       ) : (
         /* Desktop table layout */
         <div className="border rounded-lg overflow-hidden">
-          <div className="grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_80px_80px] gap-2 px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground">
+          <div className="grid grid-cols-[auto_1fr_80px_80px_100px_100px_90px_130px_80px_80px] gap-2 px-4 py-2 bg-muted/50 border-b text-xs font-medium text-muted-foreground">
             <div className="w-8 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
               <Checkbox
                 checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
@@ -889,6 +896,7 @@ export function TaskList() {
             <SortButton field="dueDate" currentSortField={sortField} onSort={handleSort}>Due Date</SortButton>
             <SortButton field="project" currentSortField={sortField} onSort={handleSort}>Project</SortButton>
             <span className="text-xs font-medium text-muted-foreground">Assignee</span>
+            <span className="text-xs font-medium text-muted-foreground">Costs</span>
             <SortButton field="createdAt" currentSortField={sortField} onSort={handleSort}>Created</SortButton>
             <SortButton field="updatedAt" currentSortField={sortField} onSort={handleSort}>Updated</SortButton>
           </div>
