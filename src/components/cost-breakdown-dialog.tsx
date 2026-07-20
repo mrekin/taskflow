@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Copy, DollarSign, X } from 'lucide-react';
+import { Copy, DollarSign, FileDown, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { cn, copyToClipboard } from '@/lib/utils';
@@ -24,6 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { paidAmount } from '@/lib/prices';
+import { loadRobotoBase64 } from '@/lib/cost-pdf-font';
 import type { Task } from '@/lib/types';
 import { useAppStore } from '@/store/app-store';
 
@@ -127,6 +128,41 @@ function CostBreakdownBody({
     else toast.error('Failed to copy');
   };
 
+  const handleExportPdf = async () => {
+    try {
+      // Dynamic-import so the ~400KB PDF libs are code-split out of the main
+      // bundle, load only on click, and are never server-rendered.
+      const { default: jsPDF } = await import('jspdf');
+      const { autoTable } = await import('jspdf-autotable');
+      const doc = new jsPDF();
+      // jsPDF's built-in fonts don't support Cyrillic — embed Roboto (Unicode).
+      const roboto = await loadRobotoBase64();
+      doc.addFileToVFS('Roboto-Regular.ttf', roboto);
+      doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+      doc.setFont('Roboto');
+      doc.setFontSize(14);
+      doc.text(`Costs — ${task.title}${task.shortId ? ` (${task.shortId})` : ''}`, 14, 18);
+      autoTable(doc, {
+        startY: 24,
+        head: [['Cost', 'Paid', 'Total', 'Currency', 'Task']],
+        body: rows.map((r) => [
+          r.description || 'Untitled',
+          String(r.paid),
+          String(r.total),
+          r.currency ?? '',
+          r.shortId,
+        ]),
+        foot: [['Total', String(totals.paid), String(totals.total), currency ?? '', '']],
+        styles: { font: 'Roboto', fontSize: 9 },
+        headStyles: { fillColor: [120, 113, 108] },
+      });
+      doc.save(`costs-${task.shortId ?? 'export'}.pdf`);
+      toast.success('Costs exported as PDF');
+    } catch {
+      toast.error('Failed to export PDF');
+    }
+  };
+
   return (
     <>
       <DialogHeader className="flex flex-row items-center justify-between gap-2">
@@ -144,6 +180,16 @@ function CostBreakdownBody({
             <Copy className="size-3.5" />
             Copy
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1"
+            onClick={handleExportPdf}
+            disabled={rows.length === 0}
+          >
+            <FileDown className="size-3.5" />
+            PDF
+          </Button>
           <DialogClose asChild>
             <Button variant="ghost" size="icon" className="size-7" aria-label="Close">
               <X className="size-4" />
@@ -159,7 +205,7 @@ function CostBreakdownBody({
         <div className="max-h-[60vh] overflow-auto">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/50">
                 <TableHead>Cost</TableHead>
                 <TableHead className="text-right">Paid / Total</TableHead>
                 <TableHead>Task</TableHead>
