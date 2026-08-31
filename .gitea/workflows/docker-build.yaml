@@ -41,6 +41,7 @@ concurrency:
 env:
   REGISTRY: registry.mrekin.ru
   IMAGE_NAME: ${{ gitea.repository }}
+  KEEP_DEV_VERSIONS: 5
 
 jobs:
   build-and-push:
@@ -138,3 +139,73 @@ jobs:
             BUILD_TYPE=${{ steps.meta.outputs.build_type }}
           cache-from: type=registry,ref=${{ steps.repo.outputs.image }}:buildcache
           cache-to: type=registry,ref=${{ steps.repo.outputs.image }}:buildcache,mode=max
+
+      - name: Cleanup old dev versions
+        if: steps.meta.outputs.skip != 'true'
+        run: |
+          IMAGE="${{ steps.repo.outputs.image }}"
+          REGISTRY="${{ env.REGISTRY }}"
+          KEEP=${{ env.KEEP_DEV_VERSIONS }}
+          CRED="${{ gitea.actor }}:${{ secrets.ACTIONS_TOKEN }}"
+
+          # Get repository path for API calls
+          REPO_PATH=$(echo "$IMAGE" | sed "s|${REGISTRY}/||")
+
+          # Digest currently referenced by :test — its manifest is shared with the
+          # newest -dev build, never delete it.
+          TEST_DIGEST=$(curl -s -I -u "$CRED" \
+            -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+            "https://${REGISTRY}/v2/${REPO_PATH}/manifests/test" \
+            | grep -i "Docker-Content-Digest" | awk '{print $2}' | tr -d '\r')
+
+          # Get all dev tags (X.Y.Z-dev), oldest first
+          DEV_TAGS=$(curl -s -u "$CRED" \
+            "https://${REGISTRY}/v2/${REPO_PATH}/tags/list" \
+            | grep -o '"[0-9][0-9.]*-dev"' | tr -d '"' | sort -V)
+
+          if [ -z "$DEV_TAGS" ]; then
+            echo "No dev tags found, skipping cleanup"
+            exit 0
+          fi
+
+          # Count and keep only last N versions
+          TOTAL=$(echo "$DEV_TAGS" | wc -l)
+          echo "Found ${TOTAL} dev tags, keeping latest ${KEEP}"
+
+          if [ "$TOTAL" -le "$KEEP" ]; then
+            echo "Not enough dev versions to cleanup"
+            exit 0
+          fi
+
+          # Tags to delete (all except last KEEP)
+          TO_DELETE=$(echo "$DEV_TAGS" | head -n $((TOTAL - KEEP)))
+          echo "Dev tags to remove:"
+          echo "$TO_DELETE"
+
+          # Get digest for each tag and delete
+          for TAG in $TO_DELETE; do
+            DIGEST=$(curl -s -I -u "$CRED" \
+              -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+              "https://${REGISTRY}/v2/${REPO_PATH}/manifests/${TAG}" \
+              | grep -i "Docker-Content-Digest" | awk '{print $2}' | tr -d '\r')
+
+            if [ -z "$DIGEST" ]; then
+              echo "  Could not get digest for ${TAG}"
+              continue
+            fi
+
+            if [ -n "$TEST_DIGEST" ] && [ "$DIGEST" = "$TEST_DIGEST" ]; then
+              echo "  Skipping ${TAG}: manifest is referenced by :test"
+              continue
+            fi
+
+            STATUS=$(curl -s -X DELETE -u "$CRED" -o /dev/null -w '%{http_code}' \
+              "https://${REGISTRY}/v2/${REPO_PATH}/manifests/${DIGEST}")
+            if [ "$STATUS" = "202" ] || [ "$STATUS" = "200" ]; then
+              echo "  Deleted ${TAG} (digest: ${DIGEST})"
+            else
+              echo "  Failed to delete ${TAG} (HTTP ${STATUS})"
+            fi
+          done
+
+          echo "Cleanup completed"
