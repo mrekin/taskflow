@@ -114,6 +114,25 @@ bun run dev
 | `STORAGE_LOCAL_PATH` | no | `/app/uploads` | Local storage path for uploaded files |
 | `NOTE_VERSIONS_MAX` | no | `100` | Max versions kept per note. Oldest non-"pinned" versions are pruned FIFO when exceeded |
 
+## Webhook example: ntfy.sh
+
+[ntfy.sh](https://ntfy.sh) sends the request as a push notification to your phone/desktop. To receive TaskFlow webhook events there, create a webhook:
+
+- **URL:** `https://ntfy.sh`
+- **Method:** `POST`
+- **Body Template:**
+
+```json
+{
+  "topic": "your-unguessable-topic",
+  "message": "Task {taskId} — {event}\nStatus: {status}"
+}
+```
+
+In the trigger, pick events (e.g. `task.status_changed`, `task.due_date_reached`) and a scope — global, area, project, or task. Placeholders (`{taskId}`, `{title}`, `{event}`, `{status}`, …) are substituted in the URL and body template; TaskFlow also adds the task name as `title`, shown by ntfy as the notification heading.
+
+> ntfy.sh needs no account or token to publish — the topic name acts as its password. Use a long, unguessable one. More options (incl. self-hosted ACL): [ntfy publishing docs](https://docs.ntfy.sh/publish/).
+
 ## Subpath Deployment
 
 To run TaskFlow at a subpath (e.g., `domain.com/taskflow`), set `NEXT_BASE_PATH` **at build time**:
