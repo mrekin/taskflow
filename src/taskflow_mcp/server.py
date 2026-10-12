@@ -60,7 +60,9 @@ _HOWTO_SETUP_HINT = (
 _HOWTO_INSTRUCTIONS = (
     "Before using any other tool, call `howto` to read the user's TaskFlow "
     "usage rules and follow them for the whole session. Then call `whoami` "
-    "to check what the API token is allowed to do."
+    "to check what the API token is allowed to do. When you need to filter by "
+    "or set a task status, call `statuses_list` first — the status set is "
+    "per-user configuration, not a fixed list."
 )
 
 
@@ -121,7 +123,7 @@ async def task_list(
 ) -> dict:
     """List tasks. Returns {"items", "total", "truncated"}.
 
-    Filters: project_id, status ("todo" | "in_progress" | "done" | "cancelled"),
+    Filters: project_id, status (a status id from statuses_list),
     parent_id (pass a task id to list its subtasks), search (matches title,
     description, comments, subtask titles, T-<n> shortId, assignee, exact date
     YYYY-MM-DD), assignee_id, tag_ids (OR semantics: any of the tags),
@@ -198,8 +200,8 @@ async def task_create(
     metadata: dict | None = None,
 ) -> dict:
     """Create a task. Required: title. Optional: description, status
-    ("todo" | "in_progress" | "done" | "cancelled"), priority ("low" | "medium"
-    | "high"), due_date ("YYYY-MM-DD" or ISO), project_id, parent_id (set to
+    (a status id from statuses_list), priority ("low" | "medium" | "high" |
+    "urgent"), due_date ("YYYY-MM-DD" or ISO), project_id, parent_id (set to
     make a subtask — it then inherits the parent's project), assignee_id,
     tag_ids, metadata dict. Requires tasks:create; the target project must be
     in the token scope (Inbox is not writable via tokens)."""
@@ -228,8 +230,10 @@ async def task_update(
     sort_order: int | None = None,
 ) -> dict:
     """Update a task. Only the provided fields change; omit fields to leave
-    them untouched. Requires tasks:update; moving the task to another project
-    requires the target project to be in the token scope."""
+    them untouched. status takes a status id from statuses_list; priority is
+    one of "low" | "medium" | "high" | "urgent". Requires tasks:update; moving
+    the task to another project requires the target project to be in the
+    token scope."""
     body = _task_body(
         description=description, status=status, priority=priority,
         due_date=due_date, project_id=project_id, parent_id=parent_id,
@@ -483,6 +487,17 @@ async def tag_list() -> list:
     """List the user's tags (id, name, color). Use tag ids with tag_ids
     filters of task_list/note_list."""
     return await get_client().get("api/tags")
+
+
+@mcp.tool()
+async def statuses_list() -> list:
+    """List the task statuses available to the token's user — the same set
+    their Kanban settings screen shows ({"id", "label", "color", "visible"}).
+    The set is per-user/installation config, so don't assume a fixed list:
+    use a status `id` as the `status` value in task_list/task_create/
+    task_update. An unknown status id is stored as-is and shows as
+    "Invalid state" in the UI."""
+    return (await get_client().get("api/statuses"))["statuses"]
 
 
 # --- attachments ---------------------------------------------------------
