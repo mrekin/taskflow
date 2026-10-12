@@ -762,41 +762,52 @@ export function TaskDetailDialog() {
                         Due Date
                       </Label>
                       {isEditing ? (
-                        <div className="flex gap-2">
-                          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                            <PopoverTrigger asChild>
+                        <div className="space-y-1.5">
+                          <div className="flex gap-1.5">
+                            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    'flex-1 justify-start text-left font-normal min-w-0',
+                                    !dueDate && 'text-muted-foreground',
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-2 size-4" />
+                                  <span className="truncate">
+                                    {dueDate ? format(dueDate, 'PP') : 'Pick a date'}
+                                  </span>
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={dueDate}
+                                  onSelect={(date) => {
+                                    if (date) {
+                                      const [h, m] = dueTime.split(':').map(Number);
+                                      date.setHours(h, m, 0, 0);
+                                    }
+                                    setDueDate(date ?? undefined);
+                                    setCalendarOpen(false);
+                                  }}
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            {dueDate && (
                               <Button
-                                variant="outline"
-                                className={cn(
-                                  'flex-1 justify-start text-left font-normal',
-                                  !dueDate && 'text-muted-foreground',
-                                )}
+                                variant="ghost"
+                                size="icon"
+                                className="shrink-0 text-muted-foreground hover:text-foreground"
+                                onClick={() => setDueDate(undefined)}
                               >
-                                <CalendarIcon className="mr-2 size-4" />
-                                {dueDate ? format(dueDate, 'PP') : 'Pick a date'}
+                                <X className="size-4" />
+                                <span className="sr-only">Clear due date</span>
                               </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={dueDate}
-                                onSelect={(date) => {
-                                  if (date) {
-                                    const [h, m] = dueTime.split(':').map(Number);
-                                    date.setHours(h, m, 0, 0);
-                                  }
-                                  setDueDate(date ?? undefined);
-                                  setCalendarOpen(false);
-                                }}
-                              />
-                            </PopoverContent>
-                          </Popover>
+                            )}
+                          </div>
                           {dueDate && (
-                            <TimePicker
-                              value={dueTime}
-                              onChange={setDueTime}
-                              className="shrink-0"
-                            />
+                            <TimePicker value={dueTime} onChange={setDueTime} />
                           )}
                         </div>
                       ) : (
