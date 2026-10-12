@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
+import { parseJsonFields, getNextShortIdNum, jsonIdArrayContainsAny } from "@/lib/api-utils";
 import {
   buildVisibilityWhereClause,
   resolveEffectiveVisibility,
@@ -12,6 +12,15 @@ import { cleanupAttachments } from "@/lib/attachment-cleanup";
 import type { ServiceResult } from "./types";
 
 export interface ListNotesFilters {
+  projectId?: string;
+  folderId?: string;
+  tagIds?: string[];
+  limit?: number;
+  offset?: number;
+}
+
+export interface SearchNotesFilters {
+  search: string;
   projectId?: string;
   folderId?: string;
 }
@@ -39,23 +48,51 @@ export interface UpdateNoteData {
   versioningEnabled?: boolean;
 }
 
+function getDescendantFolderIds(
+  allFolders: { id: string; parentId: string | null }[],
+  rootFolderId: string | null,
+): Set<string> {
+  const result = new Set<string>();
+  if (rootFolderId === null) {
+    for (const f of allFolders) result.add(f.id);
+    return result;
+  }
+  const queue = [rootFolderId];
+  while (queue.length > 0) {
+    const currentId = queue.shift()!;
+    result.add(currentId);
+    for (const f of allFolders) {
+      if (f.parentId === currentId) queue.push(f.id);
+    }
+  }
+  return result;
+}
+
 export const NoteService = {
   async listNotes(userId: string | null, filters: ListNotesFilters, opts?: { restrictProjectIds?: string[] }) {
-    if (!userId) return [];
+    if (!userId) return { items: [], total: 0 };
 
-    const notes = await db.note.findMany({
-      where: {
-        ...buildVisibilityWhereClause(userId, !!userId),
-        ...(filters.projectId ? { projectId: filters.projectId } : {}),
-        ...(filters.folderId ? { folderId: filters.folderId } : {}),
-        ...(opts?.restrictProjectIds ? { AND: [{ projectId: { in: opts.restrictProjectIds } }] } : {}),
-      },
-      orderBy: { updatedAt: "desc" },
-      include: {
-        project: { select: { id: true, name: true, color: true } },
-        folder: { select: { id: true, name: true, parentId: true } },
-      },
-    });
+    const where = {
+      ...buildVisibilityWhereClause(userId, !!userId),
+      ...(filters.projectId ? { projectId: filters.projectId } : {}),
+      ...(filters.folderId ? { folderId: filters.folderId } : {}),
+      ...(filters.tagIds?.length ? jsonIdArrayContainsAny(filters.tagIds) : {}),
+      ...(opts?.restrictProjectIds ? { AND: [{ projectId: { in: opts.restrictProjectIds } }] } : {}),
+    };
+    const paginated = filters.limit !== undefined || filters.offset !== undefined;
+
+    const [notes, total] = await Promise.all([
+      db.note.findMany({
+        where,
+        ...(paginated ? { take: filters.limit, skip: filters.offset ?? 0 } : {}),
+        orderBy: { updatedAt: "desc" },
+        include: {
+          project: { select: { id: true, name: true, color: true } },
+          folder: { select: { id: true, name: true, parentId: true } },
+        },
+      }),
+      ...(paginated ? [db.note.count({ where })] : []),
+    ]);
 
     const noteIds = notes.map(n => n.id);
     const attachmentCounts = await db.attachment.groupBy({
@@ -65,10 +102,130 @@ export const NoteService = {
     });
     const attachmentCountMap = new Map(attachmentCounts.map(a => [a.entityId, a._count.id]));
 
-    return notes.map((note) => ({
+    const items = notes.map((note) => ({
       ...parseJsonFields(note, "note"),
       _count: { attachments: attachmentCountMap.get(note.id) || 0 },
     }));
+
+    // Callers that did not ask for pagination get the plain list; `total`
+    // (match count ignoring limit/offset) is only meaningful when paginating
+    return { items, total: paginated ? total : items.length };
+  },
+
+  /**
+   * Search over the user's own notes and folders (title/content, N-<n>/F-<n>
+   * shortIds, exact date or bare year). Case-insensitive for full Unicode via
+   * JS-side lowercase matching. Ported 1:1 from the former inline
+   * implementation in /api/notes/search — do not change semantics casually.
+   */
+  async searchNotes(
+    userId: string,
+    filters: SearchNotesFilters,
+    opts?: { restrictProjectIds?: string[] },
+  ): Promise<{ notes: Record<string, unknown>[]; folders: Record<string, unknown>[] }> {
+    const projectId = filters.projectId;
+    const folderId = filters.folderId;
+    const search = filters.search;
+    const tokenProjectScope = opts?.restrictProjectIds;
+
+    const searchLower = search.toLowerCase();
+
+    const noteShortIdMatch = search.match(/^N-(\d+)$/i);
+    const noteShortIdNum = noteShortIdMatch ? parseInt(noteShortIdMatch[1], 10) : null;
+
+    const folderShortIdMatch = search.match(/^F-(\d+)$/i);
+    const folderShortIdNum = folderShortIdMatch ? parseInt(folderShortIdMatch[1], 10) : null;
+
+    const dateMatch = search.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    const dateStart = dateMatch
+      ? new Date(`${dateMatch[1]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[3].padStart(2, "0")}T00:00:00.000Z`)
+      : null;
+    const dateEnd = dateStart ? new Date(dateStart.getTime() + 86400000) : null;
+
+    const partialDateMatch = search.match(/^(\d{4})$/);
+    const yearStart = partialDateMatch ? new Date(`${partialDateMatch[1]}-01-01T00:00:00.000Z`) : null;
+    const yearEnd = yearStart ? new Date(`${parseInt(partialDateMatch![1]) + 1}-01-01T00:00:00.000Z`) : null;
+
+    // Get folder tree for scoping
+    const allFolders = await db.noteFolder.findMany({
+      where: {
+        ownerId: userId,
+        ...(projectId ? { projectId } : {}),
+        ...(tokenProjectScope ? { projectId: { in: tokenProjectScope } } : {}),
+      },
+      select: { id: true, parentId: true, shortIdNum: true },
+    });
+
+    const scopeIds = getDescendantFolderIds(allFolders, folderId ?? null);
+
+    // For folders: exclude the root folder itself from search results
+    const folderScopeIds = new Set(scopeIds);
+    if (folderId) folderScopeIds.delete(folderId);
+
+    // Fetch all notes in scope, filter in JS for case-insensitive Unicode
+    const noteWhereBase: Record<string, unknown> = {
+      ownerId: userId,
+      ...(projectId ? { projectId } : {}),
+      ...(tokenProjectScope ? { projectId: { in: tokenProjectScope } } : {}),
+    };
+
+    if (folderId) {
+      noteWhereBase.folderId = { in: Array.from(scopeIds) };
+    }
+
+    const allScopedNotes = await db.note.findMany({
+      where: noteWhereBase,
+      orderBy: { updatedAt: "desc" },
+      include: {
+        project: { select: { id: true, name: true, color: true } },
+        folder: { select: { id: true, name: true, parentId: true } },
+      },
+    });
+
+    const matchedNotes = allScopedNotes.filter((n) => {
+      if (n.title.toLowerCase().includes(searchLower)) return true;
+      if (n.content.toLowerCase().includes(searchLower)) return true;
+      if (noteShortIdNum !== null && n.shortIdNum === noteShortIdNum) return true;
+      if (dateStart && dateEnd) {
+        const created = new Date(n.createdAt);
+        const updated = new Date(n.updatedAt);
+        if (created >= dateStart && created < dateEnd) return true;
+        if (updated >= dateStart && updated < dateEnd) return true;
+      }
+      if (yearStart && yearEnd) {
+        const created = new Date(n.createdAt);
+        const updated = new Date(n.updatedAt);
+        if (created >= yearStart && created < yearEnd) return true;
+        if (updated >= yearStart && updated < yearEnd) return true;
+      }
+      return false;
+    });
+
+    // Fetch all folders in scope, filter in JS for case-insensitive Unicode
+    const allScopedFolders = await db.noteFolder.findMany({
+      where: {
+        id: { in: Array.from(folderScopeIds) },
+        ownerId: userId,
+        ...(projectId ? { projectId } : {}),
+        ...(tokenProjectScope ? { projectId: { in: tokenProjectScope } } : {}),
+      },
+      orderBy: { sortOrder: "asc" },
+      include: {
+        parent: { select: { id: true, name: true, parentId: true } },
+        _count: { select: { children: true, notes: true } },
+      },
+    });
+
+    const matchedFolders = allScopedFolders.filter((f) => {
+      if (f.name.toLowerCase().includes(searchLower)) return true;
+      if (folderShortIdNum !== null && f.shortIdNum === folderShortIdNum) return true;
+      return false;
+    });
+
+    return {
+      notes: matchedNotes.map((n) => parseJsonFields(n, "note")),
+      folders: matchedFolders.map((f) => parseJsonFields(f, "folder")),
+    };
   },
 
   async getNote(userId: string | null, id: string): Promise<ServiceResult<Record<string, unknown>>> {

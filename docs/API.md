@@ -42,9 +42,10 @@ curl -H "Authorization: Bearer tfa_4f1a..." https://your-taskflow/taskflow/api/t
 
 | Роут | Методы | Требуемое право | Примечание |
 |---|---|---|---|
-| `/api/tasks` | GET, POST | `tasks:read` / `tasks:create` | GET: фильтры `projectId`, `status`, `parentId`, `search`, `assigneeId` |
+| `/api/token-info` | только GET | — (сам токен) | Интроспекция: имя, матрица прав, эффективный скоуп (с именами проектов), срок действия. Сессией недоступен — только Bearer |
+| `/api/tasks` | GET, POST | `tasks:read` / `tasks:create` | GET: фильтры `projectId`, `status`, `parentId`, `search`, `assigneeId`, `tagIds`, `dueFrom`, `dueTo`, пагинация `limit`/`offset` |
 | `/api/tasks/[id]` | GET, PUT, DELETE | `tasks:read/update/delete` | PUT: если переносите задачу в другой проект, целевой проект тоже должен быть в скоупе |
-| `/api/notes` | GET, POST | `notes:read/create` | GET: фильтры `projectId`, `folderId` |
+| `/api/notes` | GET, POST | `notes:read/create` | GET: фильтры `projectId`, `folderId`, `tagIds`, пагинация `limit`/`offset` |
 | `/api/notes/[id]` | GET, PUT, DELETE | `notes:read/update/delete` | |
 | `/api/notes/search` | GET | `notes:read` | Параметр `search` (текст, `N-3`, `F-2`, дата, год) |
 | `/api/notes/[id]/versions` | GET, POST, DELETE | `notes:read` / `notes:update` | |
@@ -52,13 +53,23 @@ curl -H "Authorization: Bearer tfa_4f1a..." https://your-taskflow/taskflow/api/t
 | `/api/notes/[id]/versions/[number]/restore` | POST | `notes:update` | |
 | `/api/comments` | GET, POST | `comments:read/create` | GET требует `?taskId=`; создание комментария требует право на чтение задачи (существующая семантика приложения) |
 | `/api/comments/[id]` | PUT, DELETE | `comments:update/delete` | Сервисные правила автора/владельца задачи сохраняются |
-| `/api/folders` | GET, POST | `notes:read/create` | Папки следуют правам заметок 1:1 |
+| `/api/folders` | GET, POST | `notes:read/create` | Папки следуют правам заметок 1:1; GET: фильтры `projectId`, `parentId`, пагинация `limit`/`offset` |
 | `/api/folders/[id]` | GET, PUT, DELETE | `notes:read/update/delete` | |
 | `/api/attachments` | GET, DELETE | право чтения/удаления родителя | GET: `?entityId=&entityType=`; родитель определяет тип права (task→tasks, note→notes, comment→comments) |
 | `/api/attachments/file/[blobId]` | GET | право чтения родителя | Файл доступен, если **хотя бы одна** ссылающаяся сущность в скоупе (блобы дедуплицируются по хэшу) |
+| `/api/search` | только GET | `tasks:read` и/или `notes:read` | Глобальный поиск: `{ q, tasks, notes, folders, projects }`. Секции без права у токена опускаются; скоуп применяется к каждой секции. Параметры: `q` (обязателен, ≤ 200), `limit` на секцию (1..100, по умолчанию 20) |
 | `/api/tags` | только GET | любое право `read` | Теги — пользовательский уровень, мутации тегов через токен запрещены |
 | `/api/projects` | только GET | любое право `read` | Отдаёт только проекты в скоупе |
 | `/api/areas` | только GET | любое право `read` | Отдаёт только области, содержащие скоуп-проекты |
+
+## Пагинация и фильтры списков
+
+- Ответы списков остаются **голым JSON-массивом**. Пагинация включается только явной передачей `limit` и/или `offset`; без них список возвращается целиком — существующие клиенты не меняются.
+- При пагинации полный размер выборки (с учётом фильтров, но без `limit`/`offset`) передаётся заголовком **`X-Total-Count`**.
+- Лимиты: `limit` — целое 1..500, `offset` — целое ≥ 0, иначе `400 {"error": "Invalid limit: ..."}`.
+- Пагинируются `tasks`, `notes`, `folders`. `comments` (всегда строго по `taskId`), `tags`, `projects`, `areas` сознательно не пагинируются — списки маленькие.
+- `tagIds` — через запятую, семантика **OR** (сущность с любым из тегов): `?tagIds=<id1>,<id2>`.
+- `dueFrom`/`dueTo` (tasks) — инклюзивно; `YYYY-MM-DD` трактуется как UTC-день (`dueTo` включает весь день), полный ISO тоже принимается. Задачи без `dueDate` исключаются.
 
 ## Эндпоинты, закрытые для токенов
 
@@ -95,7 +106,8 @@ curl -H "Authorization: Bearer tfa_4f1a..." https://your-taskflow/taskflow/api/t
 
 ## Заметки для MCP-потребителя
 
-- Перечисленные выше эндпоинты образуют полную поверхность инструментов: навигация (`projects`/`areas` GET), CRUD задач и заметок, поиск, версии, комментарии, вложения.
-- Пагинации нет — списки возвращаются целиком; клиенту следует ограничивать выборки самостоятельно (например, фильтром `projectId`).
+- Перечисленные выше эндпоинты образуют полную поверхность инструментов: интроспекция прав (`token-info`), навигация (`projects`/`areas` GET), CRUD задач и заметок, поиск (включая глобальный `/api/search`), версии, комментарии, вложения.
+- Списки по умолчанию возвращаются целиком; при больших выборках используйте `limit`/`offset` и заголовок `X-Total-Count` либо сужайте фильтрами (`projectId`, `tagIds`, даты).
 - Различайте 401 (чинить токен) и 403 (чинить конфигурацию токена: право/скоуп) и 404 (нет данных).
+- Перед записью агент может узнать свои права заранее: `GET /api/token-info` возвращает матрицу прав и скоуп.
 - Один процесс MCP обычно работает от одного пользователя: создавайте один токен с минимально достаточными правами, отзыв — мгновенный.

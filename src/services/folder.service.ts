@@ -13,6 +13,8 @@ import type { ServiceResult } from "./types";
 export interface ListFoldersFilters {
   projectId?: string;
   parentId?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export interface CreateFolderData {
@@ -32,23 +34,34 @@ export interface UpdateFolderData {
 
 export const FolderService = {
   async listFolders(userId: string | null, filters: ListFoldersFilters, opts?: { restrictProjectIds?: string[] }) {
-    if (!userId) return [];
+    if (!userId) return { items: [], total: 0 };
 
-    const folders = await db.noteFolder.findMany({
-      where: {
-        ...buildVisibilityWhereClause(userId, !!userId),
-        ...(filters.projectId ? { projectId: filters.projectId } : {}),
-        ...(filters.parentId !== undefined ? { parentId: filters.parentId || null } : {}),
-        ...(opts?.restrictProjectIds ? { AND: [{ projectId: { in: opts.restrictProjectIds } }] } : {}),
-      },
-      orderBy: { sortOrder: "asc" },
-      include: {
-        parent: { select: { id: true, name: true, parentId: true } },
-        _count: { select: { children: true, notes: true } },
-      },
-    });
+    const where = {
+      ...buildVisibilityWhereClause(userId, !!userId),
+      ...(filters.projectId ? { projectId: filters.projectId } : {}),
+      ...(filters.parentId !== undefined ? { parentId: filters.parentId || null } : {}),
+      ...(opts?.restrictProjectIds ? { AND: [{ projectId: { in: opts.restrictProjectIds } }] } : {}),
+    };
+    const paginated = filters.limit !== undefined || filters.offset !== undefined;
 
-    return folders.map((folder) => parseJsonFields(folder, "folder"));
+    const [folders, total] = await Promise.all([
+      db.noteFolder.findMany({
+        where,
+        ...(paginated ? { take: filters.limit, skip: filters.offset ?? 0 } : {}),
+        orderBy: { sortOrder: "asc" },
+        include: {
+          parent: { select: { id: true, name: true, parentId: true } },
+          _count: { select: { children: true, notes: true } },
+        },
+      }),
+      ...(paginated ? [db.noteFolder.count({ where })] : []),
+    ]);
+
+    const items = folders.map((folder) => parseJsonFields(folder, "folder"));
+
+    // Callers that did not ask for pagination get the plain list; `total`
+    // (match count ignoring limit/offset) is only meaningful when paginating
+    return { items, total: paginated ? total : items.length };
   },
 
   async getFolder(userId: string | null, id: string): Promise<ServiceResult<Record<string, unknown>>> {

@@ -9,6 +9,7 @@ import {
   getTokenProjectScope,
   resolveEntityProjectId,
 } from "@/lib/api-token";
+import { isPaginated, parseDateParam, parsePaginationParams, parseTagIdsParam } from "@/lib/api-utils";
 import { TaskService } from "@/services/task.service";
 
 export async function GET(request: NextRequest) {
@@ -29,17 +30,34 @@ export async function GET(request: NextRequest) {
     const userId = auth.ctx.userId;
 
     const { searchParams } = new URL(request.url);
+    const dueFrom = parseDateParam(searchParams.get("dueFrom"), "dueFrom");
+    if (dueFrom.error) return NextResponse.json({ error: dueFrom.error }, { status: 400 });
+    const dueTo = parseDateParam(searchParams.get("dueTo"), "dueTo", true);
+    if (dueTo.error) return NextResponse.json({ error: dueTo.error }, { status: 400 });
+    const pagination = parsePaginationParams(searchParams);
+    if (pagination.error) return NextResponse.json({ error: pagination.error }, { status: 400 });
+
     const filters = {
       projectId: searchParams.get("projectId") ?? undefined,
       status: searchParams.get("status") ?? undefined,
       parentId: searchParams.get("parentId") ?? undefined,
       search: searchParams.get("search") ?? undefined,
       assigneeId: searchParams.get("assigneeId") ?? undefined,
+      tagIds: parseTagIdsParam(searchParams.get("tagIds")),
+      dueFrom: dueFrom.value,
+      dueTo: dueTo.value,
+      limit: pagination.limit,
+      offset: pagination.offset,
     };
 
     const result = await TaskService.listTasks(userId, filters,
       restrictProjectIds ? { restrictProjectIds } : undefined);
-    return NextResponse.json(result);
+    // Backward compat: bare array unless the client asked for pagination,
+    // then the full match count travels in X-Total-Count
+    if (isPaginated(pagination)) {
+      return NextResponse.json(result.items, { headers: { "X-Total-Count": String(result.total) } });
+    }
+    return NextResponse.json(result.items);
   } catch (error) {
     console.error("Failed to fetch tasks:", error);
     return NextResponse.json({ error: "Failed to fetch tasks" }, { status: 500 });

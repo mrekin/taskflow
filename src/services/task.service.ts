@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
+import { parseJsonFields, getNextShortIdNum, jsonIdArrayContainsAny } from "@/lib/api-utils";
 import { fireWebhookEvent, buildTaskContext, resolveTaskAreaId, computeChanges } from "@/lib/webhook-engine";
 import { createScheduledJob, deleteScheduledJobsForEntity } from "@/lib/scheduler";
 import {
@@ -22,6 +22,11 @@ export interface ListTasksFilters {
   parentId?: string;
   search?: string;
   assigneeId?: string;
+  tagIds?: string[];
+  dueFrom?: Date;
+  dueTo?: Date;
+  limit?: number;
+  offset?: number;
 }
 
 export interface CreateTaskData {
@@ -68,90 +73,113 @@ function extractCurrencyFromMetadata(metadata: Record<string, unknown>): string 
   return typeof metadata.currency === 'string' ? metadata.currency : undefined;
 }
 
-export const TaskService = {
-  async listTasks(userId: string, filters: ListTasksFilters, opts?: { restrictProjectIds?: string[] }) {
-    const isAuthenticated = !!userId;
-    const visibilityClause = buildVisibilityWhereClause(userId, isAuthenticated);
-    const filterWhere: Record<string, unknown> = {
-      ...(filters.projectId ? { projectId: filters.projectId } : {}),
-      ...(filters.status ? { status: filters.status } : {}),
-      ...(filters.assigneeId ? { assigneeId: filters.assigneeId } : {}),
-    };
-    // API-token scope restriction (extra AND term so it never clashes with filters.projectId)
-    const scopeClauses = opts?.restrictProjectIds
-      ? [{ projectId: { in: opts.restrictProjectIds } }]
-      : [];
+/**
+ * Builds the Prisma where clause for listTasks: visibility + explicit filters
+ * (ANDed into both the search and the plain branch) + API-token project scope.
+ */
+function buildTaskListWhere(
+  userId: string,
+  filters: ListTasksFilters,
+  restrictProjectIds?: string[],
+): Record<string, unknown> {
+  const visibilityClause = buildVisibilityWhereClause(userId, !!userId);
+  const filterWhere: Record<string, unknown> = {
+    ...(filters.projectId ? { projectId: filters.projectId } : {}),
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.assigneeId ? { assigneeId: filters.assigneeId } : {}),
+    ...(filters.tagIds?.length ? jsonIdArrayContainsAny(filters.tagIds) : {}),
+    ...(filters.dueFrom || filters.dueTo
+      ? {
+          dueDate: {
+            ...(filters.dueFrom ? { gte: filters.dueFrom } : {}),
+            ...(filters.dueTo ? { lte: filters.dueTo } : {}),
+          },
+        }
+      : {}),
+  };
+  // API-token scope restriction (extra AND term so it never clashes with filters.projectId)
+  const scopeClauses = restrictProjectIds
+    ? [{ projectId: { in: restrictProjectIds } }]
+    : [];
 
-    let where: Record<string, unknown>;
+  if (filters.search) {
+    const shortIdMatch = filters.search.match(/^T-(\d+)$/i);
+    const shortIdNum = shortIdMatch ? parseInt(shortIdMatch[1], 10) : null;
 
-    if (filters.search) {
-      const shortIdMatch = filters.search.match(/^T-(\d+)$/i);
-      const shortIdNum = shortIdMatch ? parseInt(shortIdMatch[1], 10) : null;
+    const dateMatch = filters.search.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    const dateStart = dateMatch
+      ? new Date(`${dateMatch[1]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[3].padStart(2, "0")}T00:00:00.000Z`)
+      : null;
+    const dateEnd = dateStart ? new Date(dateStart.getTime() + 86400000) : null;
 
-      const dateMatch = filters.search.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-      const dateStart = dateMatch
-        ? new Date(`${dateMatch[1]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[3].padStart(2, "0")}T00:00:00.000Z`)
-        : null;
-      const dateEnd = dateStart ? new Date(dateStart.getTime() + 86400000) : null;
+    const taskConditions: Record<string, unknown>[] = [
+      { title: { contains: filters.search } },
+      { description: { contains: filters.search } },
+      { comments: { some: { content: { contains: filters.search } } } },
+    ];
 
-      const taskConditions: Record<string, unknown>[] = [
-        { title: { contains: filters.search } },
-        { description: { contains: filters.search } },
-        { comments: { some: { content: { contains: filters.search } } } },
-      ];
-
-      if (shortIdNum !== null) {
-        taskConditions.push({ shortIdNum });
-      }
-
-      if (dateStart && dateEnd) {
-        taskConditions.push({ dueDate: { gte: dateStart, lt: dateEnd } });
-        taskConditions.push({ createdAt: { gte: dateStart, lt: dateEnd } });
-        taskConditions.push({ updatedAt: { gte: dateStart, lt: dateEnd } });
-      }
-
-      const subtaskConditions: Record<string, unknown>[] = [
-        { title: { contains: filters.search } },
-        { description: { contains: filters.search } },
-      ];
-
-      if (shortIdNum !== null) {
-        subtaskConditions.push({ shortIdNum });
-      }
-
-      taskConditions.push({ subtasks: { some: { OR: subtaskConditions } } });
-      taskConditions.push({ assignee: { OR: [{ name: { contains: filters.search } }, { email: { contains: filters.search } }] } });
-
-      where = {
-        AND: [
-          visibilityClause,
-          filterWhere,
-          { parentId: null },
-          { OR: taskConditions },
-          ...scopeClauses,
-        ],
-      };
-    } else {
-      where = {
-        AND: [
-          visibilityClause,
-          filterWhere,
-          ...(filters.parentId !== undefined ? [{ parentId: filters.parentId || null }] : []),
-          ...scopeClauses,
-        ],
-      };
+    if (shortIdNum !== null) {
+      taskConditions.push({ shortIdNum });
     }
 
-    const tasks = await db.task.findMany({
-      where,
-      orderBy: { sortOrder: "asc" },
+    if (dateStart && dateEnd) {
+      taskConditions.push({ dueDate: { gte: dateStart, lt: dateEnd } });
+      taskConditions.push({ createdAt: { gte: dateStart, lt: dateEnd } });
+      taskConditions.push({ updatedAt: { gte: dateStart, lt: dateEnd } });
+    }
+
+    const subtaskConditions: Record<string, unknown>[] = [
+      { title: { contains: filters.search } },
+      { description: { contains: filters.search } },
+    ];
+
+    if (shortIdNum !== null) {
+      subtaskConditions.push({ shortIdNum });
+    }
+
+    taskConditions.push({ subtasks: { some: { OR: subtaskConditions } } });
+    taskConditions.push({ assignee: { OR: [{ name: { contains: filters.search } }, { email: { contains: filters.search } }] } });
+
+    return {
+      AND: [
+        visibilityClause,
+        filterWhere,
+        { parentId: null },
+        { OR: taskConditions },
+        ...scopeClauses,
+      ],
+    };
+  }
+
+  return {
+    AND: [
+      visibilityClause,
+      filterWhere,
+      ...(filters.parentId !== undefined ? [{ parentId: filters.parentId || null }] : []),
+      ...scopeClauses,
+    ],
+  };
+}
+
+export const TaskService = {
+  async listTasks(userId: string, filters: ListTasksFilters, opts?: { restrictProjectIds?: string[] }) {
+    const where = buildTaskListWhere(userId, filters, opts?.restrictProjectIds);
+    const paginated = filters.limit !== undefined || filters.offset !== undefined;
+
+    const [tasks, total] = await Promise.all([
+      db.task.findMany({
+        where,
+        ...(paginated ? { take: filters.limit, skip: filters.offset ?? 0 } : {}),
+        orderBy: { sortOrder: "asc" },
       include: {
         _count: { select: { subtasks: true } },
         subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true, assigneeId: true, ownerId: true, metadata: true, assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } } } },
         assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
         project: { select: { id: true, name: true, color: true } },
       },
-    });
+      }),
+      ...(paginated ? [db.task.count({ where })] : []),
+    ]);
 
     const taskIds = tasks.map(t => t.id);
     const attachmentCounts = await db.attachment.groupBy({
@@ -161,7 +189,7 @@ export const TaskService = {
     });
     const attachmentCountMap = new Map(attachmentCounts.map(a => [a.entityId, a._count.id]));
 
-    return tasks.map((task) => {
+    const items = tasks.map((task) => {
       const { subtasks, ...rest } = task;
       const parsed = parseJsonFields(rest, "task");
       const prices = extractPricesFromMetadata(parsed.metadata as Record<string, unknown>);
@@ -211,6 +239,10 @@ export const TaskService = {
         }),
       };
     });
+
+    // Callers that did not ask for pagination get the plain list; `total`
+    // (match count ignoring limit/offset) is only meaningful when paginating
+    return { items, total: paginated ? total : items.length };
   },
 
   async getTask(userId: string | null, id: string): Promise<ServiceResult<Record<string, unknown>>> {

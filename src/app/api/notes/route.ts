@@ -6,6 +6,7 @@ import {
   requireTokenPermission,
   getTokenProjectScope,
 } from "@/lib/api-token";
+import { isPaginated, parsePaginationParams, parseTagIdsParam } from "@/lib/api-utils";
 import { NoteService } from "@/services/note.service";
 
 export async function GET(request: NextRequest) {
@@ -26,14 +27,25 @@ export async function GET(request: NextRequest) {
     const userId = auth.ctx.userId;
 
     const { searchParams } = new URL(request.url);
+    const pagination = parsePaginationParams(searchParams);
+    if (pagination.error) return NextResponse.json({ error: pagination.error }, { status: 400 });
+
     const filters = {
       projectId: searchParams.get("projectId") ?? undefined,
       folderId: searchParams.get("folderId") ?? undefined,
+      tagIds: parseTagIdsParam(searchParams.get("tagIds")),
+      limit: pagination.limit,
+      offset: pagination.offset,
     };
 
     const result = await NoteService.listNotes(userId, filters,
       restrictProjectIds ? { restrictProjectIds } : undefined);
-    return NextResponse.json(result);
+    // Backward compat: bare array unless the client asked for pagination,
+    // then the full match count travels in X-Total-Count
+    if (isPaginated(pagination)) {
+      return NextResponse.json(result.items, { headers: { "X-Total-Count": String(result.total) } });
+    }
+    return NextResponse.json(result.items);
   } catch (error) {
     console.error("Failed to fetch notes:", error);
     return NextResponse.json({ error: "Failed to fetch notes" }, { status: 500 });
