@@ -23,6 +23,8 @@ class Config:
     timeout: float
     max_list_items: int
     max_download_mb: int
+    howto_text: str  # user's usage rules, inline (empty -> try howto_file)
+    howto_file: str  # path to a Markdown rules file (wins over howto_text)
 
 
 def load_config() -> Config:
@@ -44,4 +46,6 @@ def load_config() -> Config:
         timeout=float(_env_int("TASKFLOW_TIMEOUT", 30)),
         max_list_items=_env_int("TASKFLOW_MAX_LIST_ITEMS", 200),
         max_download_mb=_env_int("TASKFLOW_MAX_DOWNLOAD_MB", 5),
+        howto_text=os.environ.get("TASKFLOW_HOWTO", "").strip(),
+        howto_file=os.environ.get("TASKFLOW_HOWTO_FILE", "").strip(),
     )

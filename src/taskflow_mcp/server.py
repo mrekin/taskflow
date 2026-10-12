@@ -7,6 +7,7 @@ writes) are intentionally not exposed.
 """
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
@@ -42,7 +43,52 @@ def get_client() -> TaskFlowClient:
     return _client
 
 
-mcp = FastMCP("taskflow", lifespan=lifespan)
+def get_config() -> Config:
+    if _config is None:
+        raise ToolError("Server config is not initialized")
+    return _config
+
+
+_HOWTO_SETUP_HINT = (
+    "No usage rules are configured for this TaskFlow MCP server.\n\n"
+    "The user can define them via server env:\n"
+    "- `TASKFLOW_HOWTO` — rules text inline (Markdown), or\n"
+    "- `TASKFLOW_HOWTO_FILE` — path to a Markdown file (wins over TASKFLOW_HOWTO).\n\n"
+    "Until then, no extra rules apply."
+)
+
+_HOWTO_INSTRUCTIONS = (
+    "Before using any other tool, call `howto` to read the user's TaskFlow "
+    "usage rules and follow them for the whole session. Then call `whoami` "
+    "to check what the API token is allowed to do."
+)
+
+
+mcp = FastMCP("taskflow", instructions=_HOWTO_INSTRUCTIONS, lifespan=lifespan)
+
+
+# --- howto ---------------------------------------------------------------
+
+@mcp.tool()
+async def howto() -> str:
+    """Read the user's rules for working with TaskFlow.
+
+    Call this BEFORE any other tool and follow the returned rules for the
+    whole session (e.g. "always ask before creating tasks"). The user
+    configures the rules via TASKFLOW_HOWTO (inline Markdown text) or
+    TASKFLOW_HOWTO_FILE (path to a Markdown file, wins over TASKFLOW_HOWTO)."""
+    config = get_config()
+    if config.howto_file:
+        path = Path(config.howto_file)
+        try:
+            return path.read_text(encoding="utf-8").rstrip()
+        except OSError as exc:
+            raise ToolError(
+                f"TASKFLOW_HOWTO_FILE points to {path}, which cannot be read: {exc}"
+            ) from None
+    if config.howto_text:
+        return config.howto_text
+    return _HOWTO_SETUP_HINT
 
 
 # --- whoami -------------------------------------------------------------
