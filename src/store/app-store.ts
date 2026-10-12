@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery, WebhookTrigger, Attachment, AttachmentConfig, TaskPrice, NoteVersionMeta } from '@/lib/types';
+import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery, WebhookTrigger, Attachment, AttachmentConfig, TaskPrice, NoteVersionMeta, ApiToken, TokenPermissions, ApiTokenScopeType } from '@/lib/types';
 import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig, resolveStatuses, DEFAULT_STATUSES } from '@/lib/constants';
 
 import { api } from '@/lib/api-utils';
@@ -50,6 +50,7 @@ interface AppState {
   tags: Tag[];
   comments: Comment[];
   webhooks: Webhook[];
+  apiTokens: ApiToken[];
   attachments: Attachment[];
   attachmentConfig: AttachmentConfig | null;
 
@@ -178,6 +179,12 @@ interface AppState {
   updateWebhookTrigger: (id: string, data: { events?: string[]; scopeType?: string; scopeId?: string; active?: boolean }) => Promise<WebhookTrigger | undefined>;
   deleteWebhookTrigger: (id: string) => Promise<void>;
 
+  // Actions - API tokens
+  fetchApiTokens: () => Promise<void>;
+  createApiToken: (data: { name: string; scopeType: ApiTokenScopeType; projectIds?: string[]; permissions: TokenPermissions; expiresAt?: string | null }) => Promise<{ token: string; record: ApiToken }>;
+  revokeApiToken: (id: string) => Promise<void>;
+  deleteApiToken: (id: string) => Promise<void>;
+
   // Actions - Attachments
   fetchAttachmentConfig: () => Promise<void>;
   fetchAttachments: (entityId: string, entityType: string) => Promise<void>;
@@ -204,6 +211,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   tags: [],
   comments: [],
   webhooks: [],
+  apiTokens: [],
   attachments: [],
   attachmentConfig: null,
 
@@ -1024,6 +1032,57 @@ export const useAppStore = create<AppState>((set, get) => ({
       console.error('Failed to delete trigger:', error);
       throw error;
     }
+  },
+
+  // API tokens
+  fetchApiTokens: async () => {
+    try {
+      const res = await fetch(api('/api/user/tokens'));
+      if (!res.ok) throw new Error('Failed to fetch API tokens');
+      const tokens: ApiToken[] = await res.json();
+      set({ apiTokens: tokens });
+    } catch (error) {
+      console.error('Failed to fetch API tokens:', error);
+    }
+  },
+
+  createApiToken: async (data) => {
+    const res = await fetch(api('/api/user/tokens'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to create API token');
+    }
+    const { token, record } = await res.json() as { token: string; record: ApiToken };
+    set((state) => ({ apiTokens: [record, ...state.apiTokens] }));
+    return { token, record };
+  },
+
+  revokeApiToken: async (id) => {
+    const res = await fetch(api(`/api/user/tokens/${id}/revoke`), { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to revoke API token');
+    }
+    set((state) => ({
+      apiTokens: state.apiTokens.map((t) =>
+        t.id === id ? { ...t, revokedAt: new Date().toISOString() } : t
+      ),
+    }));
+  },
+
+  deleteApiToken: async (id) => {
+    const res = await fetch(api(`/api/user/tokens/${id}`), { method: 'DELETE' });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to delete API token');
+    }
+    set((state) => ({
+      apiTokens: state.apiTokens.filter((t) => t.id !== id),
+    }));
   },
 
   // Attachments

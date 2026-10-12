@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserId, requireAuth } from '@/lib/auth-utils';
 import { WebhookService } from '@/services/webhook.service';
+import { ensureNoBearer } from '@/lib/api-token';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
     const userId = await getCurrentUserId();
     const result = await WebhookService.listWebhooks(userId);
 
@@ -17,6 +20,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
     const authResult = await requireAuth();
     if ('error' in authResult) return authResult.error;
     const { userId } = authResult;

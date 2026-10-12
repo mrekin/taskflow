@@ -256,3 +256,31 @@ export interface TaskPrice {
   createdAt: string;
   payments?: TaskPayment[];
 }
+
+// --- API access tokens ---
+
+export type TokenEntity = 'tasks' | 'notes' | 'comments';
+export type TokenAction = 'read' | 'create' | 'update' | 'delete';
+
+export type TokenEntityPermissions = Record<TokenAction, boolean>;
+
+export interface TokenPermissions {
+  tasks: TokenEntityPermissions;
+  notes: TokenEntityPermissions;
+  comments: TokenEntityPermissions;
+}
+
+export type ApiTokenScopeType = 'all' | 'projects';
+
+export interface ApiToken {
+  id: string;
+  name: string;
+  tokenPrefix: string;
+  scopeType: ApiTokenScopeType;
+  projectIds: string[];
+  permissions: TokenPermissions;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  lastUsedAt: string | null;
+  createdAt: string;
+}

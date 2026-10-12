@@ -51,6 +51,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { WebhooksSection } from '@/components/webhooks-section';
+import { ApiTokensSection } from '@/components/api-tokens-section';
 import { StatusColumnsSettings } from '@/components/status-columns-settings';
 import { TagsManagementSection } from '@/components/tags-management-section';
 import { Progress } from '@/components/ui/progress';
@@ -705,6 +706,9 @@ export function SettingsView() {
 
         {/* Webhooks Section */}
         <WebhooksSection />
+
+        {/* API Tokens Section */}
+        <ApiTokensSection />
 
         {/* Storage Section */}
         {storageData && (

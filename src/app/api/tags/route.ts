@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+import {
+  authenticateRequest,
+  requireApiAuth,
+  tokenHasAnyRead,
+  logToken,
+} from "@/lib/api-token";
 import { TagService } from "@/services/tag.service";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const userId = await getCurrentUserId();
+    const auth = await authenticateRequest(request);
+    if (!auth.ok) return auth.response;
+    const userId = auth.ctx.kind === "anonymous" ? null : auth.ctx.userId;
+
+    if (auth.ctx.kind === "token" && !tokenHasAnyRead(auth.ctx.token)) {
+      // Tags are user-level metadata: any read permission unlocks the list, no project filter
+      logToken(`"${auth.ctx.token.name}" (${auth.ctx.token.tokenPrefix}): missing any read permission for tags`);
+      return NextResponse.json({ error: "API token missing permission: read" }, { status: 403 });
+    }
+
     const result = await TagService.listTags(userId);
     return NextResponse.json(result);
   } catch (error) {
@@ -15,9 +29,14 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireAuth();
+    const authResult = await requireApiAuth(request);
     if ("error" in authResult) return authResult.error;
-    const { userId } = authResult;
+    const { userId, token } = authResult;
+
+    if (token) {
+      // Tag management is not exposed to API tokens (user-level, no project scope)
+      return NextResponse.json({ error: "API tokens are not allowed on this endpoint" }, { status: 403 });
+    }
 
     const body = await request.json();
     const result = await TagService.createTag(userId, body);

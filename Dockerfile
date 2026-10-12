@@ -3,15 +3,15 @@
 # Auto-creates and migrates database on startup
 
 # Stage 0: Base image (shared between builder and runner, cached once)
-FROM node:22-alpine AS base
+FROM node:24-alpine AS base
 
 # Stage 1: Build (deps + build in one stage, cache mount for bun)
 FROM base AS builder
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install bun
-COPY --from=oven/bun:1 /usr/local/bin/bun /usr/local/bin/bun
+# Install bun (musl build — the glibc binary fails to relocate on alpine)
+COPY --from=oven/bun:1-alpine /usr/local/bin/bun /usr/local/bin/bun
 
 # Copy package files
 COPY package.json bun.lock ./

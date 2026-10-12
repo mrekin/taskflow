@@ -1,11 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+import { requireAuth } from "@/lib/auth-utils";
+import {
+  authenticateRequest,
+  requireApiAuth,
+  requireTokenCreateAccess,
+  requireTokenEntityAccess,
+  requireTokenPermission,
+  getTokenProjectScope,
+  resolveEntityProjectId,
+} from "@/lib/api-token";
 import { TaskService } from "@/services/task.service";
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = await getCurrentUserId();
-    if (!userId) return NextResponse.json([]);
+    const auth = await authenticateRequest(request);
+    if (!auth.ok) return auth.response;
+
+    let restrictProjectIds: string[] | undefined;
+    if (auth.ctx.kind === "token") {
+      const denied = requireTokenPermission(auth.ctx.token, "tasks", "read");
+      if (denied) return denied;
+      const scope = await getTokenProjectScope(auth.ctx);
+      if (scope.size === 0) return NextResponse.json([]);
+      restrictProjectIds = [...scope];
+    } else if (auth.ctx.kind === "anonymous") {
+      return NextResponse.json([]);
+    }
+    const userId = auth.ctx.userId;
 
     const { searchParams } = new URL(request.url);
     const filters = {
@@ -16,7 +37,8 @@ export async function GET(request: NextRequest) {
       assigneeId: searchParams.get("assigneeId") ?? undefined,
     };
 
-    const result = await TaskService.listTasks(userId, filters);
+    const result = await TaskService.listTasks(userId, filters,
+      restrictProjectIds ? { restrictProjectIds } : undefined);
     return NextResponse.json(result);
   } catch (error) {
     console.error("Failed to fetch tasks:", error);
@@ -26,11 +48,19 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireAuth();
+    const authResult = await requireApiAuth(request);
     if ("error" in authResult) return authResult.error;
-    const { userId } = authResult;
+    const { userId, token } = authResult;
 
     const body = await request.json();
+
+    if (token) {
+      // A subtask without an explicit project inherits the parent task's project
+      const targetProjectId = body.projectId ?? (body.parentId ? await resolveEntityProjectId("task", body.parentId) : null);
+      const denied = await requireTokenCreateAccess({ userId, token }, "tasks", targetProjectId);
+      if (denied) return denied;
+    }
+
     const result = await TaskService.createTask(userId, body);
 
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });

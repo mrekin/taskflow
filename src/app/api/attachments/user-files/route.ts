@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth-utils';
 import { db } from '@/lib/db';
 import { formatShortId } from '@/lib/utils';
 import { getStorageAdapter } from '@/lib/storage';
+import { ensureNoBearer } from '@/lib/api-token';
 
 interface EntityRef {
   id: string;
@@ -24,7 +25,9 @@ interface FileEntry {
 }
 
 // GET /api/attachments/user-files — list current user's files with entity references
-export async function GET() {
+export async function GET(request: Request) {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
   const authResult = await requireAuth();
   if ('error' in authResult) return authResult.error;
   const { userId } = authResult;
@@ -126,6 +129,8 @@ export async function GET() {
 
 // DELETE /api/attachments/user-files?blobId=... — delete a user's file blob and all its attachments
 export async function DELETE(request: NextRequest) {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
   const authResult = await requireAuth();
   if ('error' in authResult) return authResult.error;
   const { userId } = authResult;

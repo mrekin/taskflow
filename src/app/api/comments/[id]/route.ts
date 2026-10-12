@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth-utils";
+import {
+  requireApiAuth,
+  requireTokenEntityAccess,
+} from "@/lib/api-token";
 import { CommentService } from "@/services/comment.service";
 
 export async function PUT(
@@ -7,11 +10,17 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requireAuth();
+    const authResult = await requireApiAuth(request);
     if ("error" in authResult) return authResult.error;
-    const { userId } = authResult;
+    const { userId, token } = authResult;
 
     const { id } = await params;
+
+    if (token) {
+      const denied = await requireTokenEntityAccess({ userId, token }, "comments", "update", "comment", id);
+      if (denied) return denied;
+    }
+
     const body = await request.json();
     const result = await CommentService.updateComment(userId, id, body.content);
 
@@ -24,15 +33,21 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requireAuth();
+    const authResult = await requireApiAuth(request);
     if ("error" in authResult) return authResult.error;
-    const { userId } = authResult;
+    const { userId, token } = authResult;
 
     const { id } = await params;
+
+    if (token) {
+      const denied = await requireTokenEntityAccess({ userId, token }, "comments", "delete", "comment", id);
+      if (denied) return denied;
+    }
+
     const result = await CommentService.deleteComment(userId, id);
 
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });

@@ -33,6 +33,7 @@ model User {
   scheduledJobs ScheduledJob[]
   fileBlobs     FileBlob[]
   noteVersions  NoteVersion[]
+  apiTokens     ApiToken[]
 }
 
 model Area {
@@ -202,6 +203,27 @@ model Tag {
   owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@unique([name, ownerId])
+}
+
+model ApiToken {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  tokenHash   String    @unique
+  tokenPrefix String
+  scopeType   String    @default("all") // "all" | "projects"
+  projectIds  String    @default("[]")  // JSON array of project ids, used when scopeType = "projects"
+  permissions String    @default("{}")  // JSON: { tasks: {read,create,update,delete}, notes: {...}, comments: {...} }
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  owner User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId])
 }
 
 model Webhook {

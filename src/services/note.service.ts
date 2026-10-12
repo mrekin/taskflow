@@ -40,7 +40,7 @@ export interface UpdateNoteData {
 }
 
 export const NoteService = {
-  async listNotes(userId: string | null, filters: ListNotesFilters) {
+  async listNotes(userId: string | null, filters: ListNotesFilters, opts?: { restrictProjectIds?: string[] }) {
     if (!userId) return [];
 
     const notes = await db.note.findMany({
@@ -48,6 +48,7 @@ export const NoteService = {
         ...buildVisibilityWhereClause(userId, !!userId),
         ...(filters.projectId ? { projectId: filters.projectId } : {}),
         ...(filters.folderId ? { folderId: filters.folderId } : {}),
+        ...(opts?.restrictProjectIds ? { AND: [{ projectId: { in: opts.restrictProjectIds } }] } : {}),
       },
       orderBy: { updatedAt: "desc" },
       include: {

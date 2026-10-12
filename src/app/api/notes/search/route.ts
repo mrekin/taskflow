@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { parseJsonFields } from "@/lib/api-utils";
-import { getCurrentUserId } from "@/lib/auth-utils";
+import {
+  authenticateRequest,
+  requireTokenPermission,
+  getTokenProjectScope,
+} from "@/lib/api-token";
 
 function getDescendantFolderIds(
   allFolders: { id: string; parentId: string | null }[],
@@ -25,8 +29,20 @@ function getDescendantFolderIds(
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = await getCurrentUserId();
-    if (!userId) return NextResponse.json({ notes: [], folders: [] });
+    const auth = await authenticateRequest(request);
+    if (!auth.ok) return auth.response;
+
+    let tokenProjectScope: string[] | null = null;
+    if (auth.ctx.kind === "token") {
+      const denied = requireTokenPermission(auth.ctx.token, "notes", "read");
+      if (denied) return denied;
+      const scope = await getTokenProjectScope(auth.ctx);
+      if (scope.size === 0) return NextResponse.json({ notes: [], folders: [] });
+      tokenProjectScope = [...scope];
+    } else if (auth.ctx.kind === "anonymous") {
+      return NextResponse.json({ notes: [], folders: [] });
+    }
+    const userId = auth.ctx.userId;
 
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId") ?? undefined;
@@ -60,6 +76,7 @@ export async function GET(request: NextRequest) {
       where: {
         ownerId: userId,
         ...(projectId ? { projectId } : {}),
+        ...(tokenProjectScope ? { projectId: { in: tokenProjectScope } } : {}),
       },
       select: { id: true, parentId: true, shortIdNum: true },
     });
@@ -74,6 +91,7 @@ export async function GET(request: NextRequest) {
     const noteWhereBase: Record<string, unknown> = {
       ownerId: userId,
       ...(projectId ? { projectId } : {}),
+      ...(tokenProjectScope ? { projectId: { in: tokenProjectScope } } : {}),
     };
 
     if (folderId) {
@@ -114,6 +132,7 @@ export async function GET(request: NextRequest) {
         id: { in: Array.from(folderScopeIds) },
         ownerId: userId,
         ...(projectId ? { projectId } : {}),
+        ...(tokenProjectScope ? { projectId: { in: tokenProjectScope } } : {}),
       },
       orderBy: { sortOrder: "asc" },
       include: {

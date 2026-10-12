@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUserId } from "@/lib/auth-utils";
+import { ensureNoBearer } from "@/lib/api-token";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
     const userId = await getCurrentUserId();
     if (!userId) return NextResponse.json({});
 

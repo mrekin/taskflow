@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth-utils";
+import { requireApiAuth, requireTokenEntityAccess } from "@/lib/api-token";
 import { NoteVersionService } from "@/services/note-version.service";
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; number: string }> }
 ) {
   try {
-    const authResult = await requireAuth();
+    const authResult = await requireApiAuth(request);
     if ("error" in authResult) return authResult.error;
-    const { userId } = authResult;
+    const { userId, token } = authResult;
 
     const { id, number } = await params;
     const num = parseInt(number, 10);
     if (!Number.isFinite(num)) {
       return NextResponse.json({ error: "Invalid version number" }, { status: 400 });
+    }
+
+    if (token) {
+      const denied = await requireTokenEntityAccess({ userId, token }, "notes", "update", "note", id);
+      if (denied) return denied;
     }
 
     const result = await NoteVersionService.restoreVersion(userId, id, num);

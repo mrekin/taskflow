@@ -2,9 +2,12 @@ import { NextResponse } from 'next/server';
 import { getCurrentUserId } from '@/lib/auth-utils';
 import { db } from '@/lib/db';
 import { sanitizeUserProfile } from '@/lib/visibility';
+import { ensureNoBearer } from '@/lib/api-token';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
     const userId = await getCurrentUserId();
     if (!userId) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });

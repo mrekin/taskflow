@@ -1,17 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUserId, requireAuth } from "@/lib/auth-utils";
+import {
+  authenticateRequest,
+  requireApiAuth,
+  requireTokenEntityAccess,
+} from "@/lib/api-token";
 import { NoteVersionService } from "@/services/note-version.service";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; number: string }> }
 ) {
   try {
-    const userId = await getCurrentUserId();
+    const auth = await authenticateRequest(request);
+    if (!auth.ok) return auth.response;
+    const userId = auth.ctx.kind === "anonymous" ? null : auth.ctx.userId;
+
     const { id, number } = await params;
     const num = parseInt(number, 10);
     if (!Number.isFinite(num)) {
       return NextResponse.json({ error: "Invalid version number" }, { status: 400 });
+    }
+
+    if (auth.ctx.kind === "token") {
+      const denied = await requireTokenEntityAccess(auth.ctx, "notes", "read", "note", id);
+      if (denied) return denied;
     }
 
     const result = await NoteVersionService.getVersion(userId, id, num);
@@ -29,14 +41,19 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; number: string }> }
 ) {
   try {
-    const authResult = await requireAuth();
+    const authResult = await requireApiAuth(request);
     if ("error" in authResult) return authResult.error;
-    const { userId } = authResult;
+    const { userId, token } = authResult;
 
     const { id, number } = await params;
     const num = parseInt(number, 10);
     if (!Number.isFinite(num)) {
       return NextResponse.json({ error: "Invalid version number" }, { status: 400 });
+    }
+
+    if (token) {
+      const denied = await requireTokenEntityAccess({ userId, token }, "notes", "update", "note", id);
+      if (denied) return denied;
     }
 
     const { kept } = await request.json();

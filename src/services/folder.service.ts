@@ -31,7 +31,7 @@ export interface UpdateFolderData {
 }
 
 export const FolderService = {
-  async listFolders(userId: string | null, filters: ListFoldersFilters) {
+  async listFolders(userId: string | null, filters: ListFoldersFilters, opts?: { restrictProjectIds?: string[] }) {
     if (!userId) return [];
 
     const folders = await db.noteFolder.findMany({
@@ -39,6 +39,7 @@ export const FolderService = {
         ...buildVisibilityWhereClause(userId, !!userId),
         ...(filters.projectId ? { projectId: filters.projectId } : {}),
         ...(filters.parentId !== undefined ? { parentId: filters.parentId || null } : {}),
+        ...(opts?.restrictProjectIds ? { AND: [{ projectId: { in: opts.restrictProjectIds } }] } : {}),
       },
       orderBy: { sortOrder: "asc" },
       include: {

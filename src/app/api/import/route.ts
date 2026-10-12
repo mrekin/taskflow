@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-utils";
 import { DataService, type ImportMode } from "@/services/data.service";
+import { ensureNoBearer } from "@/lib/api-token";
 
 export const dynamic = "force-dynamic";
 
 const VALID_MODES: ImportMode[] = ["replace", "merge-skip", "merge-overwrite"];
 
 export async function POST(request: NextRequest) {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
   const authResult = await requireAuth();
   if ("error" in authResult) return authResult.error;
   const { userId } = authResult;

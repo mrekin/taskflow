@@ -14,10 +14,11 @@ User
  │         │    └── NoteVersion (версия заметки)
  │         └── NoteFolder (папка заметок)
  ├── Tag           (тег — привязывается к Area, Project, Task, Note)
- └── Webhook       (вебхук)
-      ├── WebhookTrigger  (триггер вебхука)
-      └── WebhookDelivery (доставка вебхука)
-└── ScheduledJob  (задание шедулера)
+ ├── Webhook       (вебхук)
+ │    ├── WebhookTrigger  (триггер вебхука)
+ │    └── WebhookDelivery (доставка вебхука)
+ ├── ScheduledJob  (задание шедулера)
+ └── ApiToken      (персональный API-токен)
 ```
 
 ## Таблица сущностей
@@ -37,6 +38,7 @@ User
 | Триггер вебхука | `WebhookTrigger` | `src/app/api/webhooks/triggers/route.ts`<br>`src/app/api/webhooks/triggers/[triggerId]/route.ts` | `src/components/webhooks-section.tsx`<br>`src/components/task-detail-dialog.tsx` | `src/store/app-store.ts`<br>`src/lib/webhook-engine.ts` |
 | Доставка вебхука | `WebhookDelivery` | `src/app/api/webhooks/[id]/deliveries/route.ts` | `src/components/webhooks-section.tsx` | `src/store/app-store.ts`<br>`src/lib/webhook-engine.ts` |
 | Задание шедулера | `ScheduledJob` | — | — | `src/lib/scheduler.ts`<br>`src/instrumentation.ts` |
+| API-токен | `ApiToken` | `src/app/api/user/tokens/route.ts`<br>`src/app/api/user/tokens/[id]/route.ts`<br>`src/app/api/user/tokens/[id]/revoke/route.ts` | `src/components/api-tokens-section.tsx` | `src/store/app-store.ts`<br>`src/lib/api-token.ts` |
 
 ## Общие файлы
 
@@ -249,3 +251,48 @@ $ 100 (250) USD
 | `src/components/markdown-renderer.tsx` | `PriceMentionBadge`, рендер `$mention` |
 | `src/components/mention-autocomplete.tsx` | Автодополнение `$` для затрат |
 | `src/components/task-comments.tsx` | Затраты в комментариях |
+
+## API-токены (ApiToken)
+
+Персональные токены доступа к REST API (`Authorization: Bearer`). Полное описание API — в [docs/API.md](API.md).
+
+### Модель ApiToken
+
+| Поле | Тип | Описание |
+|---|---|---|
+| `id` | `string` | Уникальный ID |
+| `userId` | `string` | Владелец (cascade delete) |
+| `name` | `string` | Имя, уникально на пользователя (`@@unique([userId, name])`) |
+| `tokenHash` | `string` | SHA-256 сырого токена, unique — сырой токен **не хранится** и показывается один раз при создании |
+| `tokenPrefix` | `string` | Первые 12 символов (`tfa_1a2b3c4d`) для отображения в UI |
+| `scopeType` | `string` | `"all"` (все проекты, доступные пользователю) или `"projects"` (список `projectIds`) |
+| `projectIds` | `string` | JSON-массив ID проектов, используется при `scopeType="projects"` |
+| `permissions` | `string` | JSON: `{ tasks: {read,create,update,delete}, notes: {...}, comments: {...} }` |
+| `expiresAt` | `DateTime?` | Срок действия; `null` — бессрочный |
+| `revokedAt` | `DateTime?` | Момент отзыва; отзыв мгновенный и идемпотентный |
+| `lastUsedAt` | `DateTime?` | Последнее использование; обновляется не чаще 1 раза в 60 секунд |
+| `createdAt` / `updatedAt` | `DateTime` | — |
+
+### Семантика
+
+- **Формат токена**: `tfa_` + 40 hex-символов (`crypto.randomBytes(20)`). Lookup по `tokenHash` — O(1).
+- **Токен не может дать больше прав, чем есть у пользователя**: сервисный слой (visibility: write — только владелец, read — по visibility) остаётся базовым уровнем; скоуп и права токена — только ограничитель.
+- **Скоуп считается на каждый запрос**: `scope = (scopeType='all' ? все видимые пользователю проекты : projectIds) ∩ видимые пользователю проекты`. Следствия: новые проекты автоматически попадают в скоуп «all»; потеря доступа к расшаренному проекту мгновенно сужает токен; «висячие» id в `projectIds` безвредны.
+- **Inbox-сущности** (`projectId = null`) недоступны никаким токенам — ни в списках, ни напрямую (403).
+- **Default-deny**: bearer-заголовок распознают только entity-роуты (задачи, заметки, комментарии, папки, вложения, версии, GET тегов/проектов/областей). Роуты export/import/webhooks/users/user\*/upload/check и мутации тегов/проектов/областей отклоняют токены с 403 (`ensureNoBearer`). Роуты без поддержки токена игнорируют заголовок (сессия/аноним).
+- **Ошибки**: 401 — аутентификация (невалидный/просроченный/отозванный токен, кривой заголовок); 403 — конфигурация токена (нет права, вне скоупа, эндпоинт запрещён); 404/статусы сервисов — данные.
+- **Логирование**: каждая операция через токен пишется в консоль сервера с префиксом `[api-token]` (имя и префикс токена), плюс обновляется `lastUsedAt`.
+- **Ограничения**: 20 токенов на пользователя, имя ≤ 64 символов.
+- **Demo reset**: `ApiToken` удаляется первым в `resetDatabase()` (raw DELETE обходит Prisma-cascades).
+
+### Связанные файлы
+
+| Файл | Назначение |
+|---|---|
+| `prisma/schema.prisma` | Модель `ApiToken`, `User.apiTokens` |
+| `src/lib/api-token.ts` | Ядро: генерация/хэширование, валидация, права, скоуп, throttle `lastUsedAt`, логи |
+| `src/app/api/user/tokens/` | Управление токенами (только сессия): список, создание, удаление, отзыв |
+| `src/components/api-tokens-section.tsx` | UI: список, создание (матрица прав 3×4, скоуп, срок), одноразовый показ, revoke/delete |
+| `src/store/app-store.ts` | `apiTokens`, `fetchApiTokens`, `createApiToken`, `revokeApiToken`, `deleteApiToken` |
+| `src/lib/demo-reset.ts` | Очистка токенов при demo-ресете |
+| `docs/API.md` | Справочник API для потребителей (в т.ч. MCP) |

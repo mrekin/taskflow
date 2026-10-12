@@ -69,7 +69,7 @@ function extractCurrencyFromMetadata(metadata: Record<string, unknown>): string 
 }
 
 export const TaskService = {
-  async listTasks(userId: string, filters: ListTasksFilters) {
+  async listTasks(userId: string, filters: ListTasksFilters, opts?: { restrictProjectIds?: string[] }) {
     const isAuthenticated = !!userId;
     const visibilityClause = buildVisibilityWhereClause(userId, isAuthenticated);
     const filterWhere: Record<string, unknown> = {
@@ -77,6 +77,10 @@ export const TaskService = {
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.assigneeId ? { assigneeId: filters.assigneeId } : {}),
     };
+    // API-token scope restriction (extra AND term so it never clashes with filters.projectId)
+    const scopeClauses = opts?.restrictProjectIds
+      ? [{ projectId: { in: opts.restrictProjectIds } }]
+      : [];
 
     let where: Record<string, unknown>;
 
@@ -124,6 +128,7 @@ export const TaskService = {
           filterWhere,
           { parentId: null },
           { OR: taskConditions },
+          ...scopeClauses,
         ],
       };
     } else {
@@ -132,6 +137,7 @@ export const TaskService = {
           visibilityClause,
           filterWhere,
           ...(filters.parentId !== undefined ? [{ parentId: filters.parentId || null }] : []),
+          ...scopeClauses,
         ],
       };
     }

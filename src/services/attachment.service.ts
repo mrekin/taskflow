@@ -1,7 +1,9 @@
+import crypto from "crypto";
 import { db } from "@/lib/db";
 import { canReadEntity, canWriteEntity, resolveEffectiveVisibility } from "@/lib/visibility";
 import { getAttachmentConfig } from "@/lib/attachment-config";
 import { isFilenameAllowed } from "@/lib/attachment-utils";
+import { getServerStorageUsed, getUserStorageUsed } from "@/lib/attachment-storage";
 import { getEntity, parseVisibility, formatAttachment } from "@/lib/attachment-api-utils";
 import type { ServiceResult } from "./types";
 
@@ -114,6 +116,118 @@ export const AttachmentService = {
     }
 
     return { ok: true, data: { status: 'upload_needed' } };
+  },
+
+  /** Multipart binary upload. Restores the handler lost in commit 4b7744b (logic from 6057ecf). */
+  async uploadAttachment(userId: string, formData: FormData): Promise<ServiceResult<Record<string, unknown>>> {
+    const file = formData.get('file');
+    const entityId = formData.get('entityId');
+    const entityType = formData.get('entityType');
+
+    if (!(file instanceof File) || !entityId || !entityType) {
+      return { ok: false, status: 400, error: "file, entityId, entityType are required" };
+    }
+    if (typeof entityId !== 'string' || typeof entityType !== 'string') {
+      return { ok: false, status: 400, error: "file, entityId, entityType are required" };
+    }
+    if (!['task', 'note', 'comment'].includes(entityType)) {
+      return { ok: false, status: 400, error: "entityType must be task, note, or comment" };
+    }
+
+    // Check entity exists and user can write
+    const entity = await getEntity(entityId, entityType);
+    if (!entity) {
+      return { ok: false, status: 404, error: "Entity not found" };
+    }
+    if (!canWriteEntity(userId, entity.ownerId)) {
+      return { ok: false, status: 403, error: "Access denied" };
+    }
+
+    const config = getAttachmentConfig();
+
+    // Validate size
+    if (file.size > config.maxSize) {
+      return { ok: false, status: 400, error: `File size exceeds maximum (${config.maxSize} bytes)` };
+    }
+
+    // Validate filename pattern
+    if (!isFilenameAllowed(file.name, config.allowedPatterns)) {
+      return { ok: false, status: 400, error: `File type not allowed: ${file.name}` };
+    }
+
+    // Check attachment limit
+    const maxAllowed = entityType === 'comment' ? config.maxPerComment : config.maxPerEntity;
+    const currentCount = await db.attachment.count({
+      where: { entityId, entityType },
+    });
+    if (currentCount >= maxAllowed) {
+      return { ok: false, status: 400, error: `Maximum ${maxAllowed} attachments per ${entityType}` };
+    }
+
+    // Check server-wide storage limit
+    if (config.totalSize > 0) {
+      const serverUsed = await getServerStorageUsed();
+      if (serverUsed + file.size > config.totalSize) {
+        return { ok: false, status: 400, error: `Server storage limit exceeded (${config.totalSize / 1024 / 1024} MB). Contact your administrator to increase the limit.` };
+      }
+    }
+
+    // Check per-user storage limit
+    if (config.userMaxSize > 0) {
+      const userUsed = await getUserStorageUsed(userId);
+      if (userUsed + file.size > config.userMaxSize) {
+        return { ok: false, status: 400, error: `Your storage limit is ${config.userMaxSize / 1024 / 1024} MB. Contact your administrator to increase the limit.` };
+      }
+    }
+
+    // Read file buffer and compute hash
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const actualHash = crypto.createHash('sha256').update(buffer).digest('hex');
+
+    // Generate storage key: {hash[0:2]}/{hash[2:4]}/{hash}.{ext}
+    const ext = file.name.includes('.')
+      ? file.name.slice(file.name.lastIndexOf('.') + 1)
+      : 'bin';
+    const storageKey = `${actualHash.slice(0, 2)}/${actualHash.slice(2, 4)}/${actualHash}.${ext}`;
+
+    // Store file (idempotent — same hash produces same key, overwrites are safe)
+    const { getStorageAdapter } = await import('@/lib/storage');
+    const storage = getStorageAdapter();
+    await storage.put(storageKey, buffer, file.type || 'application/octet-stream');
+
+    // Upsert blob — single atomic operation, eliminates race condition on duplicate hash
+    const blob = await db.fileBlob.upsert({
+      where: { hash: actualHash },
+      update: {},
+      create: {
+        hash: actualHash,
+        size: buffer.length,
+        mimeType: file.type || 'application/octet-stream',
+        originalName: file.name,
+        storageKey,
+        ownerId: userId,
+      },
+    });
+
+    // Create attachment (check unique constraint)
+    try {
+      const attachment = await db.attachment.create({
+        data: {
+          entityId,
+          entityType,
+          blobId: blob.id,
+          displayName: file.name,
+        },
+        include: { blob: true },
+      });
+      return { ok: true, data: formatAttachment(attachment, attachment.blob) };
+    } catch (error) {
+      if ((error as { code?: string })?.code === 'P2002') {
+        return { ok: false, status: 409, error: `File "${file.name}" already exists` };
+      }
+      throw error;
+    }
   },
 
   async deleteAttachment(userId: string, id: string): Promise<ServiceResult<{ success: boolean }>> {

@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserId } from '@/lib/auth-utils';
+import { db } from '@/lib/db';
+import {
+  authenticateRequest,
+  getTokenProjectScope,
+  tokenAllowsProject,
+  tokenCan,
+  resolveEntityProjectId,
+  tokenEntityFor,
+  tokenScopeDeniedResponse,
+} from '@/lib/api-token';
 import { AttachmentService } from '@/services/attachment.service';
 
 export async function GET(
@@ -7,8 +16,38 @@ export async function GET(
   { params }: { params: Promise<{ blobId: string }> }
 ) {
   try {
+    const auth = await authenticateRequest(request);
+    if (!auth.ok) return auth.response;
+    const userId = auth.ctx.kind === 'anonymous' ? null : auth.ctx.userId;
+
     const { blobId } = await params;
-    const userId = await getCurrentUserId();
+
+    if (auth.ctx.kind === 'token') {
+      const token = auth.ctx.token;
+      // Blobs are content-addressed and shared between attachments (dedup), so access is
+      // allowed when ANY referencing entity is readable and inside the token scope.
+      const attachments = await db.attachment.findMany({
+        where: { blobId },
+        select: { entityId: true, entityType: true },
+      });
+      if (attachments.length > 0) {
+        const scope = await getTokenProjectScope(auth.ctx);
+        let allowed = false;
+        for (const attachment of attachments) {
+          const permEntity = tokenEntityFor(attachment.entityType);
+          if (!permEntity || !tokenCan(token, permEntity, 'read')) continue;
+          const project = await resolveEntityProjectId(
+            attachment.entityType as 'task' | 'note' | 'comment',
+            attachment.entityId,
+          );
+          if (tokenAllowsProject(scope, project)) {
+            allowed = true;
+            break;
+          }
+        }
+        if (!allowed) return tokenScopeDeniedResponse(token);
+      }
+    }
 
     const result = await AttachmentService.serveFile(userId, blobId);
 

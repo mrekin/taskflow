@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUserId } from '@/lib/auth-utils';
 import { db } from '@/lib/db';
 import { DEFAULT_PREFERENCES, DEFAULT_CURRENCY, CURRENCIES, UI_SCALE_OPTIONS, type UserPreferences, type StatusConfig, type ProfileVisibility } from '@/lib/constants';
+import { ensureNoBearer } from '@/lib/api-token';
 
 function resolveUiScale(value: unknown): number {
   return typeof value === 'number' && (UI_SCALE_OPTIONS as readonly number[]).includes(value)
@@ -9,7 +10,9 @@ function resolveUiScale(value: unknown): number {
     : DEFAULT_PREFERENCES.uiScale;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
   const userId = await getCurrentUserId();
   if (!userId) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -61,6 +64,8 @@ function parseProfileVisibility(value: unknown): ProfileVisibility {
 }
 
 export async function PUT(request: Request) {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
   const userId = await getCurrentUserId();
   if (!userId) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });

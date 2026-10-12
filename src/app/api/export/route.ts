@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-utils";
 import { DataService } from "@/services/data.service";
+import { ensureNoBearer } from "@/lib/api-token";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
   const authResult = await requireAuth();
   if ("error" in authResult) return authResult.error;
   const { userId } = authResult;

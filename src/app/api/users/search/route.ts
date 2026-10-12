@@ -3,6 +3,7 @@ import { getCurrentUserId } from '@/lib/auth-utils';
 import { db } from '@/lib/db';
 import { DEFAULT_PREFERENCES, type ProfileVisibility } from '@/lib/constants';
 import { sanitizeUserProfile } from '@/lib/visibility';
+import { ensureNoBearer } from '@/lib/api-token';
 
 function parseProfileVisibility(value: unknown): ProfileVisibility {
   if (!value || typeof value !== 'object') return DEFAULT_PREFERENCES.profileVisibility;
@@ -14,6 +15,8 @@ function parseProfileVisibility(value: unknown): ProfileVisibility {
 }
 
 export async function GET(request: NextRequest) {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
   const userId = await getCurrentUserId();
   if (!userId) {
     return NextResponse.json([]);

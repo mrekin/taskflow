@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-utils';
 import { WebhookService } from '@/services/webhook.service';
+import { ensureNoBearer } from '@/lib/api-token';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
     const authResult = await requireAuth();
     if ('error' in authResult) return authResult.error;
     const { userId } = authResult;
@@ -27,6 +30,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
     const authResult = await requireAuth();
     if ('error' in authResult) return authResult.error;
     const { userId } = authResult;
@@ -44,10 +49,12 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const blocked = await ensureNoBearer(request);
+    if (blocked) return blocked;
     const authResult = await requireAuth();
     if ('error' in authResult) return authResult.error;
     const { userId } = authResult;

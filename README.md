@@ -19,6 +19,7 @@ Self-hosted task and notes management application for individual use or small te
 - **Quick create** — Streamlined entity creation from a single text input
 - **Entity links & mentions** — Reference tasks, projects, and notes with short IDs (T-5, P-2, N-3) and `#mentions` in Markdown
 - **Webhooks** — Automated notifications on task/project events with scope matching and placeholder substitution
+- **Personal API tokens** — Bearer-token REST API access with per-entity-type permissions, project scoping, expiry, and revocation
 - **File attachments** — Upload files to tasks and notes with deduplication, inline image rendering, and configurable limits
 - **Bulk operations** — Select multiple tasks for delete or export
 - **Dark / Light theme** — System-aware theme switching

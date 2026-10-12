@@ -19,6 +19,7 @@ async function resetDatabase(): Promise<void> {
   const demoUser = await db.user.findUnique({ where: { email: DEMO_USER_EMAIL } });
 
   try {
+    await db.$executeRaw`DELETE FROM ApiToken`;
     await db.$executeRaw`DELETE FROM ScheduledJob`;
     await db.$executeRaw`DELETE FROM WebhookDelivery`;
     await db.$executeRaw`DELETE FROM WebhookTrigger`;
