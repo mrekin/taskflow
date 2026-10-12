@@ -8,6 +8,7 @@ import {
   parseVisibleUserIds,
   sanitizeRelation,
 } from "@/lib/visibility";
+import { isPublicReadonly } from "@/lib/config";
 import type { ServiceResult } from "./types";
 
 export interface ListFoldersFilters {
@@ -34,7 +35,7 @@ export interface UpdateFolderData {
 
 export const FolderService = {
   async listFolders(userId: string | null, filters: ListFoldersFilters, opts?: { restrictProjectIds?: string[] }) {
-    if (!userId) return { items: [], total: 0 };
+    if (!userId && !isPublicReadonly()) return { items: [], total: 0 };
 
     const where = {
       ...buildVisibilityWhereClause(userId, !!userId),
@@ -65,7 +66,7 @@ export const FolderService = {
   },
 
   async getFolder(userId: string | null, id: string): Promise<ServiceResult<Record<string, unknown>>> {
-    if (!userId) return { ok: false, status: 401, error: "Authentication required" };
+    if (!userId && !isPublicReadonly()) return { ok: false, status: 401, error: "Authentication required" };
 
     const folder = await db.noteFolder.findFirst({
       where: { id },

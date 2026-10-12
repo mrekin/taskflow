@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { buildVisibilityWhereClause } from "@/lib/visibility";
+import { isPublicReadonly } from "@/lib/config";
 import type { ServiceResult } from "./types";
 
 export interface CreateTagData {
@@ -15,11 +16,13 @@ export interface UpdateTagData {
 export const TagService = {
   async listTags(userId: string | null) {
     const isAuthenticated = !!userId;
-    if (!isAuthenticated) return [];
+    if (!isAuthenticated && !isPublicReadonly()) return [];
 
-    const ownTags = await db.tag.findMany({
-      where: { ownerId: userId },
-    });
+    const ownTags = userId
+      ? await db.tag.findMany({
+          where: { ownerId: userId },
+        })
+      : [];
 
     const visibleProjects = await db.project.findMany({
       where: buildVisibilityWhereClause(userId, isAuthenticated),

@@ -7,6 +7,7 @@ import {
   sanitizeUserProfile,
 } from "@/lib/visibility";
 import { cleanupAttachments } from "@/lib/attachment-cleanup";
+import { isPublicReadonly } from "@/lib/config";
 import type { ServiceResult } from "./types";
 
 export interface CreateCommentData {
@@ -17,7 +18,7 @@ export interface CreateCommentData {
 
 export const CommentService = {
   async listComments(userId: string | null, taskId: string): Promise<ServiceResult<Record<string, unknown>[]>> {
-    if (!userId) return { ok: true, data: [] };
+    if (!userId && !isPublicReadonly()) return { ok: true, data: [] };
 
     const task = await db.task.findFirst({
       where: { id: taskId },

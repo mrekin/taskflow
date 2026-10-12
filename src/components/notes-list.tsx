@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, useIsGuest } from '@/store/app-store';
 import type { Note, NoteFolder } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -113,6 +113,7 @@ export function NotesList() {
   } = useAppStore();
 
   const isMobile = useIsMobile();
+  const isGuest = useIsGuest();
   const [searchInput, setSearchInput] = useState(noteSearchQuery);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -473,47 +474,59 @@ export function NotesList() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={handleImport}>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Import
-                    </DropdownMenuItem>
+                    {!isGuest && (
+                      <DropdownMenuItem onClick={handleImport}>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Import
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={handleExportAll}>
                       <FileDown className="h-4 w-4 mr-2" />
                       Export
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setCreateFolderOpen(true)}>
-                      <FolderPlus className="h-4 w-4 mr-2" />
-                      New Folder
-                    </DropdownMenuItem>
+                    {!isGuest && (
+                      <DropdownMenuItem onClick={() => setCreateFolderOpen(true)}>
+                        <FolderPlus className="h-4 w-4 mr-2" />
+                        New Folder
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button onClick={() => setCreateDialogOpen(true)} size="sm">
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  New Note
-                </Button>
+                {!isGuest && (
+                  <Button onClick={() => setCreateDialogOpen(true)} size="sm">
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    New Note
+                  </Button>
+                )}
               </>
             ) : (
               <>
-                <Button variant="outline" size="sm" onClick={handleImport}>
-                  <Upload className="h-4 w-4 mr-1.5" />
-                  Import
-                </Button>
+                {!isGuest && (
+                  <Button variant="outline" size="sm" onClick={handleImport}>
+                    <Upload className="h-4 w-4 mr-1.5" />
+                    Import
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={handleExportAll}>
                   <FileDown className="h-4 w-4 mr-1.5" />
                   Export
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCreateFolderOpen(true)}
-                >
-                  <FolderPlus className="h-4 w-4 mr-1.5" />
-                  New Folder
-                </Button>
-                <Button onClick={() => setCreateDialogOpen(true)} size="sm">
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  New Note
-                </Button>
+                {!isGuest && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCreateFolderOpen(true)}
+                  >
+                    <FolderPlus className="h-4 w-4 mr-1.5" />
+                    New Folder
+                  </Button>
+                )}
+                {!isGuest && (
+                  <Button onClick={() => setCreateDialogOpen(true)} size="sm">
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    New Note
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -699,7 +712,7 @@ export function NotesList() {
                 ? 'Try adjusting your search terms'
                 : 'Click the "New Note" button to get started'}
             </p>
-            {!noteSearchQuery && (
+            {!noteSearchQuery && !isGuest && (
               <div className="flex items-center gap-2 mt-4">
                 <Button
                   variant="outline"
@@ -770,15 +783,17 @@ export function NotesList() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openRenameDialog(folder);
-                                }}
-                              >
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Rename
-                              </DropdownMenuItem>
+                              {!isGuest && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openRenameDialog(folder);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Rename
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -788,20 +803,22 @@ export function NotesList() {
                                 <Download className="h-4 w-4 mr-2" />
                                 Download as ZIP
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (isFolderNonEmpty(folder.id)) {
-                                    setDeleteFolderId(folder.id);
-                                  } else {
-                                    handleDeleteFolder(folder.id);
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
+                              {!isGuest && (
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (isFolderNonEmpty(folder.id)) {
+                                      setDeleteFolderId(folder.id);
+                                    } else {
+                                      handleDeleteFolder(folder.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>

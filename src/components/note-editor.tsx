@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, useIsGuest } from '@/store/app-store';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { TagPicker } from '@/components/tag-picker';
 import { TagBadges } from '@/components/tag-badges';
@@ -102,6 +102,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
 
   const note = notes.find((n) => n.id === noteId);
   const isReadOnly = !!note && !!currentUserId && note.ownerId !== currentUserId;
+  const isGuest = useIsGuest();
   const versioningOn = !!note?.versioningEnabled;
 
   // Initialize state from note - noteId is stable (set via key prop on parent)
@@ -155,7 +156,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
 
   // Save function (shared between auto-save and manual save)
   const performSave = useCallback(async () => {
-    if (!note) return;
+    if (!note || isGuest) return;
     setSaveStatus('saving');
     try {
       const data: Partial<Note> = {
@@ -197,10 +198,11 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
       toast.error(msg);
       setSaveStatus('unsaved');
     }
-  }, [note, title, content, projectId, tagIds, visibility, visibleUserIds, updateNote, versioningOn, isReadOnly, versionComment, saveNoteVersion]);
+  }, [note, title, content, projectId, tagIds, visibility, visibleUserIds, updateNote, versioningOn, isReadOnly, isGuest, versionComment, saveNoteVersion]);
 
   // Auto-save with debounce (only when enabled and versioning is off)
   useEffect(() => {
+    if (isGuest) return;
     if (!note || !hasUnsavedChanges || !autoSaveEnabled || versioningOn) return;
 
     if (debounceTimerRef.current) {
@@ -217,6 +219,12 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
       }
     };
   }, [title, content, projectId, tagIds, visibility, visibleUserIds, note, hasUnsavedChanges, autoSaveEnabled, versioningOn, performSave]);
+
+  // Guests are read-only — force preview mode (e.g. after signing out mid-edit
+  // on a server with PUBLIC_READONLY enabled).
+  useEffect(() => {
+    if (isGuest && editorMode !== 'preview') setEditorMode('preview');
+  }, [isGuest, editorMode]);
 
   // Reflect unsaved edits in the status indicator (the "Saved" badge must not
   // persist after further edits — important in manual/versioning mode where there
@@ -438,7 +446,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
             </>
           )}
           {/* Manual Save button when autosave is off or versioning is on */}
-          {(!autoSaveEnabled || versioningOn) && hasUnsavedChanges && !isReadOnly && !viewingVersion && (
+          {(!autoSaveEnabled || versioningOn) && hasUnsavedChanges && !isReadOnly && !isGuest && !viewingVersion && (
             <>
               {versioningOn && (
                 <input
@@ -481,7 +489,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
           />
 
           {/* Mode toggle */}
-          {!isReadOnly && !viewingVersion && (
+          {!isReadOnly && !isGuest && !viewingVersion && (
             <ToggleGroup
               type="single"
               value={editorMode}
@@ -533,7 +541,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
             </Select>
           )}
 
-          {!isReadOnly && !viewingVersion && (
+          {!isReadOnly && !isGuest && !viewingVersion && (
             <>
               <Button
                 variant="ghost"
@@ -816,15 +824,17 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50">
                   <FileText className="h-12 w-12 mb-3 opacity-30" />
                   <p className="text-sm">This note is empty</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                    onClick={() => setEditorMode('edit')}
-                  >
-                    <Pencil className="h-3.5 w-3.5 mr-1.5" />
-                    Start writing
-                  </Button>
+                  {!isGuest && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => setEditorMode('edit')}
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                      Start writing
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="prose-container">

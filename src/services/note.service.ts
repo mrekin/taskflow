@@ -9,6 +9,7 @@ import {
   sanitizeRelation,
 } from "@/lib/visibility";
 import { cleanupAttachments } from "@/lib/attachment-cleanup";
+import { isPublicReadonly } from "@/lib/config";
 import type { ServiceResult } from "./types";
 
 export interface ListNotesFilters {
@@ -70,7 +71,7 @@ function getDescendantFolderIds(
 
 export const NoteService = {
   async listNotes(userId: string | null, filters: ListNotesFilters, opts?: { restrictProjectIds?: string[] }) {
-    if (!userId) return { items: [], total: 0 };
+    if (!userId && !isPublicReadonly()) return { items: [], total: 0 };
 
     const where = {
       ...buildVisibilityWhereClause(userId, !!userId),
@@ -229,7 +230,7 @@ export const NoteService = {
   },
 
   async getNote(userId: string | null, id: string): Promise<ServiceResult<Record<string, unknown>>> {
-    if (!userId) return { ok: false, status: 401, error: "Authentication required" };
+    if (!userId && !isPublicReadonly()) return { ok: false, status: 401, error: "Authentication required" };
 
     const note = await db.note.findFirst({
       where: { id },

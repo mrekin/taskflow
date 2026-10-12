@@ -7,6 +7,7 @@ import {
   tokenAllowsProject,
   resolveEntityProjectId,
 } from "@/lib/api-token";
+import { isPublicReadonly } from "@/lib/config";
 import { CommentService } from "@/services/comment.service";
 
 export async function GET(request: NextRequest) {
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
       const scope = await getTokenProjectScope(auth.ctx);
       const taskProjectId = await resolveEntityProjectId("task", taskId);
       if (!tokenAllowsProject(scope, taskProjectId)) return NextResponse.json([]);
-    } else if (auth.ctx.kind === "anonymous") {
+    } else if (auth.ctx.kind === "anonymous" && !isPublicReadonly()) {
       return NextResponse.json([]);
     }
 

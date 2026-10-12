@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { parseJsonFields, getNextShortIdNum } from "@/lib/api-utils";
+import { isPublicReadonly } from "@/lib/config";
 import {
   buildVisibilityWhereClause,
   resolveEffectiveVisibility,
@@ -35,7 +36,7 @@ export interface UpdateAreaData {
 export const AreaService = {
   async listAreas(userId: string | null) {
     const isAuthenticated = !!userId;
-    if (!isAuthenticated) return [];
+    if (!isAuthenticated && !isPublicReadonly()) return [];
 
     const areas = await db.area.findMany({
       where: buildVisibilityWhereClause(userId, isAuthenticated),
@@ -59,7 +60,7 @@ export const AreaService = {
 
   async getArea(userId: string | null, id: string): Promise<ServiceResult<Record<string, unknown>>> {
     const isAuthenticated = !!userId;
-    if (!isAuthenticated) return { ok: false, status: 401, error: "Authentication required" };
+    if (!isAuthenticated && !isPublicReadonly()) return { ok: false, status: 401, error: "Authentication required" };
 
     const area = await db.area.findFirst({
       where: { id },

@@ -13,6 +13,8 @@ export default function Page() {
   const router = useRouter();
   const basePath = process.env.NEXT_BASE_PATH || '';
   const [initError, setInitError] = useState<string | null>(null);
+  const [publicReadonly, setPublicReadonly] = useState(false);
+  const [hasOidc, setHasOidc] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -25,11 +27,14 @@ export default function Page() {
         }
         return r.json();
       })
-      .then((config: { noAuthMode: boolean; hasOidc: boolean; demoMode: boolean; configError: string | null; demoUserEmail?: string }) => {
+      .then((config: { noAuthMode: boolean; hasOidc: boolean; demoMode: boolean; publicReadonly: boolean; configError: string | null; demoUserEmail?: string }) => {
         if (config.configError) {
           setInitError(config.configError);
           return;
         }
+
+        setPublicReadonly(!!config.publicReadonly);
+        setHasOidc(!!config.hasOidc);
 
         const demoEmail = config.demoUserEmail || DEMO_EMAIL;
         const isDemoSession = session?.user?.email === demoEmail;
@@ -45,7 +50,7 @@ export default function Page() {
           signIn('credentials', { email: DEMO_EMAIL, redirect: false });
         } else if (config.demoMode) {
           signIn('credentials', { email: demoEmail, redirect: false });
-        } else {
+        } else if (!config.publicReadonly) {
           router.replace('/login');
         }
       })
@@ -78,7 +83,7 @@ export default function Page() {
   // `status: "loading"` flicker that NextAuth emits while `update()` runs —
   // otherwise <Home> unmounts and remounts, which resets local state and the
   // current view (deep-link effect → default page).
-  if (!session) {
+  if (!session && !publicReadonly) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex items-center gap-2">
@@ -89,5 +94,5 @@ export default function Page() {
     );
   }
 
-  return <Home />;
+  return <Home publicReadonly={publicReadonly} hasOidc={hasOidc} />;
 }

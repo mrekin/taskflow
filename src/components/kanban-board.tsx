@@ -52,7 +52,7 @@ import { EntityIdBadge } from '@/components/entity-id-badge';
 import { TagBadges } from '@/components/tag-badges';
 import { TaskCard } from '@/components/task-card';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, useIsGuest } from '@/store/app-store';
 import { useCollapsedState } from '@/hooks/use-collapsed-state';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { OwnerIndicator } from '@/components/owner-indicator';
@@ -139,6 +139,7 @@ function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInva
       status: column.id,
     },
   });
+  const isGuest = useIsGuest();
 
   const projectGroups = useMemo(() => {
     if (!groupTasksByProject || !projects) return null;
@@ -216,7 +217,7 @@ function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInva
             {tasks.length}
           </span>
         </div>
-        {!isInvalid && (
+        {!isInvalid && !isGuest && (
           <Button
             variant="ghost"
             size="icon"
@@ -254,7 +255,7 @@ function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInva
         </div>
       </SortableContext>
 
-      {!isInvalid && (
+      {!isInvalid && !isGuest && (
         <div className="p-2 pt-0">
           <Button
             variant="ghost"
@@ -271,12 +272,13 @@ function KanbanColumn({ column, tasks, onAddTask, isActive, showSubtasks, isInva
 
 function MobileTaskCard({ task, visibleColumns, isSubtask = false }: { task: Task; visibleColumns: StatusConfig[]; isSubtask?: boolean }) {
   const { selectTask, updateTask, statuses, currentUserId, users } = useAppStore();
+  const isGuest = useIsGuest();
   const { label: statusLabel, color: statusColor } = getColumnLabelAndColor(statuses, task.status);
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done' && task.status !== 'cancelled';
 
   const handleStatusChange = (newStatus: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (newStatus === task.status) return;
+    if (newStatus === task.status || isGuest) return;
     useAppStore.setState((state) => ({
       tasks: state.tasks.map((t) => t.id === task.id ? { ...t, status: newStatus } : t),
     }));
@@ -411,6 +413,7 @@ function MobileTaskCard({ task, visibleColumns, isSubtask = false }: { task: Tas
 export function KanbanBoard() {
   const { tasks, selectedProjectId, tagFilter, projectFilter, assigneeFilter, setAssigneeFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery, statuses, currentUserId, ownershipFilter, setOwnershipFilter, projects } = useAppStore();
   const isMobile = useIsMobile();
+  const isGuest = useIsGuest();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -613,6 +616,13 @@ export function KanbanBoard() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+
+    // Read-only guests never persist status changes
+    if (isGuest) {
+      setActiveTask(null);
+      setActiveColumnId(null);
+      return;
+    }
 
     if (!over) {
       setActiveTask(null);
@@ -1086,7 +1096,7 @@ export function KanbanBoard() {
             })()}
           </div>
 
-          {allMobileColumns[activeColumnIndex]?.id !== INVALID_STATE_COLUMN.id && (
+          {allMobileColumns[activeColumnIndex]?.id !== INVALID_STATE_COLUMN.id && !isGuest && (
             <div className="p-3 pt-0 pb-14">
               <Button
                 variant="ghost"

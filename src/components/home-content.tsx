@@ -31,6 +31,7 @@ import {
   LogOut,
   Folder,
   Share2,
+  Lock,
 } from 'lucide-react';
 
 import { cn, findByShortId } from '@/lib/utils';
@@ -51,7 +52,7 @@ import { SettingsView } from '@/components/settings-view';
 import { QuickCreate } from '@/components/quick-create';
 import { TagBadges } from '@/components/tag-badges';
 import { EntityIdBadge } from '@/components/entity-id-badge';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, useIsGuest } from '@/store/app-store';
 import type { NoteFolder, Note } from '@/lib/types';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import { VisibilityBadge } from '@/components/visibility-badge';
@@ -72,7 +73,7 @@ function AllAreasView({
   onAreaClick,
 }: {
   areas: ReturnType<typeof useAppStore.getState>['areas'];
-  onCreateArea: () => void;
+  onCreateArea?: () => void;
   onAreaClick: (id: string) => void;
 }) {
   return (
@@ -82,9 +83,11 @@ function AllAreasView({
           <Layers className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold tracking-tight">Areas</h1>
         </div>
-        <Button size="sm" onClick={onCreateArea}>
-          <Plus className="size-4 mr-1" /> New Area
-        </Button>
+        {onCreateArea && (
+          <Button size="sm" onClick={onCreateArea}>
+            <Plus className="size-4 mr-1" /> New Area
+          </Button>
+        )}
       </div>
       {areas.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -132,7 +135,7 @@ function AllAreasView({
           icon={Layers}
           title="No areas yet"
           description="Create an area to organize your projects"
-          action={{ label: "Create First Area", onClick: onCreateArea, icon: Plus }}
+          action={onCreateArea ? { label: "Create First Area", onClick: onCreateArea, icon: Plus } : undefined}
         />
       )}
     </div>
@@ -231,7 +234,26 @@ function ScrollPage({ children }: { children: React.ReactNode }) {
 
 // ─── Main Page ──────────────────────────────────────────────────────────
 
-function HomeContent() {
+// Theme switcher shared by the sidebar footer rows (account / guest read-only).
+function ThemeToggleButton() {
+  const { setTheme } = useTheme();
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="size-7"
+      onClick={(e) => {
+        e.stopPropagation();
+        setTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+      }}
+    >
+      <Sun className="size-3.5 hidden dark:block" />
+      <Moon className="size-3.5 block dark:hidden" />
+    </Button>
+  );
+}
+
+function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadonly?: boolean; hasOidc?: boolean }) {
   const {
     currentView,
     selectedAreaId,
@@ -273,14 +295,19 @@ function HomeContent() {
     updateNote,
     currentUserId,
     setCurrentUserId,
+    setPublicReadonly,
     users,
     fetchUsers,
   } = useAppStore();
 
-  const { setTheme } = useTheme();
   const { data: session } = useSession();
   const [showCreateArea, setShowCreateArea] = useState(false);
   const isMobile = useIsMobile();
+  const isGuest = useIsGuest();
+
+  useEffect(() => {
+    setPublicReadonly(publicReadonly);
+  }, [publicReadonly, setPublicReadonly]);
 
   useEffect(() => {
     if (isMobile) useAppStore.setState({ sidebarOpen: false });
@@ -431,10 +458,10 @@ function HomeContent() {
       }
       deepLinkHandledRef.current = true;
     } else {
-      setCurrentView(userPreferences.defaultPage);
+      setCurrentView(isGuest ? 'tasks' : userPreferences.defaultPage);
       deepLinkHandledRef.current = true;
     }
-  }, [searchParams, initialLoadDone, preferencesLoaded, selectTask, selectNote, selectProject, selectArea, setCurrentView, fetchTasks, fetchNotes, tasks, notes, projects, areas, userPreferences.defaultPage]);
+  }, [searchParams, initialLoadDone, preferencesLoaded, isGuest, selectTask, selectNote, selectProject, selectArea, setCurrentView, fetchTasks, fetchNotes, tasks, notes, projects, areas, userPreferences.defaultPage]);
 
   const handleAreaClick = (areaId: string) => {
     selectArea(areaId);
@@ -585,8 +612,8 @@ function HomeContent() {
           return (
             <div
               key={folder.id}
-              draggable
-              onDragStart={(e) => handleTreeDragStart(e, folder.id, 'folder')}
+              draggable={!isGuest}
+              onDragStart={(e) => { if (isGuest) return; handleTreeDragStart(e, folder.id, 'folder'); }}
               onDragEnd={handleTreeDragEnd}
               onDragOver={(e) => handleTreeDragOver(e, folder.id, 'folder')}
               onDragLeave={() => setTreeDropTarget(null)}
@@ -645,8 +672,8 @@ function HomeContent() {
           return (
             <div
               key={note.id}
-              draggable
-              onDragStart={(e) => handleTreeDragStart(e, note.id, 'note')}
+              draggable={!isGuest}
+              onDragStart={(e) => { if (isGuest) return; handleTreeDragStart(e, note.id, 'note'); }}
               onDragEnd={handleTreeDragEnd}
               onDragOver={(e) => handleTreeDragOver(e, note.id, 'note')}
               onDragLeave={() => setTreeDropTarget(null)}
@@ -679,6 +706,8 @@ function HomeContent() {
 
   // Render main content based on current view
   const renderContent = () => {
+    // Guests have no access to Quick Create / Settings — fall back to the task list
+    if (isGuest && (currentView === 'quick-create' || currentView === 'settings')) return <ScrollPage><TaskList /></ScrollPage>;
     switch (currentView) {
       case 'areas':
         return (
@@ -686,7 +715,7 @@ function HomeContent() {
             {selectedAreaId ? <AreaDetail /> : (
               <AllAreasView
                 areas={areas}
-                onCreateArea={() => setShowCreateArea(true)}
+                onCreateArea={isGuest ? undefined : () => setShowCreateArea(true)}
                 onAreaClick={handleAreaClick}
               />
             )}
@@ -817,17 +846,19 @@ function HomeContent() {
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <div className="p-3 space-y-1">
             {/* Quick Create - first */}
-            <Button
-              variant={currentView === 'quick-create' ? 'secondary' : 'ghost'}
-              className="w-full justify-start h-9 text-sm"
-              onClick={() => {
-                selectArea(null);
-                selectProject(null);
-                setCurrentView('quick-create');
-              }}
-            >
-              <Zap className="size-4 mr-2" /> Quick Create
-            </Button>
+            {!isGuest && (
+              <Button
+                variant={currentView === 'quick-create' ? 'secondary' : 'ghost'}
+                className="w-full justify-start h-9 text-sm"
+                onClick={() => {
+                  selectArea(null);
+                  selectProject(null);
+                  setCurrentView('quick-create');
+                }}
+              >
+                <Zap className="size-4 mr-2" /> Quick Create
+              </Button>
+            )}
 
             <Separator className="my-2" />
 
@@ -1031,14 +1062,16 @@ function HomeContent() {
             {/* Areas section */}
             <div className="flex items-center justify-between px-3 mb-1">
               <p className="text-xs font-medium text-muted-foreground">Areas</p>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-5"
-                onClick={() => setShowCreateArea(true)}
-              >
-                <Plus className="size-3" />
-              </Button>
+              {!isGuest && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-5"
+                  onClick={() => setShowCreateArea(true)}
+                >
+                  <Plus className="size-3" />
+                </Button>
+              )}
             </div>
             {areas.map((area) => {
               const areaProjects = projects.filter((p) => p.areaId === area.id);
@@ -1078,8 +1111,8 @@ function HomeContent() {
                       {areaProjects.map((project) => (
                         <div
                           key={project.id}
-                          draggable
-                          onDragStart={(e) => handleProjectDragStart(e, project.id)}
+                          draggable={!isGuest}
+                          onDragStart={(e) => { if (isGuest) return; handleProjectDragStart(e, project.id); }}
                           onDragEnd={handleProjectDragEnd}
                           className={cn(
                             'group/item relative flex items-center',
@@ -1098,17 +1131,19 @@ function HomeContent() {
                             />
                             <span className="truncate">{project.name}</span>
                           </Button>
-                          <button
-                            type="button"
-                            className="absolute right-1.5 top-1/2 -translate-y-1/2 size-4 rounded flex items-center justify-center text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover/item:opacity-100 transition-opacity"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRemoveFromArea(project.id);
-                            }}
-                            title="Remove from area"
-                          >
-                            <XCircle className="size-3" />
-                          </button>
+                          {!isGuest && (
+                            <button
+                              type="button"
+                              className="absolute right-1.5 top-1/2 -translate-y-1/2 size-4 rounded flex items-center justify-center text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover/item:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveFromArea(project.id);
+                              }}
+                              title="Remove from area"
+                            >
+                              <XCircle className="size-3" />
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1132,8 +1167,8 @@ function HomeContent() {
                   .map((project) => (
                     <div
                       key={project.id}
-                      draggable
-                      onDragStart={(e) => handleProjectDragStart(e, project.id)}
+                      draggable={!isGuest}
+                      onDragStart={(e) => { if (isGuest) return; handleProjectDragStart(e, project.id); }}
                       onDragEnd={handleProjectDragEnd}
                       className={cn(
                         'cursor-grab active:cursor-grabbing',
@@ -1200,48 +1235,58 @@ function HomeContent() {
 
         {/* Sidebar footer */}
         <div className="p-3 border-t shrink-0 space-y-1">
-          <Button
-            variant={currentView === 'settings' ? 'secondary' : 'ghost'}
-            className="w-full justify-start h-8 text-xs"
-            onClick={() => setCurrentView('settings')}
-          >
-            <Settings className="size-3.5 mr-2" /> Settings
-            <span className="ml-auto text-[10px] text-muted-foreground">{process.env.NEXT_PUBLIC_APP_VERSION || ''}</span>
-          </Button>
-          <div
-            className="flex items-center gap-2 px-3 py-2 cursor-pointer rounded-md hover:bg-accent"
-            onClick={() => session?.user ? signOut() : signIn('oidc')}
-          >
-            {session?.user ? (
-              <>
-                <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
-                  {session.user.name?.[0]?.toUpperCase() || 'U'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{session.user.name || 'User'}</p>
-                  <p className="text-[10px] text-muted-foreground truncate">{session.user.email}</p>
-                </div>
-                <LogOut className="size-4 text-muted-foreground shrink-0" />
-              </>
-            ) : (
-              <>
-                <LogIn className="size-4 text-muted-foreground shrink-0" />
-                <span className="text-xs text-muted-foreground">Sign In</span>
-              </>
-            )}
+          {!isGuest && (
             <Button
-              variant="ghost"
-              size="icon"
-              className="size-7"
-              onClick={(e) => {
-                e.stopPropagation();
-                setTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
-              }}
+              variant={currentView === 'settings' ? 'secondary' : 'ghost'}
+              className="w-full justify-start h-8 text-xs"
+              onClick={() => setCurrentView('settings')}
             >
-              <Sun className="size-3.5 hidden dark:block" />
-              <Moon className="size-3.5 block dark:hidden" />
+              <Settings className="size-3.5 mr-2" /> Settings
+              <span className="ml-auto text-[10px] text-muted-foreground">{process.env.NEXT_PUBLIC_APP_VERSION || ''}</span>
             </Button>
-          </div>
+          )}
+          {isGuest ? (
+            <>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-md">
+                <Lock className="size-4 text-muted-foreground shrink-0" />
+                <span className="flex-1 text-xs text-muted-foreground">Read-only mode</span>
+                <ThemeToggleButton />
+              </div>
+              {hasOidc && (
+                <div
+                  className="flex items-center gap-2 px-3 py-2 cursor-pointer rounded-md hover:bg-accent"
+                  onClick={() => signIn('oidc')}
+                >
+                  <LogIn className="size-4 text-muted-foreground shrink-0" />
+                  <span className="text-xs text-muted-foreground">Sign In</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <div
+              className="flex items-center gap-2 px-3 py-2 cursor-pointer rounded-md hover:bg-accent"
+              onClick={() => session?.user ? signOut() : signIn('oidc')}
+            >
+              {session?.user ? (
+                <>
+                  <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
+                    {session.user.name?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{session.user.name || 'User'}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{session.user.email}</p>
+                  </div>
+                  <LogOut className="size-4 text-muted-foreground shrink-0" />
+                </>
+              ) : (
+                <>
+                  <LogIn className="size-4 text-muted-foreground shrink-0" />
+                  <span className="text-xs text-muted-foreground">Sign In</span>
+                </>
+              )}
+              <ThemeToggleButton />
+            </div>
+          )}
         </div>
       </aside>
 
@@ -1296,7 +1341,7 @@ function HomeContent() {
   );
 }
 
-export default function Home() {
+export default function Home({ publicReadonly = false, hasOidc = false }: { publicReadonly?: boolean; hasOidc?: boolean }) {
   return (
     <Suspense
       fallback={
@@ -1308,7 +1353,7 @@ export default function Home() {
         </div>
       }
     >
-      <HomeContent />
+      <HomeContent publicReadonly={publicReadonly} hasOidc={hasOidc} />
     </Suspense>
   );
 }

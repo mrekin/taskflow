@@ -29,7 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, useIsGuest } from '@/store/app-store';
 import { STATUS_LABELS } from '@/lib/constants';
 import { TagBadges } from '@/components/tag-badges';
 import { TagPicker } from '@/components/tag-picker';
@@ -58,6 +58,7 @@ export function AreaDetail() {
 
   const area = areas.find((a) => a.id === selectedAreaId);
   const isReadOnly = !!area && !!currentUserId && area.ownerId !== currentUserId;
+  const isGuest = useIsGuest();
   const areaProjects = projects.filter((p) => p.areaId === selectedAreaId);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -170,7 +171,7 @@ export function AreaDetail() {
           {area.tagIds && area.tagIds.length > 0 && (
             <TagBadges tagIds={area.tagIds} max={3} size="sm" />
           )}
-          {isReadOnly ? (
+          {isReadOnly || isGuest ? (
             <>
               <Badge variant="secondary" className="text-xs">Read-only</Badge>
               <OwnerIndicator ownerId={area.ownerId} currentUserId={currentUserId} />
@@ -192,9 +193,11 @@ export function AreaDetail() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Projects ({areaProjects.length})</h2>
-          <Button size="sm" onClick={() => setShowCreateProject(true)}>
-            <Plus className="size-4 mr-1" /> Add Project
-          </Button>
+          {!isGuest && (
+            <Button size="sm" onClick={() => setShowCreateProject(true)}>
+              <Plus className="size-4 mr-1" /> Add Project
+            </Button>
+          )}
         </div>
 
         {areaProjects.length > 0 ? (

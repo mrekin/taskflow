@@ -10,6 +10,7 @@ import {
   resolveEntityProjectId,
 } from "@/lib/api-token";
 import { isPaginated, parseDateParam, parsePaginationParams, parseTagIdsParam } from "@/lib/api-utils";
+import { isPublicReadonly } from "@/lib/config";
 import { TaskService } from "@/services/task.service";
 
 export async function GET(request: NextRequest) {
@@ -24,10 +25,10 @@ export async function GET(request: NextRequest) {
       const scope = await getTokenProjectScope(auth.ctx);
       if (scope.size === 0) return NextResponse.json([]);
       restrictProjectIds = [...scope];
-    } else if (auth.ctx.kind === "anonymous") {
+    } else if (auth.ctx.kind === "anonymous" && !isPublicReadonly()) {
       return NextResponse.json([]);
     }
-    const userId = auth.ctx.userId;
+    const userId = auth.ctx.kind === "anonymous" ? null : auth.ctx.userId;
 
     const { searchParams } = new URL(request.url);
     const dueFrom = parseDateParam(searchParams.get("dueFrom"), "dueFrom");
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
       offset: pagination.offset,
     };
 
-    const result = await TaskService.listTasks(userId, filters,
+    const result = await TaskService.listTasks(userId as string, filters,
       restrictProjectIds ? { restrictProjectIds } : undefined);
     // Backward compat: bare array unless the client asked for pagination,
     // then the full match count travels in X-Total-Count

@@ -7,6 +7,7 @@ import {
   getTokenProjectScope,
 } from "@/lib/api-token";
 import { isPaginated, parsePaginationParams } from "@/lib/api-utils";
+import { isPublicReadonly } from "@/lib/config";
 import { FolderService } from "@/services/folder.service";
 
 export async function GET(request: NextRequest) {
@@ -21,10 +22,10 @@ export async function GET(request: NextRequest) {
       const scope = await getTokenProjectScope(auth.ctx);
       if (scope.size === 0) return NextResponse.json([]);
       restrictProjectIds = [...scope];
-    } else if (auth.ctx.kind === "anonymous") {
+    } else if (auth.ctx.kind === "anonymous" && !isPublicReadonly()) {
       return NextResponse.json([]);
     }
-    const userId = auth.ctx.userId;
+    const userId = auth.ctx.kind === "anonymous" ? null : auth.ctx.userId;
 
     const { searchParams } = new URL(request.url);
     const pagination = parsePaginationParams(searchParams);

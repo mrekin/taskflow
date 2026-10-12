@@ -31,7 +31,7 @@ import { EntityIdBadge } from '@/components/entity-id-badge';
 import { CostSummaryBadge } from '@/components/cost-breakdown-dialog';
 import { VisibilityBadge } from '@/components/visibility-badge';
 import { OwnerIndicator } from '@/components/owner-indicator';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, useIsGuest } from '@/store/app-store';
 import type { Task } from '@/lib/types';
 import { useCollapsedState } from '@/hooks/use-collapsed-state';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -175,6 +175,7 @@ export function TaskList() {
   const [assigneeFilterOpen, setAssigneeFilterOpen] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMobile = useIsMobile();
+  const isGuest = useIsGuest();
 
   useEffect(() => {
     return () => {
@@ -822,9 +823,11 @@ export function TaskList() {
               </button>
             )}
           </div>
-          <Button size="sm" onClick={() => setCreateDialogOpen(true)} className="h-7 text-xs shrink-0">
-            <Plus className="size-3 mr-1" /> Add Task
-          </Button>
+          {!isGuest && (
+            <Button size="sm" onClick={() => setCreateDialogOpen(true)} className="h-7 text-xs shrink-0">
+              <Plus className="size-3 mr-1" /> Add Task
+            </Button>
+          )}
         </div>
       </div>
 

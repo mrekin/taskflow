@@ -26,6 +26,7 @@ Self-hosted task and notes management application for individual use or small te
 - **OIDC / SSO** — Enterprise authentication via Keycloak, Auth0, Okta, Google, etc.
 - **No-auth mode** — Skip authentication, auto-login as demo user
 - **Demo mode** — Public demo with automatic database reset every N minutes
+- **Public read-only mode** — guests can browse world-visible tasks, projects, and notes without authentication
 - **Subpath deployment** — Run behind a reverse proxy at any path (e.g., `/taskflow`)
 
 ## Tech Stack
@@ -98,6 +99,7 @@ bun run dev
 | `NOAUTH_MODE` | no | `false` | Skip authentication, auto-login as demo user |
 | `DEMO_MODE` | no | `false` | Public demo mode with automatic DB reset (mutually exclusive with `NOAUTH_MODE` and OIDC) |
 | `DEMO_RESET_MIN` | no | `15` | Database reset interval in minutes. Values below 5 are not recommended — users need time to explore (only when `DEMO_MODE=true`) |
+| `PUBLIC_READONLY` | no | `false` | Public read-only mode: unauthenticated guests can browse world-visible entities |
 | `NEXT_BASE_PATH` | no | `""` | Subpath for reverse proxy deployment (build-time) |
 | `BUILD_TYPE` | no | `test` | Build type: `test`, `dev`, or `release` (build-time, affects version display) |
 | `KANBAN_COLUMNS` | no | — | Default Kanban board columns. Format: `Label:color,...` or JSON array |

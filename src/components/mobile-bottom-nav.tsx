@@ -2,7 +2,7 @@
 
 import { List, LayoutGrid, Plus, StickyNote, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, useIsGuest } from '@/store/app-store';
 
 export function MobileBottomNav() {
   const currentView = useAppStore((s) => s.currentView);
@@ -10,6 +10,7 @@ export function MobileBottomNav() {
   const fetchTasks = useAppStore((s) => s.fetchTasks);
   const fetchNotes = useAppStore((s) => s.fetchNotes);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  const isGuest = useIsGuest();
 
   const items = [
     { icon: List, label: 'Tasks', view: 'tasks' as const, action: () => { setCurrentView('tasks'); fetchTasks(); } },
@@ -17,6 +18,9 @@ export function MobileBottomNav() {
     { icon: Plus, label: 'Create', view: 'quick-create' as const, action: () => setCurrentView('quick-create'), highlight: true },
     { icon: StickyNote, label: 'Notes', view: 'notes' as const, action: () => { setCurrentView('notes'); fetchNotes(); } },
   ];
+
+  // Guests are read-only — no Quick Create
+  const visibleItems = isGuest ? items.filter((item) => item.view !== 'quick-create') : items;
 
   const isActive = (view: string) => {
     if (view === 'notes') return currentView === 'notes' || currentView === 'note-editor';
@@ -26,7 +30,7 @@ export function MobileBottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:hidden">
       <div className="flex items-center justify-around h-14" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <button
             key={item.view}
             type="button"

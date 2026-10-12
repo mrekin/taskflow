@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getConfigError, DEMO_USER_EMAIL } from '@/lib/config';
+import { getConfigError, DEMO_USER_EMAIL, isPublicReadonly } from '@/lib/config';
 
 export async function GET() {
   try {
@@ -11,6 +11,7 @@ export async function GET() {
         hasOidc: false,
         demoMode: false,
         demoResetAt: null,
+        publicReadonly: false,
         configError,
       });
     }
@@ -35,6 +36,7 @@ export async function GET() {
       demoMode,
       demoResetAt,
       demoUserEmail: DEMO_USER_EMAIL,
+      publicReadonly: isPublicReadonly(),
       configError: null,
     });
   } catch (error) {

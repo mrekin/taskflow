@@ -58,7 +58,7 @@ import { TaskList } from '@/components/task-list';
 import { KanbanBoard } from '@/components/kanban-board';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { CreateNoteDialog } from '@/components/create-note-dialog';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, useIsGuest } from '@/store/app-store';
 import {
   STATUS_LABELS,
   PROJECT_STATUSES,
@@ -93,6 +93,7 @@ export function ProjectDetail() {
   const area = project?.areaId ? areas.find((a) => a.id === project.areaId) : null;
   const projectNotes = notes.filter((n) => n.projectId === selectedProjectId);
   const isReadOnly = !!project && !!currentUserId && project.ownerId !== currentUserId;
+  const isGuest = useIsGuest();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -244,7 +245,7 @@ export function ProjectDetail() {
           {project.tagIds && project.tagIds.length > 0 && (
             <TagBadges tagIds={project.tagIds} max={3} size="sm" />
           )}
-          {isReadOnly ? (
+          {isReadOnly || isGuest ? (
             <>
               <Badge variant="secondary" className="text-xs">Read-only</Badge>
               <OwnerIndicator ownerId={project.ownerId} currentUserId={currentUserId} />
@@ -300,14 +301,16 @@ export function ProjectDetail() {
               <StickyNote className="size-3.5" /> Notes
             </TabsTrigger>
           </TabsList>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={() => setShowCreateTask(true)}>
-              <Plus className="size-4 mr-1" /> Add Task
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowCreateNote(true)}>
-              <Plus className="size-4 mr-1" /> Add Note
-            </Button>
-          </div>
+          {!isGuest && (
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => setShowCreateTask(true)}>
+                <Plus className="size-4 mr-1" /> Add Task
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowCreateNote(true)}>
+                <Plus className="size-4 mr-1" /> Add Note
+              </Button>
+            </div>
+          )}
         </div>
 
         <TabsContent value="tasks">

@@ -15,6 +15,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api-utils';
+import { useAppStore } from '@/store/app-store';
 import {
   VISIBILITY_OWNER,
   VISIBILITY_USERS,
@@ -81,10 +82,18 @@ export function VisibilityLock({
   const [open, setOpen] = useState(false);
   const [popoverUsers, setPopoverUsers] = useState<PopoverUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const publicReadonly = useAppStore((s) => s.publicReadonly);
 
   const effectiveVis = value ?? parentVisibility ?? DEFAULT_VISIBILITY;
   const Icon = getIcon(effectiveVis);
   const iconSize = size === 'sm' ? 'size-3.5' : 'size-4';
+
+  // PUBLIC_READONLY awareness: warn wherever the effective visibility resolves to world
+  const publicWorldHint = publicReadonly && effectiveVis === VISIBILITY_WORLD ? (
+    <p className="mt-1 text-xs text-amber-500 leading-tight">
+      Public read-only is enabled: world-visible items are accessible without signing in.
+    </p>
+  ) : null;
 
   const tooltipContent = useMemo(() => {
     const label = VISIBILITY_LABEL_MAP[effectiveVis] ?? effectiveVis;
@@ -112,14 +121,17 @@ export function VisibilityLock({
 
   if (currentUserId !== ownerId) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-flex items-center">
-            <Icon className={cn(iconSize, 'text-muted-foreground')} />
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="top">{tooltipContent}</TooltipContent>
-      </Tooltip>
+      <>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex items-center">
+              <Icon className={cn(iconSize, 'text-muted-foreground')} />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top">{tooltipContent}</TooltipContent>
+        </Tooltip>
+        {publicWorldHint}
+      </>
     );
   }
 
@@ -137,10 +149,13 @@ export function VisibilityLock({
 
   if (readOnly) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-        <TooltipContent side="top">{tooltipContent}</TooltipContent>
-      </Tooltip>
+      <>
+        <Tooltip>
+          <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+          <TooltipContent side="top">{tooltipContent}</TooltipContent>
+        </Tooltip>
+        {publicWorldHint}
+      </>
     );
   }
 
@@ -149,8 +164,9 @@ export function VisibilityLock({
     : `Inherited (${VISIBILITY_LABEL_MAP[DEFAULT_VISIBILITY]})`;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent className="w-56 p-1" align="start" side="bottom">
         <div className="flex flex-col gap-0.5">
           {ALL_OPTIONS.map((opt) => {
@@ -169,7 +185,11 @@ export function VisibilityLock({
               >
                 <span className="font-medium text-xs">{opt.label}</span>
                 <span className="text-[11px] text-muted-foreground leading-tight">
-                  {opt.value === null ? inheritLabel : opt.desc}
+                  {opt.value === null
+                    ? inheritLabel
+                    : opt.value === VISIBILITY_WORLD && publicReadonly
+                      ? 'Anyone, even without login — public read-only is enabled: truly open to the internet'
+                      : opt.desc}
                 </span>
               </button>
             );
@@ -207,6 +227,8 @@ export function VisibilityLock({
           </div>
         )}
       </PopoverContent>
-    </Popover>
+      </Popover>
+      {publicWorldHint}
+    </>
   );
 }

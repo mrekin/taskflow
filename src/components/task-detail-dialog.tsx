@@ -59,7 +59,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { DeleteDialog } from '@/components/delete-dialog';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, useIsGuest } from '@/store/app-store';
 import type { WebhookTrigger } from '@/lib/types';
 import {
   TASK_PRIORITIES,
@@ -105,6 +105,7 @@ export function TaskDetailDialog() {
 
   const task = tasks.find((t) => t.id === selectedTaskId);
   const parentCurrency = task?.parentId ? tasks.find((t) => t.id === task.parentId)?.currency : undefined;
+  const isGuest = useIsGuest();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -952,14 +953,16 @@ export function TaskDetailDialog() {
                           <Label className="text-muted-foreground text-xs uppercase tracking-wider">
                             Subtasks ({completedSubtasks}/{subtasks.length})
                           </Label>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => setShowCreateSubtask(true)}
-                          >
-                            <Plus className="size-3 mr-1" /> Add Subtask
-                          </Button>
+                          {!isGuest && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => setShowCreateSubtask(true)}
+                            >
+                              <Plus className="size-3 mr-1" /> Add Subtask
+                            </Button>
+                          )}
                         </div>
 
                         {/* Progress bar for subtasks */}
@@ -990,6 +993,7 @@ export function TaskDetailDialog() {
                                     onCheckedChange={(checked) =>
                                       handleSubtaskToggle(subtask.id, !!checked)
                                     }
+                                    disabled={isGuest}
                                     className="shrink-0"
                                   />
 
@@ -1056,7 +1060,7 @@ export function TaskDetailDialog() {
                                   </Badge>
 
                                   {/* Action buttons - show on hover */}
-                                  {editingSubtaskId !== subtask.id && (
+                                  {editingSubtaskId !== subtask.id && !isGuest && (
                                     <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
                                       <Button
                                         variant="ghost"
@@ -1128,6 +1132,7 @@ export function TaskDetailDialog() {
                               onCheckedChange={(checked) =>
                                 handleSubtaskToggle(nestedSubtask.id, !!checked)
                               }
+                              disabled={isGuest}
                               className="shrink-0"
                               onClick={(e) => e.stopPropagation()}
                             />
@@ -1173,15 +1178,17 @@ export function TaskDetailDialog() {
                             </Select>
                           </div>
                         ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => setAddingCost(true)}
-                            disabled={addingCost || isAddingCost}
-                          >
-                            <Plus className="size-3 mr-1" /> Add cost
-                          </Button>
+                          !isGuest && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => setAddingCost(true)}
+                              disabled={addingCost || isAddingCost}
+                            >
+                              <Plus className="size-3 mr-1" /> Add cost
+                            </Button>
+                          )
                         )}
                       </div>
 

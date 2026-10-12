@@ -68,6 +68,7 @@ interface AppState {
   totalTaskCount: number;
   totalTaskStatusCounts: Record<string, number>;
   currentUserId: string | null;
+  publicReadonly: boolean;
   ownershipFilter: 'all' | 'mine' | 'shared';
   users: Array<{ id: string; name: string | null; image: string | null }>;
 
@@ -93,6 +94,7 @@ interface AppState {
   setProjectFilter: (projectIds: string[]) => void;
   setAssigneeFilter: (userIds: string[]) => void;
   setCurrentUserId: (id: string | null) => void;
+  setPublicReadonly: (v: boolean) => void;
   setOwnershipFilter: (filter: 'all' | 'mine' | 'shared') => void;
   fetchUsers: () => Promise<void>;
   setTaskSearchQuery: (query: string) => void;
@@ -229,6 +231,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   totalTaskCount: 0,
   totalTaskStatusCounts: { todo: 0, in_progress: 0, done: 0, cancelled: 0 },
   currentUserId: null,
+  publicReadonly: false,
   ownershipFilter: 'all',
   users: [],
 
@@ -254,6 +257,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setProjectFilter: (projectIds) => set({ projectFilter: projectIds }),
   setAssigneeFilter: (userIds) => set({ assigneeFilter: userIds }),
   setCurrentUserId: (id) => set({ currentUserId: id }),
+  setPublicReadonly: (v) => set({ publicReadonly: v }),
   setOwnershipFilter: (filter) => set({ ownershipFilter: filter }),
   fetchUsers: async () => {
     try {
@@ -1284,3 +1288,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 }));
+
+/** True in PUBLIC_READONLY mode when the current visitor has no session (guest). */
+export function useIsGuest(): boolean {
+  return useAppStore((s) => s.publicReadonly && !s.currentUserId);
+}

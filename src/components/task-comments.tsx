@@ -17,7 +17,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, useIsGuest } from '@/store/app-store';
 import { AttachmentList } from '@/components/attachment-list';
 import { computeFileHash, formatFileSize, validateAttachmentFiles, uploadFilesConcurrently } from '@/lib/attachment-utils';
 import type { Comment, PendingAttachment, TaskPrice } from '@/lib/types';
@@ -112,6 +112,7 @@ function CommentItem({
 
   const [expanded, setExpanded] = useState(true);
   const [longExpanded, setLongExpanded] = useState(false);
+  const isGuest = useIsGuest();
 
   const isDeleted = comment.deleted;
 
@@ -219,7 +220,7 @@ function CommentItem({
               )}
 
               {/* Actions — only for non-deleted comments */}
-              {!isEditing && !isDeleted && (
+              {!isEditing && !isDeleted && !isGuest && (
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button variant="ghost" size="icon" className="size-5" onClick={() => onReply(comment.id)} title="Reply">
                     <Reply className="size-2.5" />
@@ -244,7 +245,7 @@ function CommentItem({
               )}
 
               {/* Reply — available even on deleted comments */}
-              {!isEditing && isDeleted && hasReplies && (
+              {!isEditing && isDeleted && hasReplies && !isGuest && (
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button variant="ghost" size="icon" className="size-5" onClick={() => onReply(comment.id)} title="Reply">
                     <Reply className="size-2.5" />
@@ -373,6 +374,7 @@ export function TaskComments({ taskId, prices, currency }: TaskCommentsProps) {
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const newContentRef = useRef<HTMLTextAreaElement>(null);
+  const isGuest = useIsGuest();
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
@@ -669,6 +671,7 @@ export function TaskComments({ taskId, prices, currency }: TaskCommentsProps) {
       )}
 
       {/* New comment input */}
+      {!isGuest && (
       <div className="space-y-1.5">
         <MarkdownToolbar
           textareaRef={newContentRef}
@@ -772,6 +775,7 @@ export function TaskComments({ taskId, prices, currency }: TaskCommentsProps) {
           </div>
         )}
       </div>
+      )}
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

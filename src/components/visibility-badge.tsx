@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Lock, Users, Globe } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/store/app-store';
 import {
   VISIBILITY_OWNER,
   VISIBILITY_USERS,
@@ -55,8 +56,13 @@ export function VisibilityBadge({
 }: VisibilityBadgeProps) {
   const displayVisibility = visibility ?? effectiveVisibility;
   const { Icon, label } = getIconAndLabel(displayVisibility);
+  const publicReadonly = useAppStore((s) => s.publicReadonly);
+  const isPublicWorld = publicReadonly && displayVisibility === VISIBILITY_WORLD;
 
   const tooltipContent = useMemo(() => {
+    if (isPublicWorld) {
+      return 'Everyone — visible to unauthenticated visitors (public read-only is enabled on this server)';
+    }
     if (
       displayVisibility === VISIBILITY_USERS &&
       visibleUserIds?.length &&
@@ -69,13 +75,13 @@ export function VisibilityBadge({
       return `${label}: ${names.join(', ')}`;
     }
     return label;
-  }, [displayVisibility, label, visibleUserIds, users]);
+  }, [isPublicWorld, displayVisibility, label, visibleUserIds, users]);
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <span className={cn('inline-flex items-center', className)}>
-          <Icon className="size-4 text-muted-foreground" />
+          <Icon className={cn('size-4', isPublicWorld ? 'text-amber-500' : 'text-muted-foreground')} />
         </span>
       </TooltipTrigger>
       <TooltipContent side="top">{tooltipContent}</TooltipContent>

@@ -15,7 +15,7 @@ import { VisibilityBadge } from '@/components/visibility-badge';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import type { Task } from '@/lib/types';
 import { PRIORITY_LABELS, PRIORITY_COLORS, getColumnLabelAndColor } from '@/lib/constants';
-import { useAppStore } from '@/store/app-store';
+import { useAppStore, useIsGuest } from '@/store/app-store';
 import { TagBadges } from '@/components/tag-badges';
 import { CostSummaryBadge } from '@/components/cost-breakdown-dialog';
 
@@ -28,13 +28,14 @@ interface TaskCardProps {
 export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: TaskCardProps) {
   const { selectTask, selectedTaskId, projects, statuses, currentUserId, users } = useAppStore();
   const tags = useAppStore((s) => s.tags);
+  const isGuest = useIsGuest();
   const [isHovered, setIsHovered] = useState(false);
 
   const { color: statusColor } = getColumnLabelAndColor(statuses, task.status);
 
   const sortableResult = useSortable({
     id: task.id,
-    disabled: isSubtask,
+    disabled: isSubtask || isGuest,
     data: {
       type: 'task',
       task,
