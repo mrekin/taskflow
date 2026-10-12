@@ -16,44 +16,52 @@ export interface CreateCommentData {
   parentId?: string | null;
 }
 
-export const CommentService = {
-  async listComments(userId: string | null, taskId: string): Promise<ServiceResult<Record<string, unknown>[]>> {
-    if (!userId && !isPublicReadonly()) return { ok: true, data: [] };
+/**
+ * Shared read gate for task comments: resolves the task's effective visibility
+ * (including the project/area parent chain) and checks it against the viewer.
+ */
+export async function canReadTaskComments(userId: string | null, taskId: string): Promise<boolean> {
+  if (!userId && !isPublicReadonly()) return false;
 
-    const task = await db.task.findFirst({
-      where: { id: taskId },
-      select: { id: true, ownerId: true, visibility: true, visibleUserIds: true, projectId: true },
+  const task = await db.task.findFirst({
+    where: { id: taskId },
+    select: { id: true, ownerId: true, visibility: true, visibleUserIds: true, projectId: true },
+  });
+
+  if (!task) {
+    return false;
+  }
+
+  const parentChain: Array<{ visibility: string | null; ownerId: string }> = [];
+
+  if (task.projectId) {
+    const project = await db.project.findFirst({
+      where: { id: task.projectId },
+      select: { visibility: true, ownerId: true, areaId: true },
     });
-
-    if (!task) {
-      return { ok: true, data: [] };
-    }
-
-    const parentChain: Array<{ visibility: string | null; ownerId: string }> = [];
-
-    if (task.projectId) {
-      const project = await db.project.findFirst({
-        where: { id: task.projectId },
-        select: { visibility: true, ownerId: true, areaId: true },
-      });
-      if (project) {
-        parentChain.push({ visibility: project.visibility, ownerId: project.ownerId });
-        if (project.areaId) {
-          const area = await db.area.findFirst({
-            where: { id: project.areaId },
-            select: { visibility: true, ownerId: true },
-          });
-          if (area) {
-            parentChain.push({ visibility: area.visibility, ownerId: area.ownerId });
-          }
+    if (project) {
+      parentChain.push({ visibility: project.visibility, ownerId: project.ownerId });
+      if (project.areaId) {
+        const area = await db.area.findFirst({
+          where: { id: project.areaId },
+          select: { visibility: true, ownerId: true },
+        });
+        if (area) {
+          parentChain.push({ visibility: area.visibility, ownerId: area.ownerId });
         }
       }
     }
+  }
 
-    const effectiveVisibility = resolveEffectiveVisibility(task.visibility, parentChain);
-    const taskVisibleUserIds = parseVisibleUserIds(task.visibleUserIds);
+  const effectiveVisibility = resolveEffectiveVisibility(task.visibility, parentChain);
+  const taskVisibleUserIds = parseVisibleUserIds(task.visibleUserIds);
 
-    if (!canReadEntity(userId, task.ownerId, effectiveVisibility, taskVisibleUserIds, !!userId)) {
+  return canReadEntity(userId, task.ownerId, effectiveVisibility, taskVisibleUserIds, !!userId);
+}
+
+export const CommentService = {
+  async listComments(userId: string | null, taskId: string): Promise<ServiceResult<Record<string, unknown>[]>> {
+    if (!(await canReadTaskComments(userId, taskId))) {
       return { ok: true, data: [] };
     }
 

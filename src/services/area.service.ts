@@ -34,12 +34,15 @@ export interface UpdateAreaData {
 }
 
 export const AreaService = {
-  async listAreas(userId: string | null) {
+  async listAreas(userId: string | null, opts?: { updatedSince?: Date }) {
     const isAuthenticated = !!userId;
     if (!isAuthenticated && !isPublicReadonly()) return [];
 
     const areas = await db.area.findMany({
-      where: buildVisibilityWhereClause(userId, isAuthenticated),
+      where: {
+        ...buildVisibilityWhereClause(userId, isAuthenticated),
+        ...(opts?.updatedSince ? { updatedAt: { gt: opts.updatedSince } } : {}),
+      },
       orderBy: { sortOrder: "asc" },
       include: {
         _count: { select: { projects: true } },

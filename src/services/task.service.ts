@@ -25,6 +25,7 @@ export interface ListTasksFilters {
   tagIds?: string[];
   dueFrom?: Date;
   dueTo?: Date;
+  updatedSince?: Date;
   limit?: number;
   offset?: number;
 }
@@ -96,6 +97,7 @@ function buildTaskListWhere(
           },
         }
       : {}),
+    ...(filters.updatedSince ? { updatedAt: { gt: filters.updatedSince } } : {}),
   };
   // API-token scope restriction (extra AND term so it never clashes with filters.projectId)
   const scopeClauses = restrictProjectIds

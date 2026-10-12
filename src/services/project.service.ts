@@ -40,13 +40,14 @@ export interface UpdateProjectData {
 }
 
 export const ProjectService = {
-  async listProjects(userId: string | null, areaId?: string) {
+  async listProjects(userId: string | null, areaId?: string, opts?: { updatedSince?: Date }) {
     const isAuthenticated = !!userId;
 
     const projects = await db.project.findMany({
       where: {
         ...buildVisibilityWhereClause(userId, isAuthenticated),
         ...(areaId ? { areaId } : {}),
+        ...(opts?.updatedSince ? { updatedAt: { gt: opts.updatedSince } } : {}),
       },
       orderBy: { sortOrder: "asc" },
       include: {

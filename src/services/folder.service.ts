@@ -14,6 +14,7 @@ import type { ServiceResult } from "./types";
 export interface ListFoldersFilters {
   projectId?: string;
   parentId?: string;
+  updatedSince?: Date;
   limit?: number;
   offset?: number;
 }
@@ -41,6 +42,7 @@ export const FolderService = {
       ...buildVisibilityWhereClause(userId, !!userId),
       ...(filters.projectId ? { projectId: filters.projectId } : {}),
       ...(filters.parentId !== undefined ? { parentId: filters.parentId || null } : {}),
+      ...(filters.updatedSince ? { updatedAt: { gt: filters.updatedSince } } : {}),
       ...(opts?.restrictProjectIds ? { AND: [{ projectId: { in: opts.restrictProjectIds } }] } : {}),
     };
     const paginated = filters.limit !== undefined || filters.offset !== undefined;

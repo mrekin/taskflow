@@ -6,6 +6,7 @@ import { AuthProvider } from "@/components/auth-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { UiScaleApplier } from "@/components/ui-scale-applier";
 import { DemoBanner } from "@/components/demo-banner";
+import { SyncConflictBanner } from "@/components/sync-conflict-banner";
 
 const geistSans = localFont({
   src: "./fonts/Geist-Variable.woff2",
@@ -54,6 +55,7 @@ export default function RootLayout({
         <ThemeProvider>
           <UiScaleApplier />
           <DemoBanner />
+          <SyncConflictBanner />
           <AuthProvider>
             {children}
           </AuthProvider>

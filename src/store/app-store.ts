@@ -30,6 +30,149 @@ function recomputeSubtaskAggregates(task: Task) {
 
 type ViewType = 'areas' | 'projects' | 'tasks' | 'kanban' | 'notes' | 'note-editor' | 'settings' | 'quick-create';
 
+// ─── External-change sync (auto-refresh) ───
+
+export interface SyncConflict {
+  /** Entity id (conflicts are keyed by entityType + id). */
+  id: string;
+  entityType: 'task' | 'note' | 'folder' | 'project' | 'area' | 'tag';
+  kind: 'updated' | 'deleted';
+  /** Display name for the conflict banner. */
+  title: string;
+  /** Fresh server row (absent for deletions). */
+  serverEntity: unknown;
+  serverUpdatedAt: string;
+}
+
+/** Shape of GET /api/sync/changes (see src/services/sync.service.ts). */
+interface SyncChangesPayload {
+  serverTime: string;
+  truncated: boolean;
+  changed: {
+    areas: unknown[];
+    projects: unknown[];
+    tasks: unknown[];
+    notes: unknown[];
+    folders: unknown[];
+    tags: unknown[];
+    users: Array<{ id: string; name: string | null; image: string | null }>;
+  };
+  allIds: {
+    areas: string[];
+    projects: string[];
+    tasks: string[];
+    notes: string[];
+    folders: string[];
+    tags: string[];
+  };
+  openTask?: { commentsChanged: boolean };
+}
+
+/** Kanban sidebar counts over top-level tasks. Shared by fetchTasks and syncChanges. */
+function computeTaskCounts(tasks: Task[]): { totalTaskCount: number; totalTaskStatusCounts: Record<string, number> } {
+  const topLevel = tasks.filter((t) => !t.parentId);
+  return {
+    totalTaskCount: topLevel.length,
+    totalTaskStatusCounts: {
+      todo: topLevel.filter((t) => t.status === 'todo').length,
+      in_progress: topLevel.filter((t) => t.status === 'in_progress').length,
+      done: topLevel.filter((t) => t.status === 'done').length,
+      cancelled: topLevel.filter((t) => t.status === 'cancelled').length,
+    },
+  };
+}
+
+/** Collect a folder and all its descendants (shared by deleteFolder and conflict resolution). */
+function collectFolderIds(folderId: string, folders: NoteFolder[]): string[] {
+  const children = folders.filter((f) => f.parentId === folderId);
+  return [folderId, ...children.flatMap((c) => collectFolderIds(c.id, folders))];
+}
+
+interface SyncMergeParams<T extends { id: string; updatedAt: string }> {
+  entityType: SyncConflict['entityType'];
+  current: T[];
+  changed: T[];
+  /** Ids the client should currently hold (view-scoped) — deletions diff against these. */
+  allIds: string[];
+  allowAdditions: boolean;
+  isProtected: (id: string) => boolean;
+  dismissed: Record<string, string>;
+  conflicts: SyncConflict[];
+}
+
+interface SyncMergeResult<T> {
+  rows: T[];
+  /** The store array changed (applied updates, additions or deletions). */
+  touched: boolean;
+  applied: Map<string, T>;
+  deletedIds: Set<string>;
+  /** Watched ids (open dialog / open note) silently merged — drives refresh ticks. */
+  mergedWatched: string[];
+}
+
+/**
+ * Merge a sync delta into one store array: replace changed rows by id, drop rows
+ * missing from allIds, queue a conflict instead of touching protected rows.
+ * Skips rows the store already holds at a fresher-or-equal updatedAt (the UI's own
+ * mutation response can beat the poll), and revisions the user already dismissed.
+ */
+function mergeSyncedEntities<T extends { id: string; updatedAt: string }>(
+  p: SyncMergeParams<T>,
+  watchIds: string[] = [],
+): SyncMergeResult<T> {
+  const alive = new Set(p.allIds);
+  const known = new Set(p.current.map((r) => r.id));
+  const applyIds = new Set<string>();
+  const deletedIds = new Set<string>();
+  const mergedWatched: string[] = [];
+
+  const queueConflict = (id: string, kind: SyncConflict['kind'], serverEntity: unknown, serverUpdatedAt: string) => {
+    const curRow = p.current.find((r) => r.id === id);
+    const named = curRow as unknown as { title?: string; name?: string } | undefined;
+    const title = named?.title || named?.name || id;
+    const idx = p.conflicts.findIndex((c) => c.entityType === p.entityType && c.id === id);
+    if (idx >= 0) {
+      if (p.conflicts[idx].serverUpdatedAt !== serverUpdatedAt) {
+        p.conflicts[idx] = { ...p.conflicts[idx], kind, serverEntity, serverUpdatedAt };
+      }
+      return;
+    }
+    p.conflicts.push({ id, entityType: p.entityType, kind, title, serverEntity, serverUpdatedAt });
+  };
+
+  for (const r of p.changed) {
+    if (p.dismissed[r.id] === r.updatedAt) continue;
+    const curRow = p.current.find((x) => x.id === r.id);
+    if (curRow && new Date(curRow.updatedAt).getTime() >= new Date(r.updatedAt).getTime()) continue;
+    if (p.isProtected(r.id)) {
+      queueConflict(r.id, 'updated', r, r.updatedAt);
+      continue;
+    }
+    if (!curRow && !p.allowAdditions) continue; // scoped view: the correction refetch picks it up
+    applyIds.add(r.id);
+    if (watchIds.includes(r.id)) mergedWatched.push(r.id);
+  }
+  for (const r of p.current) {
+    if (alive.has(r.id)) continue;
+    if (p.isProtected(r.id)) {
+      queueConflict(r.id, 'deleted', undefined, r.updatedAt);
+      continue;
+    }
+    if (p.dismissed[r.id]) continue; // user chose to keep the local copy
+    deletedIds.add(r.id);
+  }
+
+  const touched = applyIds.size > 0 || deletedIds.size > 0;
+  const applied = new Map(p.changed.filter((r) => applyIds.has(r.id)).map((r) => [r.id, r as T]));
+  const rows = p.current
+    .map((r) => applied.get(r.id) ?? r)
+    .filter((r) => !deletedIds.has(r.id));
+  const additions = p.changed.filter((r) => !known.has(r.id) && applyIds.has(r.id));
+  if (p.allowAdditions && additions.length) rows.push(...(additions as T[]));
+
+  return { rows, touched, applied, deletedIds, mergedWatched };
+}
+
 interface AppState {
   // Navigation
   currentView: ViewType;
@@ -79,6 +222,30 @@ interface AppState {
   // Kanban Columns
   statuses: StatusConfig[];
   serverStatuses: StatusConfig[] | null;
+
+  // External-change sync
+  /** Watermark from the last sync's serverTime; null → next poll backdates 60 s. */
+  lastSyncedAt: string | null;
+  /** Set on 401/403 (demo reset mid-flight, revoked session); clears on the next successful sync. */
+  syncPaused: boolean;
+  /** Current list views, maintained by fetch* — sent to /api/sync/changes for scoped deletion diffs. */
+  tasksScope: { projectId?: string; search?: string } | null;
+  notesScope: { projectId?: string } | null;
+  foldersScope: { projectId?: string } | null;
+  projectsScope: { areaId?: string } | null;
+  pendingConflicts: SyncConflict[];
+  /** entityId → updatedAt of the revision the user chose to keep editing. */
+  dismissedConflicts: Record<string, string>;
+  /** Registered by task-detail-dialog: a task edit dialog is open with unsaved changes. */
+  taskDialogDirty: boolean;
+  /** Registered by note-editor: which note is open and whether it has unsaved changes. */
+  noteEditor: { noteId: string | null; dirty: boolean };
+  /** Set by kanban-board while a card is being dragged. */
+  draggedTaskId: string | null;
+  /** Bump to remount NoteEditor with fresh server data (external apply on an open note). */
+  noteEditorReloadTick: number;
+  /** Bump to re-sync the open (clean) task dialog's fields after a silent external merge. */
+  taskDialogRefreshTick: number;
 
   // Actions - Navigation
   setCurrentView: (view: ViewType) => void;
@@ -192,6 +359,14 @@ interface AppState {
   fetchAttachments: (entityId: string, entityType: string) => Promise<void>;
   uploadAttachment: (file: File, entityId: string, entityType: string, hash: string) => Promise<Attachment | undefined>;
   deleteAttachment: (id: string) => Promise<void>;
+
+  // Actions - External-change sync
+  syncChanges: () => Promise<void>;
+  forceFullRefetch: () => Promise<void>;
+  resolveConflict: (entityId: string, entityType: SyncConflict['entityType'], choice: 'apply' | 'keep') => void;
+  setNoteEditorState: (noteId: string | null, dirty: boolean) => void;
+  setTaskDialogDirty: (dirty: boolean) => void;
+  setDraggedTask: (id: string | null) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -242,6 +417,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Kanban Columns initial state
   statuses: DEFAULT_STATUSES,
   serverStatuses: null,
+
+  // External-change sync initial state
+  lastSyncedAt: null,
+  syncPaused: false,
+  tasksScope: null,
+  notesScope: null,
+  foldersScope: null,
+  projectsScope: null,
+  pendingConflicts: [],
+  dismissedConflicts: {},
+  taskDialogDirty: false,
+  noteEditor: { noteId: null, dirty: false },
+  draggedTaskId: null,
+  noteEditorReloadTick: 0,
+  taskDialogRefreshTick: 0,
 
   // Navigation actions
   setCurrentView: (view) => set({ currentView: view }),
@@ -315,7 +505,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch projects');
       const projects: Project[] = await res.json();
-      set({ projects });
+      set({ projects, projectsScope: { areaId } });
     } catch (error) {
       console.error('Failed to fetch projects:', error);
     } finally {
@@ -334,16 +524,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch tasks');
       const tasks: Task[] = await res.json();
-      const updates: Partial<AppState> = { tasks };
+      const updates: Partial<AppState> = {
+        tasks,
+        tasksScope: { projectId, search: actualSearch || undefined },
+      };
       if (!actualSearch) {
-        const topLevel = tasks.filter((t) => !t.parentId);
-        updates.totalTaskCount = topLevel.length;
-        updates.totalTaskStatusCounts = {
-          todo: topLevel.filter((t) => t.status === 'todo').length,
-          in_progress: topLevel.filter((t) => t.status === 'in_progress').length,
-          done: topLevel.filter((t) => t.status === 'done').length,
-          cancelled: topLevel.filter((t) => t.status === 'cancelled').length,
-        };
+        Object.assign(updates, computeTaskCounts(tasks));
       }
       set(updates);
     } catch (error) {
@@ -360,7 +546,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch notes');
       const notes: Note[] = await res.json();
-      set({ notes });
+      set({ notes, notesScope: { projectId } });
     } catch (error) {
       console.error('Failed to fetch notes:', error);
     } finally {
@@ -711,7 +897,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch folders');
       const folders: NoteFolder[] = await res.json();
-      set({ folders });
+      set({ folders, foldersScope: { projectId } });
     } catch (error) {
       console.error('Failed to fetch folders:', error);
     } finally {
@@ -766,12 +952,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         const err = await res.json().catch(() => ({ error: 'Failed to delete folder' }));
         throw new Error(err.error || 'Failed to delete folder');
       }
-      const collectIds = (folderId: string, folders: NoteFolder[]): string[] => {
-        const children = folders.filter((f) => f.parentId === folderId);
-        return [folderId, ...children.flatMap((c) => collectIds(c.id, folders))];
-      };
       set((state) => {
-        const removedIds = new Set(collectIds(id, state.folders));
+        const removedIds = new Set(collectFolderIds(id, state.folders));
         return {
           folders: state.folders.filter((f) => !removedIds.has(f.id)),
           notes: state.notes.filter((n) => !removedIds.has(n.folderId ?? '')),
@@ -1287,6 +1469,321 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ userPreferences: current });
     }
   },
+
+  // ─── External-change sync ───
+
+  forceFullRefetch: async () => {
+    const s = get();
+    set({ lastSyncedAt: null });
+    await Promise.all([
+      s.fetchAreas(),
+      s.fetchProjects(s.projectsScope?.areaId),
+      s.fetchTasks(s.tasksScope?.projectId, s.tasksScope?.search),
+      s.fetchNotes(s.notesScope?.projectId),
+      s.fetchFolders(s.foldersScope?.projectId),
+      s.fetchTags(),
+    ]);
+  },
+
+  syncChanges: async () => {
+    const s0 = get();
+    const since = s0.lastSyncedAt ?? new Date(Date.now() - 60_000).toISOString();
+    const params = new URLSearchParams({ since });
+    if (s0.selectedTaskId) params.set('commentTaskId', s0.selectedTaskId);
+    if (s0.tasksScope?.projectId) params.set('taskProjectId', s0.tasksScope.projectId);
+    if (s0.tasksScope?.search) params.set('taskSearch', s0.tasksScope.search);
+    if (s0.notesScope?.projectId) params.set('noteProjectId', s0.notesScope.projectId);
+    if (s0.foldersScope?.projectId) params.set('folderProjectId', s0.foldersScope.projectId);
+    if (s0.projectsScope?.areaId) params.set('projectAreaId', s0.projectsScope.areaId);
+
+    const res = await fetch(api(`/api/sync/changes?${params.toString()}`));
+    if (res.status === 401 || res.status === 403) {
+      set({ syncPaused: true });
+      return;
+    }
+    if (res.status === 400) {
+      // stale-since: the watermark is unusable — rebuild everything from full fetches
+      await get().forceFullRefetch();
+      return;
+    }
+    if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
+    const payload: SyncChangesPayload = await res.json();
+    set({ lastSyncedAt: payload.serverTime, syncPaused: false });
+
+    if (payload.truncated) {
+      // Too many changes to merge safely — a full refetch re-establishes the watermark too
+      await get().forceFullRefetch();
+      return;
+    }
+
+    const cur = get();
+    const dismissed = { ...cur.dismissedConflicts };
+    const conflicts: SyncConflict[] = cur.pendingConflicts.map((c) => ({ ...c }));
+
+    const openTaskId = cur.selectedTaskId;
+    const openTaskRow = openTaskId ? cur.tasks.find((t) => t.id === openTaskId) : undefined;
+    const isTaskProtected = (id: string): boolean => {
+      if (id === cur.draggedTaskId) return true;
+      if (!openTaskId || !cur.taskDialogDirty) return false;
+      if (id === openTaskId) return true;
+      return !!openTaskRow?.subtasks?.some((st) => st.id === id);
+    };
+    const isNoteProtected = (id: string): boolean => cur.noteEditor.noteId === id && cur.noteEditor.dirty;
+
+    // Comments of the open task always refresh silently (never a conflict)
+    const openTaskChangedExternally = (payload.changed.tasks as Array<{ id: string }>).some((t) => t.id === openTaskId);
+    if (openTaskId && (payload.openTask?.commentsChanged || openTaskChangedExternally)) {
+      get().fetchComments(openTaskId);
+    }
+
+    if (payload.changed.users.length) {
+      const incoming = payload.changed.users;
+      set((s) => ({
+        users: [
+          ...s.users.map((u) => incoming.find((x) => x.id === u.id) ?? u),
+          ...incoming.filter((x) => !s.users.some((u) => u.id === x.id)),
+        ],
+      }));
+    }
+
+    const unscopedTasks = !cur.tasksScope?.projectId && !cur.tasksScope?.search;
+
+    const areaMerge = mergeSyncedEntities({
+      entityType: 'area',
+      current: cur.areas,
+      changed: payload.changed.areas as unknown as Array<{ id: string; updatedAt: string }>,
+      allIds: payload.allIds.areas,
+      allowAdditions: true,
+      isProtected: () => false,
+      dismissed,
+      conflicts,
+    });
+    const projectMerge = mergeSyncedEntities({
+      entityType: 'project',
+      current: cur.projects,
+      changed: payload.changed.projects as unknown as Array<{ id: string; updatedAt: string }>,
+      allIds: payload.allIds.projects,
+      allowAdditions: true,
+      isProtected: () => false,
+      dismissed,
+      conflicts,
+    });
+    const tagMerge = mergeSyncedEntities({
+      entityType: 'tag',
+      current: cur.tags,
+      changed: payload.changed.tags as unknown as Array<{ id: string; updatedAt: string }>,
+      allIds: payload.allIds.tags,
+      allowAdditions: true,
+      isProtected: () => false,
+      dismissed,
+      conflicts,
+    });
+    const folderMerge = mergeSyncedEntities({
+      entityType: 'folder',
+      current: cur.folders,
+      changed: payload.changed.folders as unknown as Array<{ id: string; updatedAt: string }>,
+      allIds: payload.allIds.folders,
+      allowAdditions: true,
+      isProtected: () => false,
+      dismissed,
+      conflicts,
+    });
+    const noteMerge = mergeSyncedEntities(
+      {
+        entityType: 'note',
+        current: cur.notes,
+        changed: payload.changed.notes as unknown as Array<{ id: string; updatedAt: string }>,
+        allIds: payload.allIds.notes,
+        allowAdditions: true,
+        isProtected: isNoteProtected,
+        dismissed,
+        conflicts,
+      },
+      cur.selectedNoteId ? [cur.selectedNoteId] : [],
+    );
+    const taskMerge = mergeSyncedEntities(
+      {
+        entityType: 'task',
+        current: cur.tasks,
+        changed: payload.changed.tasks as unknown as Task[],
+        allIds: payload.allIds.tasks,
+        allowAdditions: unscopedTasks,
+        isProtected: isTaskProtected,
+        dismissed,
+        conflicts,
+      },
+      openTaskId ? [openTaskId] : [],
+    );
+
+    // Mirror applied/deleted subtask rows into their parents' denormalized
+    // `subtasks` arrays, same shape as updateTask/deleteTask.
+    let tasks = taskMerge.rows;
+    if (taskMerge.touched) {
+      tasks = tasks.map((row) => {
+        if (!row.subtasks?.length) return row;
+        const changed = row.subtasks.some(
+          (st) => taskMerge.applied.has(st.id) || taskMerge.deletedIds.has(st.id),
+        );
+        if (!changed) return row;
+        const subtasks = row.subtasks
+          .map((st) => taskMerge.applied.get(st.id) ?? st)
+          .filter((st) => !taskMerge.deletedIds.has(st.id));
+        return { ...row, subtasks, ...recomputeSubtaskAggregates({ ...row, subtasks }) };
+      });
+    }
+
+    const patches: Partial<AppState> = {
+      areas: areaMerge.rows as Area[],
+      projects: projectMerge.rows as Project[],
+      tags: tagMerge.rows as Tag[],
+      folders: folderMerge.rows as NoteFolder[],
+      notes: noteMerge.rows as Note[],
+      tasks,
+      pendingConflicts: conflicts,
+      dismissedConflicts: dismissed,
+    };
+    if (taskMerge.touched && !cur.taskSearchQuery) {
+      Object.assign(patches, computeTaskCounts(tasks));
+    }
+    if (taskMerge.mergedWatched.length) patches.taskDialogRefreshTick = cur.taskDialogRefreshTick + 1;
+    if (noteMerge.mergedWatched.length) patches.noteEditorReloadTick = cur.noteEditorReloadTick + 1;
+    if (noteMerge.deletedIds.has(cur.selectedNoteId ?? '')) patches.selectedNoteId = null;
+    if (folderMerge.deletedIds.has(cur.selectedFolderId ?? '')) patches.selectedFolderId = null;
+    if (projectMerge.deletedIds.has(cur.selectedProjectId ?? '')) patches.selectedProjectId = null;
+    if (areaMerge.deletedIds.has(cur.selectedAreaId ?? '')) patches.selectedAreaId = null;
+    set(patches);
+
+    // Scoped views: search/project filters are server-side, so restore the exact
+    // view with one refetch — but only when the merge actually touched rows.
+    const s2 = get();
+    if (taskMerge.touched && (s2.tasksScope?.projectId || s2.tasksScope?.search)) {
+      get().fetchTasks(s2.tasksScope?.projectId, s2.tasksScope?.search);
+    }
+    if (noteMerge.touched && s2.notesScope?.projectId) {
+      get().fetchNotes(s2.notesScope.projectId);
+    }
+    if (folderMerge.touched && s2.foldersScope?.projectId) {
+      get().fetchFolders(s2.foldersScope.projectId);
+    }
+    if ((projectMerge.touched || areaMerge.touched) && s2.projectsScope?.areaId) {
+      get().fetchProjects(s2.projectsScope.areaId);
+    }
+  },
+
+  resolveConflict: (entityId, entityType, choice) => {
+    const conflict = get().pendingConflicts.find((c) => c.entityType === entityType && c.id === entityId);
+    if (!conflict) return;
+
+    // Drop stale update-conflicts: the store row is already at least as fresh as
+    // the conflicted revision (e.g. our own drag mutation's response beat the poll).
+    // Deletion conflicts keep the equality case — serverUpdatedAt IS the row's revision.
+    if (conflict.kind === 'updated') {
+      const pool: Array<{ id: string; updatedAt: string }> =
+        entityType === 'task' ? get().tasks
+        : entityType === 'note' ? get().notes
+        : entityType === 'folder' ? get().folders
+        : entityType === 'project' ? get().projects
+        : entityType === 'area' ? get().areas
+        : get().tags;
+      const curRow = pool.find((r) => r.id === entityId);
+      if (curRow && new Date(curRow.updatedAt).getTime() >= new Date(conflict.serverUpdatedAt).getTime()) {
+        set((s) => ({
+          pendingConflicts: s.pendingConflicts.filter((c) => !(c.entityType === entityType && c.id === entityId)),
+        }));
+        return;
+      }
+    }
+
+    if (choice === 'keep') {
+      set((s) => ({
+        pendingConflicts: s.pendingConflicts.filter((c) => !(c.entityType === entityType && c.id === entityId)),
+        dismissedConflicts: { ...s.dismissedConflicts, [entityId]: conflict.serverUpdatedAt },
+      }));
+      return;
+    }
+
+    set((s) => {
+      const dismissedConflicts = { ...s.dismissedConflicts };
+      delete dismissedConflicts[entityId];
+      const next: Partial<AppState> = {
+        pendingConflicts: s.pendingConflicts.filter((c) => !(c.entityType === entityType && c.id === entityId)),
+        dismissedConflicts,
+      };
+
+      if (conflict.kind === 'deleted') {
+        if (entityType === 'task') {
+          const remainingTasks = s.tasks
+            .filter((t) => t.id !== entityId)
+            .map((t) => {
+              if (!t.subtasks?.some((st) => st.id === entityId)) return t;
+              const subtasks = t.subtasks.filter((st) => st.id !== entityId);
+              return { ...t, subtasks, ...recomputeSubtaskAggregates({ ...t, subtasks }) };
+            });
+          next.tasks = remainingTasks;
+          if (!s.taskSearchQuery) Object.assign(next, computeTaskCounts(remainingTasks));
+          next.selectedTaskId = s.selectedTaskId === entityId ? null : s.selectedTaskId;
+          next.taskDialogDirty = false;
+        } else if (entityType === 'note') {
+          next.notes = s.notes.filter((n) => n.id !== entityId);
+          next.selectedNoteId = s.selectedNoteId === entityId ? null : s.selectedNoteId;
+        } else if (entityType === 'folder') {
+          const removedIds = new Set(collectFolderIds(entityId, s.folders));
+          next.folders = s.folders.filter((f) => !removedIds.has(f.id));
+          next.notes = s.notes.filter((n) => !removedIds.has(n.folderId ?? ''));
+          next.selectedFolderId = s.selectedFolderId && removedIds.has(s.selectedFolderId) ? null : s.selectedFolderId;
+        } else if (entityType === 'project') {
+          next.projects = s.projects.filter((p) => p.id !== entityId);
+        } else if (entityType === 'area') {
+          next.areas = s.areas.filter((a) => a.id !== entityId);
+        } else if (entityType === 'tag') {
+          next.tags = s.tags.filter((t) => t.id !== entityId);
+        }
+        return next;
+      }
+
+      const serverEntity = conflict.serverEntity;
+      if (entityType === 'task' && serverEntity) {
+        const t = serverEntity as Task;
+        const mergedTasks = s.tasks.map((row) => {
+          if (row.id === t.id) {
+            return { ...t, subtasks: t.subtasks ?? row.subtasks, completedSubtasks: t.completedSubtasks ?? row.completedSubtasks };
+          }
+          if (t.parentId && row.id === t.parentId && row.subtasks?.some((st) => st.id === t.id)) {
+            const subtasks = row.subtasks.map((st) => (st.id === t.id ? { ...st, ...t } : st));
+            return { ...row, subtasks, ...recomputeSubtaskAggregates({ ...row, subtasks }) };
+          }
+          return row;
+        });
+        next.tasks = mergedTasks;
+        if (!s.taskSearchQuery) Object.assign(next, computeTaskCounts(mergedTasks));
+        if (s.selectedTaskId === t.id) {
+          next.taskDialogRefreshTick = s.taskDialogRefreshTick + 1;
+          next.taskDialogDirty = false;
+        }
+      } else if (entityType === 'note' && serverEntity) {
+        const n = serverEntity as Note;
+        next.notes = s.notes.map((row) => (row.id === n.id ? n : row));
+        if (s.selectedNoteId === n.id) next.noteEditorReloadTick = s.noteEditorReloadTick + 1;
+      } else if (entityType === 'folder' && serverEntity) {
+        const f = serverEntity as NoteFolder;
+        next.folders = s.folders.map((row) => (row.id === f.id ? f : row));
+      } else if (entityType === 'project' && serverEntity) {
+        const p = serverEntity as Project;
+        next.projects = s.projects.map((row) => (row.id === p.id ? p : row));
+      } else if (entityType === 'area' && serverEntity) {
+        const a = serverEntity as Area;
+        next.areas = s.areas.map((row) => (row.id === a.id ? a : row));
+      } else if (entityType === 'tag' && serverEntity) {
+        const tg = serverEntity as Tag;
+        next.tags = s.tags.map((row) => (row.id === tg.id ? tg : row));
+      }
+      return next;
+    });
+  },
+
+  setNoteEditorState: (noteId, dirty) => set({ noteEditor: { noteId, dirty } }),
+  setTaskDialogDirty: (dirty) => set({ taskDialogDirty: dirty }),
+  setDraggedTask: (id) => set({ draggedTaskId: id }),
 }));
 
 /** True in PUBLIC_READONLY mode when the current visitor has no session (guest). */

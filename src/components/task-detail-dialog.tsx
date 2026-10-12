@@ -164,6 +164,36 @@ export function TaskDetailDialog() {
     localCurrency !== (task.currency || 'USD')
   );
 
+  // Register dirty state with the sync engine: a dirty open dialog is protected
+  // from silent external merges (they go through the conflict banner instead).
+  const setTaskDialogDirty = useAppStore((s) => s.setTaskDialogDirty);
+  useEffect(() => {
+    setTaskDialogDirty(isDirty);
+    return () => setTaskDialogDirty(false);
+  }, [isDirty, setTaskDialogDirty]);
+
+  // Refresh tick from the sync engine: re-syncs the edit fields when the open
+  // task was replaced in the store — silent merge of a clean dialog, or the
+  // user pressing «Обновить» on a conflict (which deliberately discards local
+  // edits). Keystrokes never re-run this effect (isDirty is not a dependency).
+  const taskDialogRefreshTick = useAppStore((s) => s.taskDialogRefreshTick);
+  useEffect(() => {
+    if (!task || !taskDialogRefreshTick) return;
+    setTitle(task.title);
+    setDescription(task.description || '');
+    setStatus(task.status);
+    setPriority(task.priority);
+    setDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
+    setDueTime(task.dueDate ? format(parseISO(task.dueDate), 'HH:mm') : '09:00');
+    setProjectId(task.projectId ?? null);
+    setLocalTagIds(task.tagIds || []);
+    setLocalAssigneeId(task.assigneeId ?? null);
+    setLocalPrices(task.prices || []);
+    setLocalCurrency(task.currency || parentCurrency || userPreferences.defaultCurrency);
+    // task?.updatedAt (not the object): subtask edits replace the parent row too,
+    // and must not clobber in-progress main-form edits
+  }, [taskDialogRefreshTick, task?.updatedAt, parentCurrency, userPreferences.defaultCurrency]);
+
   const resetEditState = useCallback(() => {
     if (!task) return;
     setIsEditing(false);

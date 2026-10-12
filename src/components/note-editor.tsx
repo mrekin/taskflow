@@ -154,6 +154,15 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
     );
   }, [title, content, projectId, tagIds, visibility, visibleUserIds, lastSavedTitle, lastSavedContent, lastSavedProjectId, lastSavedTagIds, lastSavedVisibility, lastSavedVisibleUserIds]);
 
+  // Register dirty state with the sync engine: a note with unsaved changes is
+  // protected from silent external merges (they go through the conflict banner).
+  const setNoteEditorState = useAppStore((s) => s.setNoteEditorState);
+  useEffect(() => {
+    if (!note) return;
+    setNoteEditorState(note.id, hasUnsavedChanges);
+    return () => setNoteEditorState(null, false);
+  }, [note, hasUnsavedChanges, setNoteEditorState]);
+
   // Save function (shared between auto-save and manual save)
   const performSave = useCallback(async () => {
     if (!note || isGuest) return;

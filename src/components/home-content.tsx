@@ -62,6 +62,7 @@ import {
 } from '@/lib/constants';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useSyncPoll } from '@/hooks/use-sync-poll';
 import { MobileBottomNav } from '@/components/mobile-bottom-nav';
 import { EmptyState } from '@/components/empty-state';
 
@@ -298,6 +299,7 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
     setPublicReadonly,
     users,
     fetchUsers,
+    noteEditorReloadTick,
   } = useAppStore();
 
   const { data: session } = useSession();
@@ -393,6 +395,9 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
       fetchUsers(),
     ]).finally(() => setInitialLoadDone(true));
   }, [fetchAreas, fetchProjects, fetchTasks, fetchNotes, fetchFolders, fetchTags, fetchUserPreferences, fetchStatuses, fetchUsers]);
+
+  // External-change auto-refresh: incremental polling + refetch on tab focus
+  useSyncPoll(initialLoadDone);
 
   // Handle deep links from URL query params
   const searchParams = useSearchParams();
@@ -741,7 +746,7 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
         if (selectedNoteId) {
           return (
             <NoteEditor
-              key={selectedNoteId}
+              key={`${selectedNoteId}-${noteEditorReloadTick}`}
               noteId={selectedNoteId}
               initialMode="preview"
             />

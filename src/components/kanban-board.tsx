@@ -411,7 +411,7 @@ function MobileTaskCard({ task, visibleColumns, isSubtask = false }: { task: Tas
 }
 
 export function KanbanBoard() {
-  const { tasks, selectedProjectId, tagFilter, projectFilter, assigneeFilter, setAssigneeFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery, statuses, currentUserId, ownershipFilter, setOwnershipFilter, projects } = useAppStore();
+  const { tasks, selectedProjectId, tagFilter, projectFilter, assigneeFilter, setAssigneeFilter, updateTask, userPreferences, fetchTasks, taskSearchQuery, setTaskSearchQuery, statuses, currentUserId, ownershipFilter, setOwnershipFilter, projects, setDraggedTask } = useAppStore();
   const isMobile = useIsMobile();
   const isGuest = useIsGuest();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -580,6 +580,7 @@ export function KanbanBoard() {
     const { active } = event;
     const task = tasks.find((t) => t.id === active.id);
     if (task) {
+      setDraggedTask(task.id);
       setActiveTask(task);
       const taskStatus = task.status;
       if (allColumnIds.has(taskStatus)) {
@@ -619,12 +620,14 @@ export function KanbanBoard() {
 
     // Read-only guests never persist status changes
     if (isGuest) {
+      setDraggedTask(null);
       setActiveTask(null);
       setActiveColumnId(null);
       return;
     }
 
     if (!over) {
+      setDraggedTask(null);
       setActiveTask(null);
       setActiveColumnId(null);
       return;
@@ -636,6 +639,7 @@ export function KanbanBoard() {
     let targetStatus: string | null = null;
 
     if (overId === INVALID_STATE_COLUMN.id) {
+      setDraggedTask(null);
       setActiveTask(null);
       setActiveColumnId(null);
       return;
@@ -650,6 +654,7 @@ export function KanbanBoard() {
         if (allColumnIds.has(overStatus)) {
           targetStatus = overStatus;
         } else {
+          setDraggedTask(null);
           setActiveTask(null);
           setActiveColumnId(null);
           return;
@@ -667,11 +672,13 @@ export function KanbanBoard() {
       updateTask(activeTaskId, { status: targetStatus });
     }
 
+    setDraggedTask(null);
     setActiveTask(null);
     setActiveColumnId(null);
   };
 
   const handleDragCancel = () => {
+    setDraggedTask(null);
     setActiveTask(null);
     setActiveColumnId(null);
   };

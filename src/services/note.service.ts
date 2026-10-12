@@ -16,6 +16,7 @@ export interface ListNotesFilters {
   projectId?: string;
   folderId?: string;
   tagIds?: string[];
+  updatedSince?: Date;
   limit?: number;
   offset?: number;
 }
@@ -78,6 +79,7 @@ export const NoteService = {
       ...(filters.projectId ? { projectId: filters.projectId } : {}),
       ...(filters.folderId ? { folderId: filters.folderId } : {}),
       ...(filters.tagIds?.length ? jsonIdArrayContainsAny(filters.tagIds) : {}),
+      ...(filters.updatedSince ? { updatedAt: { gt: filters.updatedSince } } : {}),
       ...(opts?.restrictProjectIds ? { AND: [{ projectId: { in: opts.restrictProjectIds } }] } : {}),
     };
     const paginated = filters.limit !== undefined || filters.offset !== undefined;
