@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { buildVisibilityWhereClause } from "@/lib/visibility";
+import { buildVisibilityWhereClause, getIgnoredUserIds } from "@/lib/visibility";
 import { isPublicReadonly } from "@/lib/config";
 import type { ServiceResult } from "./types";
 
@@ -24,20 +24,23 @@ export const TagService = {
         })
       : [];
 
+    // One ignore-list lookup shared by all four visibility clauses below.
+    const ignoredUserIds = await getIgnoredUserIds(userId);
+
     const visibleProjects = await db.project.findMany({
-      where: buildVisibilityWhereClause(userId, isAuthenticated),
+      where: await buildVisibilityWhereClause(userId, isAuthenticated, ignoredUserIds),
       select: { tagIds: true },
     });
     const visibleAreas = await db.area.findMany({
-      where: buildVisibilityWhereClause(userId, isAuthenticated),
+      where: await buildVisibilityWhereClause(userId, isAuthenticated, ignoredUserIds),
       select: { tagIds: true },
     });
     const visibleTasks = await db.task.findMany({
-      where: buildVisibilityWhereClause(userId, isAuthenticated),
+      where: await buildVisibilityWhereClause(userId, isAuthenticated, ignoredUserIds),
       select: { tagIds: true },
     });
     const visibleNotes = await db.note.findMany({
-      where: buildVisibilityWhereClause(userId, isAuthenticated),
+      where: await buildVisibilityWhereClause(userId, isAuthenticated, ignoredUserIds),
       select: { tagIds: true },
     });
 
@@ -55,7 +58,10 @@ export const TagService = {
 
     const tags = tagIdSet.size > 0
       ? await db.tag.findMany({
-          where: { id: { in: [...tagIdSet] } },
+          where: {
+            id: { in: [...tagIdSet] },
+            ...(ignoredUserIds.length > 0 ? { ownerId: { notIn: ignoredUserIds } } : {}),
+          },
           orderBy: { name: "asc" },
         })
       : [];

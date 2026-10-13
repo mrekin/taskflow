@@ -318,7 +318,7 @@ export function requireTokenPermission(
  */
 export async function getTokenProjectScope(ctx: { userId: string; token: ValidatedApiToken }): Promise<Set<string>> {
   const visible = await db.project.findMany({
-    where: buildVisibilityWhereClause(ctx.userId, true),
+    where: await buildVisibilityWhereClause(ctx.userId, true),
     select: { id: true },
   });
   const visibleIds = new Set(visible.map((p) => p.id));

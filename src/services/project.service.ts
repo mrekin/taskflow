@@ -45,7 +45,7 @@ export const ProjectService = {
 
     const projects = await db.project.findMany({
       where: {
-        ...buildVisibilityWhereClause(userId, isAuthenticated),
+        ...(await buildVisibilityWhereClause(userId, isAuthenticated)),
         ...(areaId ? { areaId } : {}),
         ...(opts?.updatedSince ? { updatedAt: { gt: opts.updatedSince } } : {}),
       },
@@ -60,7 +60,7 @@ export const ProjectService = {
     const topLevelTaskCounts = projectIds.length > 0 ? await db.task.groupBy({
       by: ["projectId"],
       where: {
-        ...buildVisibilityWhereClause(userId, isAuthenticated),
+        ...(await buildVisibilityWhereClause(userId, isAuthenticated)),
         projectId: { in: projectIds },
         parentId: null,
       },

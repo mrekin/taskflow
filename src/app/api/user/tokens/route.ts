@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     // Any project visible to the user may be scoped (shared projects included);
     // the effective scope is still intersected with visibility on every request.
     const found = await db.project.findMany({
-      where: { id: { in: projectIds }, ...buildVisibilityWhereClause(userId, true) },
+      where: { id: { in: projectIds }, ...(await buildVisibilityWhereClause(userId, true)) },
       select: { id: true },
     });
     if (found.length !== projectIds.length) {

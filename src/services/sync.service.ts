@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { sanitizeUserProfile } from "@/lib/visibility";
+import { sanitizeUserProfile, getIgnoredUserIds } from "@/lib/visibility";
 import { AreaService } from "./area.service";
 import { ProjectService } from "./project.service";
 import { TaskService } from "./task.service";
@@ -130,8 +130,13 @@ export const SyncService = {
 
     let openTask: SyncPayload["openTask"];
     if (opts.commentTaskId && (await canReadTaskComments(userId, opts.commentTaskId))) {
+      const ignoredUserIds = await getIgnoredUserIds(userId);
       const count = await db.comment.count({
-        where: { taskId: opts.commentTaskId, updatedAt: { gt: since } },
+        where: {
+          taskId: opts.commentTaskId,
+          updatedAt: { gt: since },
+          ...(ignoredUserIds.length > 0 ? { ownerId: { notIn: ignoredUserIds } } : {}),
+        },
       });
       openTask = { commentsChanged: count > 0 };
     }

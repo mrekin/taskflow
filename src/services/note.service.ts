@@ -75,7 +75,7 @@ export const NoteService = {
     if (!userId && !isPublicReadonly()) return { items: [], total: 0 };
 
     const where = {
-      ...buildVisibilityWhereClause(userId, !!userId),
+      ...(await buildVisibilityWhereClause(userId, !!userId)),
       ...(filters.projectId ? { projectId: filters.projectId } : {}),
       ...(filters.folderId ? { folderId: filters.folderId } : {}),
       ...(filters.tagIds?.length ? jsonIdArrayContainsAny(filters.tagIds) : {}),

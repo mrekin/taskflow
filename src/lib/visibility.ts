@@ -1,4 +1,37 @@
+import { db } from '@/lib/db';
 import { DEFAULT_VISIBILITY, VISIBILITY_OWNER, VISIBILITY_USERS, VISIBILITY_SITE, VISIBILITY_WORLD, DEFAULT_PREFERENCES, type ProfileVisibility } from './constants';
+
+/** Hard cap on the per-user ignore list length (stored in User.metadata.ignoredUserIds). */
+export const MAX_IGNORED_USERS = 100;
+
+export function parseIgnoredUserIds(raw: unknown): string[] {
+  let value = raw;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    .slice(0, MAX_IGNORED_USERS);
+}
+
+/** Ids of users whose entities this user has chosen to ignore (stored in own metadata). */
+export async function getIgnoredUserIds(userId: string | null): Promise<string[]> {
+  if (!userId) return [];
+  const user = await db.user.findUnique({ where: { id: userId }, select: { metadata: true } });
+  if (!user) return [];
+  let metadata: Record<string, unknown>;
+  try {
+    metadata = JSON.parse(user.metadata || '{}');
+  } catch {
+    return [];
+  }
+  return parseIgnoredUserIds(metadata.ignoredUserIds);
+}
 
 export function resolveEffectiveVisibility(
   entityVisibility: string | null,
@@ -53,10 +86,21 @@ export function canDeleteComment(userId: string, commentOwnerId: string, taskOwn
 }
 
 interface VisibilityWhereResult {
-  OR: Array<Record<string, unknown>>;
+  AND?: Array<Record<string, unknown>>;
+  OR?: Array<Record<string, unknown>>;
 }
 
-export function buildVisibilityWhereClause(userId: string | null, isAuthenticated: boolean): VisibilityWhereResult {
+/**
+ * Visibility filter shared by all entity list queries. When the user has an
+ * ignore list, entities owned by ignored users are excluded — own entities
+ * are never affected (a user id never appears in its own ignore list).
+ * Pass a prefetched `ignoredUserIds` to avoid a metadata lookup per call.
+ */
+export async function buildVisibilityWhereClause(
+  userId: string | null,
+  isAuthenticated: boolean,
+  ignoredUserIds?: string[],
+): Promise<VisibilityWhereResult> {
   if (!userId || !isAuthenticated) {
     return {
       OR: [
@@ -65,15 +109,25 @@ export function buildVisibilityWhereClause(userId: string | null, isAuthenticate
     };
   }
 
+  const ignored = ignoredUserIds ?? (await getIgnoredUserIds(userId));
+  const or: Array<Record<string, unknown>> = [
+    { ownerId: userId },
+    { visibility: VISIBILITY_WORLD },
+    { visibility: VISIBILITY_SITE },
+    {
+      visibility: VISIBILITY_USERS,
+      visibleUserIds: { contains: userId },
+    },
+  ];
+
+  if (ignored.length === 0) {
+    return { OR: or };
+  }
+
   return {
-    OR: [
-      { ownerId: userId },
-      { visibility: VISIBILITY_WORLD },
-      { visibility: VISIBILITY_SITE },
-      {
-        visibility: VISIBILITY_USERS,
-        visibleUserIds: { contains: userId },
-      },
+    AND: [
+      { OR: or },
+      { ownerId: { notIn: ignored } },
     ],
   };
 }

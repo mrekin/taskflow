@@ -39,7 +39,7 @@ export const FolderService = {
     if (!userId && !isPublicReadonly()) return { items: [], total: 0 };
 
     const where = {
-      ...buildVisibilityWhereClause(userId, !!userId),
+      ...(await buildVisibilityWhereClause(userId, !!userId)),
       ...(filters.projectId ? { projectId: filters.projectId } : {}),
       ...(filters.parentId !== undefined ? { parentId: filters.parentId || null } : {}),
       ...(filters.updatedSince ? { updatedAt: { gt: filters.updatedSince } } : {}),

@@ -10,6 +10,7 @@ import {
   parseVisibleUserIds,
   sanitizeRelation,
   sanitizeUserProfile,
+  getIgnoredUserIds,
 } from "@/lib/visibility";
 import { cleanupAttachments } from "@/lib/attachment-cleanup";
 import type { ServiceResult } from "./types";
@@ -78,12 +79,13 @@ function extractCurrencyFromMetadata(metadata: Record<string, unknown>): string 
  * Builds the Prisma where clause for listTasks: visibility + explicit filters
  * (ANDed into both the search and the plain branch) + API-token project scope.
  */
-function buildTaskListWhere(
+async function buildTaskListWhere(
   userId: string,
   filters: ListTasksFilters,
   restrictProjectIds?: string[],
-): Record<string, unknown> {
-  const visibilityClause = buildVisibilityWhereClause(userId, !!userId);
+): Promise<Record<string, unknown>> {
+  const ignoredUserIds = await getIgnoredUserIds(userId);
+  const visibilityClause = await buildVisibilityWhereClause(userId, !!userId, ignoredUserIds);
   const filterWhere: Record<string, unknown> = {
     ...(filters.projectId ? { projectId: filters.projectId } : {}),
     ...(filters.status ? { status: filters.status } : {}),
@@ -117,7 +119,15 @@ function buildTaskListWhere(
     const taskConditions: Record<string, unknown>[] = [
       { title: { contains: filters.search } },
       { description: { contains: filters.search } },
-      { comments: { some: { content: { contains: filters.search } } } },
+      // Comments of ignored authors are hidden — they must not surface via search either
+      {
+        comments: {
+          some: {
+            content: { contains: filters.search },
+            ...(ignoredUserIds.length > 0 ? { ownerId: { notIn: ignoredUserIds } } : {}),
+          },
+        },
+      },
     ];
 
     if (shortIdNum !== null) {
@@ -165,7 +175,7 @@ function buildTaskListWhere(
 
 export const TaskService = {
   async listTasks(userId: string, filters: ListTasksFilters, opts?: { restrictProjectIds?: string[] }) {
-    const where = buildTaskListWhere(userId, filters, opts?.restrictProjectIds);
+    const where = await buildTaskListWhere(userId, filters, opts?.restrictProjectIds);
     const paginated = filters.limit !== undefined || filters.offset !== undefined;
 
     const [tasks, total] = await Promise.all([
@@ -459,12 +469,16 @@ export const TaskService = {
       ));
 
       if (task.assigneeId && task.assigneeId !== userId) {
-        fireWebhookEvent(buildTaskContext(
-          { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: task.assigneeId },
-          'task.assigned_to_me',
-          { assigneeId: { from: null, to: task.assigneeId } },
-          areaId
-        ));
+        // Skip when the assignee ignores the task owner — assignment must not become a spam channel
+        const assigneeIgnored = await getIgnoredUserIds(task.assigneeId);
+        if (!assigneeIgnored.includes(task.ownerId)) {
+          fireWebhookEvent(buildTaskContext(
+            { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: task.assigneeId },
+            'task.assigned_to_me',
+            { assigneeId: { from: null, to: task.assigneeId } },
+            areaId
+          ));
+        }
       }
     } catch (webhookError) {
       console.error('[Webhook] Error in task create webhook:', webhookError);
@@ -609,12 +623,16 @@ export const TaskService = {
       if (changes.assigneeId && changes.assigneeId.to) {
         const newAssigneeId = changes.assigneeId.to as string;
         const areaId = task.project?.areaId ?? await resolveTaskAreaId(task.projectId);
-        await fireWebhookEvent(buildTaskContext(
-          { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: newAssigneeId },
-          'task.assigned_to_me',
-          { assigneeId: changes.assigneeId },
-          areaId
-        ));
+        // Skip when the assignee ignores the task owner — assignment must not become a spam channel
+        const assigneeIgnored = await getIgnoredUserIds(newAssigneeId);
+        if (!assigneeIgnored.includes(task.ownerId)) {
+          await fireWebhookEvent(buildTaskContext(
+            { id: task.id, title: task.title, shortIdNum: task.shortIdNum, projectId: task.projectId, ownerId: newAssigneeId },
+            'task.assigned_to_me',
+            { assigneeId: changes.assigneeId },
+            areaId
+          ));
+        }
       }
 
       if (data.dueDate !== undefined) {

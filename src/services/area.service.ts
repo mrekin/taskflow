@@ -40,7 +40,7 @@ export const AreaService = {
 
     const areas = await db.area.findMany({
       where: {
-        ...buildVisibilityWhereClause(userId, isAuthenticated),
+        ...(await buildVisibilityWhereClause(userId, isAuthenticated)),
         ...(opts?.updatedSince ? { updatedAt: { gt: opts.updatedSince } } : {}),
       },
       orderBy: { sortOrder: "asc" },

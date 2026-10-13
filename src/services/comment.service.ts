@@ -5,6 +5,7 @@ import {
   resolveEffectiveVisibility,
   parseVisibleUserIds,
   sanitizeUserProfile,
+  getIgnoredUserIds,
 } from "@/lib/visibility";
 import { cleanupAttachments } from "@/lib/attachment-cleanup";
 import { isPublicReadonly } from "@/lib/config";
@@ -65,8 +66,12 @@ export const CommentService = {
       return { ok: true, data: [] };
     }
 
+    const ignoredUserIds = await getIgnoredUserIds(userId);
     const comments = await db.comment.findMany({
-      where: { taskId },
+      where: {
+        taskId,
+        ...(ignoredUserIds.length > 0 ? { ownerId: { notIn: ignoredUserIds } } : {}),
+      },
       orderBy: { createdAt: "asc" },
       include: {
         owner: { select: { id: true, name: true, email: true, image: true, metadata: true } },
