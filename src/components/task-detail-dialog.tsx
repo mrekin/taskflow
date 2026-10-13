@@ -161,7 +161,7 @@ export function TaskDetailDialog() {
     localTagIds.join(',') !== (task.tagIds || []).join(',') ||
     localAssigneeId !== (task.assigneeId ?? null) ||
     JSON.stringify(localPrices) !== JSON.stringify(task.prices || []) ||
-    localCurrency !== (task.currency || 'USD')
+    localCurrency !== (task.currency || parentCurrency || userPreferences.defaultCurrency)
   );
 
   // Register dirty state with the sync engine: a dirty open dialog is protected
@@ -207,8 +207,8 @@ export function TaskDetailDialog() {
     setLocalTagIds(task.tagIds || []);
     setLocalAssigneeId(task.assigneeId ?? null);
     setLocalPrices(task.prices || []);
-    setLocalCurrency(task.currency || parentCurrency || 'USD');
-  }, [task, parentCurrency]);
+    setLocalCurrency(task.currency || parentCurrency || userPreferences.defaultCurrency);
+  }, [task, parentCurrency, userPreferences.defaultCurrency]);
 
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [discardAction, setDiscardAction] = useState<'cancel-edit' | 'close-sheet'>('close-sheet');
@@ -301,7 +301,7 @@ export function TaskDetailDialog() {
     if (!task || !title.trim()) return;
 
     // Check if currency changed and task has subtasks with prices
-    const currencyChanged = localCurrency !== (task.currency || 'USD');
+    const currencyChanged = localCurrency !== (task.currency || parentCurrency || userPreferences.defaultCurrency);
     const hasSubtasksWithPrices = subtasks.some((s) => s.prices && s.prices.length > 0);
     if (currencyChanged && hasSubtasksWithPrices) {
       setShowCurrencyChangeConfirm(true);

@@ -111,7 +111,7 @@ export function CreateTaskDialog({
   defaultDescription,
   defaultParentId,
 }: CreateTaskDialogProps) {
-  const { createTask, projects, tasks, selectedProjectId, statuses, webhooks, fetchWebhooks, createWebhookTrigger, users, currentUserId, uploadAttachment, attachmentConfig, fetchAttachmentConfig } = useAppStore();
+  const { createTask, projects, tasks, selectedProjectId, statuses, webhooks, fetchWebhooks, createWebhookTrigger, users, currentUserId, uploadAttachment, attachmentConfig, fetchAttachmentConfig, userPreferences } = useAppStore();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -135,7 +135,7 @@ export function CreateTaskDialog({
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [prices, setPrices] = useState<TaskPrice[]>([]);
   const [priceAmountStrings, setPriceAmountStrings] = useState<Record<number, string>>({});
-  const [currency, setCurrency] = useState<string>('USD');
+  const [currency, setCurrency] = useState<string>(userPreferences.defaultCurrency);
   const [inheritedCurrency, setInheritedCurrency] = useState<string | undefined>(undefined);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -159,7 +159,7 @@ export function CreateTaskDialog({
     setAttachmentError(null);
     setPrices([]);
     setPriceAmountStrings({});
-    setCurrency('USD');
+    setCurrency(userPreferences.defaultCurrency);
     setInheritedCurrency(undefined);
     onOpenChange(false);
   };
@@ -202,11 +202,11 @@ export function CreateTaskDialog({
         setCurrency(parentCurrency);
         setInheritedCurrency(parentCurrency);
       } else {
-        setCurrency('USD');
+        setCurrency(userPreferences.defaultCurrency);
         setInheritedCurrency(undefined);
       }
     }
-  }, [open, defaultStatus, defaultProjectId, selectedProjectId, parentId, defaultTitle, defaultDescription, defaultParentId, tasks]);
+  }, [open, defaultStatus, defaultProjectId, selectedProjectId, parentId, defaultTitle, defaultDescription, defaultParentId, tasks, userPreferences.defaultCurrency]);
 
   useEffect(() => {
     if (open && !attachmentConfig) fetchAttachmentConfig();
