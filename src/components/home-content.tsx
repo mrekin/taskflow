@@ -935,6 +935,16 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
                 {notes.length}
               </Badge>
             </Button>
+            {/* Notes tree */}
+            {notesTreeEnabled && (() => {
+              const { rootFolders, rootNotes } = getNotesTree();
+              return (rootFolders.length > 0 || rootNotes.length > 0) ? (
+                <div className="ml-3 space-y-0.5 border-l pl-2">
+                  {renderTreeItems(rootFolders, rootNotes, null)}
+                </div>
+              ) : null;
+            })()}
+
             {releases.length > 0 && (
               <Button
                 variant={currentView === 'releases' ? 'secondary' : 'ghost'}
@@ -950,16 +960,6 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
                 <Rocket className="size-4 mr-2" /> Releases
               </Button>
             )}
-
-            {/* Notes tree */}
-            {notesTreeEnabled && (() => {
-              const { rootFolders, rootNotes } = getNotesTree();
-              return (rootFolders.length > 0 || rootNotes.length > 0) ? (
-                <div className="ml-3 space-y-0.5 border-l pl-2">
-                  {renderTreeItems(rootFolders, rootNotes, null)}
-                </div>
-              ) : null;
-            })()}
 
             <Separator className="my-2" />
 
