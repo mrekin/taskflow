@@ -7,10 +7,8 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateRequest(request);
     if (!auth.ok) return auth.response;
-    if (auth.ctx.kind === "token") {
-      // Releases are not exposed to API tokens (no token permission exists for them)
-      return NextResponse.json({ error: "API tokens are not allowed on this endpoint" }, { status: 403 });
-    }
+    // Read-only for API tokens (mutations below stay session-only); visibility
+    // is resolved by ReleaseService from the requesting user
     const userId = auth.ctx.kind === "anonymous" ? null : auth.ctx.userId;
 
     const { searchParams } = new URL(request.url);
