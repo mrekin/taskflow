@@ -198,9 +198,11 @@ export function CreateTaskDialog({
       setAttachmentError(null);
       setPrices([]);
       setPriceAmountStrings({});
-      // Inherit currency from parent task if creating a subtask
+      // Inherit currency from parent task if creating a subtask.
+      // Read via getState: the tasks array gets a new reference on every background
+      // sync, and it must not re-run this reset while the dialog is open.
       const parentCurrency = parentId
-        ? tasks.find((t) => t.id === parentId)?.currency
+        ? useAppStore.getState().tasks.find((t) => t.id === parentId)?.currency
         : undefined;
       if (parentCurrency) {
         setCurrency(parentCurrency);
@@ -210,7 +212,7 @@ export function CreateTaskDialog({
         setInheritedCurrency(undefined);
       }
     }
-  }, [open, defaultStatus, defaultProjectId, selectedProjectId, parentId, defaultTitle, defaultDescription, defaultParentId, tasks, userPreferences.defaultCurrency]);
+  }, [open, defaultStatus, defaultProjectId, selectedProjectId, parentId, defaultTitle, defaultDescription, defaultParentId, userPreferences.defaultCurrency]);
 
   useEffect(() => {
     if (open && !attachmentConfig) fetchAttachmentConfig();
