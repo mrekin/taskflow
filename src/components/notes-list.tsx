@@ -48,6 +48,7 @@ import { OwnerIndicator } from '@/components/owner-indicator';
 import { ReleaseBadge } from '@/components/release-badge';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useLocalStorageState } from '@/hooks/use-local-storage-state';
 import {
   Popover,
   PopoverContent,
@@ -78,7 +79,8 @@ import JSZip from 'jszip';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
-type SortOption = 'id' | 'createdAt' | 'updatedAt' | 'title' | 'project' | 'folder';
+const SORT_OPTIONS = ['id', 'createdAt', 'updatedAt', 'title', 'project', 'folder'] as const;
+type SortOption = (typeof SORT_OPTIONS)[number];
 
 export function NotesList() {
   const {
@@ -157,7 +159,11 @@ export function NotesList() {
     clearNoteSearch();
   }, [setNoteSearchQuery, clearNoteSearch]);
 
-  const [sortBy, setSortBy] = useState<SortOption>('updatedAt');
+  const [sortBy, setSortBy] = useLocalStorageState<SortOption>(
+    'taskflow:notes:sortBy',
+    'updatedAt',
+    (v): v is SortOption => (SORT_OPTIONS as readonly unknown[]).includes(v)
+  );
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [showTagFilter, setShowTagFilter] = useState(false);
 

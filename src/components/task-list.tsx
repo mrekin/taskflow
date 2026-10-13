@@ -34,6 +34,7 @@ import { OwnerIndicator } from '@/components/owner-indicator';
 import { useAppStore, useIsGuest } from '@/store/app-store';
 import type { Task } from '@/lib/types';
 import { useCollapsedState } from '@/hooks/use-collapsed-state';
+import { useLocalStorageState } from '@/hooks/use-local-storage-state';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { TaskCardMobile } from '@/components/task-card-mobile';
 import {
@@ -58,7 +59,8 @@ import {
   type StatusConfig,
 } from '@/lib/constants';
 
-type SortField = 'id' | 'title' | 'priority' | 'status' | 'dueDate' | 'project' | 'createdAt' | 'updatedAt';
+const SORT_FIELDS = ['id', 'title', 'priority', 'status', 'dueDate', 'project', 'createdAt', 'updatedAt'] as const;
+type SortField = (typeof SORT_FIELDS)[number];
 type SortDirection = 'asc' | 'desc';
 
 const PRIORITY_ORDER: Record<string, number> = {
@@ -166,8 +168,16 @@ export function TaskList() {
     fetchTasks, taskSearchQuery, setTaskSearchQuery,
     currentUserId, ownershipFilter, setOwnershipFilter, users, statuses,
   } = useAppStore();
-  const [sortField, setSortField] = useState<SortField>('priority');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortField, setSortField] = useLocalStorageState<SortField>(
+    'taskflow:tasklist:sortField',
+    'priority',
+    (v): v is SortField => (SORT_FIELDS as readonly unknown[]).includes(v)
+  );
+  const [sortDirection, setSortDirection] = useLocalStorageState<SortDirection>(
+    'taskflow:tasklist:sortDirection',
+    'asc',
+    (v): v is SortDirection => v === 'asc' || v === 'desc'
+  );
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);

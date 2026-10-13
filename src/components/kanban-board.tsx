@@ -54,6 +54,7 @@ import { TaskCard } from '@/components/task-card';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { useAppStore, useIsGuest } from '@/store/app-store';
 import { useCollapsedState } from '@/hooks/use-collapsed-state';
+import { useLocalStorageState } from '@/hooks/use-local-storage-state';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import { VisibilityBadge } from '@/components/visibility-badge';
@@ -62,7 +63,8 @@ import { INVALID_STATE_COLUMN, TASK_PRIORITIES, PRIORITY_LABELS, PRIORITY_COLORS
 import type { Task } from '@/lib/types';
 import type { Project } from '@/lib/types';
 
-type KanbanSortField = 'id' | 'priority' | 'createdAt' | 'updatedAt' | 'title';
+const KANBAN_SORT_FIELDS = ['id', 'priority', 'createdAt', 'updatedAt', 'title'] as const;
+type KanbanSortField = (typeof KANBAN_SORT_FIELDS)[number];
 type KanbanSortDirection = 'asc' | 'desc';
 
 function KanbanProjectGroup({
@@ -423,8 +425,16 @@ export function KanbanBoard() {
   const [defaultStatus, setDefaultStatus] = useState<string>('todo');
   const [searchInput, setSearchInput] = useState(taskSearchQuery);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [sortField, setSortField] = useState<KanbanSortField>('id');
-  const [sortDirection, setSortDirection] = useState<KanbanSortDirection>('asc');
+  const [sortField, setSortField] = useLocalStorageState<KanbanSortField>(
+    'taskflow:kanban:sortField',
+    'id',
+    (v): v is KanbanSortField => (KANBAN_SORT_FIELDS as readonly unknown[]).includes(v)
+  );
+  const [sortDirection, setSortDirection] = useLocalStorageState<KanbanSortDirection>(
+    'taskflow:kanban:sortDirection',
+    'asc',
+    (v): v is KanbanSortDirection => v === 'asc' || v === 'desc'
+  );
   const [assigneeFilterOpen, setAssigneeFilterOpen] = useState(false);
   const [activeColumnIndex, setActiveColumnIndex] = useState(0);
 
