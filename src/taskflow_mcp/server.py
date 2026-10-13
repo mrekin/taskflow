@@ -3,7 +3,9 @@
 Transport: stdio. Auth: a personal API token (Bearer) via TASKFLOW_API_TOKEN.
 The tool surface mirrors what tokens can access in TaskFlow; mutations the
 API rejects for tokens (uploads, webhooks, token management, tag/project/area
-writes) are intentionally not exposed.
+writes, release create/update/delete) are intentionally not exposed. Releases
+are read-only (release_list/release_get/release_contents); entities are linked
+to a release via the release_id field of the task/note/folder tools.
 """
 
 from contextlib import asynccontextmanager
@@ -163,6 +165,7 @@ def _task_body(
     *, description: str | None, status: str | None, priority: str | None,
     due_date: str | None, project_id: str | None, parent_id: str | None,
     assignee_id: str | None, tag_ids: list[str] | None, metadata: dict | None,
+    release_id: str | None,
 ) -> dict:
     body: dict[str, object] = {}
     if description is not None:
@@ -183,6 +186,8 @@ def _task_body(
         body["tagIds"] = tag_ids
     if metadata is not None:
         body["metadata"] = metadata
+    if release_id is not None:
+        body["releaseId"] = release_id
     return body
 
 
@@ -198,18 +203,21 @@ async def task_create(
     assignee_id: str | None = None,
     tag_ids: list[str] | None = None,
     metadata: dict | None = None,
+    release_id: str | None = None,
 ) -> dict:
     """Create a task. Required: title. Optional: description, status
     (a status id from statuses_list), priority ("low" | "medium" | "high" |
     "urgent"), due_date ("YYYY-MM-DD" or ISO), project_id, parent_id (set to
     make a subtask — it then inherits the parent's project), assignee_id,
-    tag_ids, metadata dict. Requires tasks:create; the target project must be
-    in the token scope (Inbox is not writable via tokens)."""
+    tag_ids, metadata dict, release_id (bind to a release — see release_list).
+    Requires tasks:create; the target project must be in the token scope
+    (Inbox is not writable via tokens)."""
     body: dict[str, object] = {"title": title}
     body.update(_task_body(
         description=description, status=status, priority=priority,
         due_date=due_date, project_id=project_id, parent_id=parent_id,
         assignee_id=assignee_id, tag_ids=tag_ids, metadata=metadata,
+        release_id=release_id,
     ))
     return await get_client().request("POST", "api/tasks", json_body=body)
 
@@ -228,16 +236,19 @@ async def task_update(
     tag_ids: list[str] | None = None,
     metadata: dict | None = None,
     sort_order: int | None = None,
+    release_id: str | None = None,
 ) -> dict:
     """Update a task. Only the provided fields change; omit fields to leave
     them untouched. status takes a status id from statuses_list; priority is
-    one of "low" | "medium" | "high" | "urgent". Requires tasks:update; moving
-    the task to another project requires the target project to be in the
-    token scope."""
+    one of "low" | "medium" | "high" | "urgent". release_id links the task to
+    a release (see release_list) or unlinks it when set to an empty string "".
+    Requires tasks:update; moving the task to another project requires the
+    target project to be in the token scope."""
     body = _task_body(
         description=description, status=status, priority=priority,
         due_date=due_date, project_id=project_id, parent_id=parent_id,
         assignee_id=assignee_id, tag_ids=tag_ids, metadata=metadata,
+        release_id=release_id,
     )
     if title is not None:
         body["title"] = title
@@ -291,9 +302,11 @@ async def note_create(
     project_id: str | None = None,
     folder_id: str | None = None,
     tag_ids: list[str] | None = None,
+    release_id: str | None = None,
 ) -> dict:
     """Create a Markdown note. Required: title (unique per location — a
     duplicate title in the same project/folder is rejected with 409).
+    Optional: release_id (bind to a release — see release_list).
     Requires notes:create."""
     body: dict[str, object] = {"title": title}
     if content is not None:
@@ -304,6 +317,8 @@ async def note_create(
         body["folderId"] = folder_id
     if tag_ids is not None:
         body["tagIds"] = tag_ids
+    if release_id is not None:
+        body["releaseId"] = release_id
     return await get_client().request("POST", "api/notes", json_body=body)
 
 
@@ -315,12 +330,16 @@ async def note_update(
     project_id: str | None = None,
     folder_id: str | None = None,
     tag_ids: list[str] | None = None,
+    release_id: str | None = None,
 ) -> dict:
     """Update a note (full content replace — content is the complete new
-    Markdown, not a diff). Only provided fields change. Requires notes:update."""
+    Markdown, not a diff). Only provided fields change. release_id links the
+    note to a release (see release_list) or unlinks it when set to an empty
+    string "". Requires notes:update."""
     body: dict[str, object] = {}
     for key, value in (("title", title), ("content", content),
-                       ("projectId", project_id), ("folderId", folder_id)):
+                       ("projectId", project_id), ("folderId", folder_id),
+                       ("releaseId", release_id)):
         if value is not None:
             body[key] = value
     if tag_ids is not None:
@@ -431,15 +450,19 @@ async def folder_create(
     name: str,
     project_id: str | None = None,
     parent_id: str | None = None,
+    release_id: str | None = None,
 ) -> dict:
     """Create a note folder (optionally inside a project and/or a parent
     folder, max depth 3). Name is unique per location (409 on duplicates).
+    Optional: release_id (bind to a release — see release_list).
     Requires notes:create."""
     body: dict[str, object] = {"name": name}
     if project_id is not None:
         body["projectId"] = project_id
     if parent_id is not None:
         body["parentId"] = parent_id
+    if release_id is not None:
+        body["releaseId"] = release_id
     return await get_client().request("POST", "api/folders", json_body=body)
 
 
@@ -448,14 +471,18 @@ async def folder_update(
     folder_id: str,
     name: str | None = None,
     parent_id: str | None = None,
+    release_id: str | None = None,
 ) -> dict:
-    """Rename a folder and/or move it under another folder. Requires
-    notes:update."""
+    """Rename a folder and/or move it under another folder. release_id links
+    the folder to a release (see release_list) or unlinks it when set to an
+    empty string "". Requires notes:update."""
     body: dict[str, object] = {}
     if name is not None:
         body["name"] = name
     if parent_id is not None:
         body["parentId"] = parent_id
+    if release_id is not None:
+        body["releaseId"] = release_id
     return await get_client().request("PUT", f"api/folders/{folder_id}", json_body=body)
 
 
@@ -464,6 +491,50 @@ async def folder_delete(folder_id: str) -> dict:
     """Delete a folder (its child folders/notes keep existing, detached).
     Requires notes:delete."""
     return await get_client().request("DELETE", f"api/folders/{folder_id}")
+
+
+# --- releases (read-only) ------------------------------------------------
+
+@mcp.tool()
+async def release_list(project_id: str | None = None) -> list:
+    """List releases, ordered by sortOrder. Optional project_id filter. Each
+    item carries linked entity counts and its project. Read-only: releases
+    are exposed to API tokens for reading only — creating, editing and
+    deleting releases is session-only in TaskFlow (use the UI). Visibility of
+    the token's user applies. Entities are linked to releases via the
+    release_id field of task/note/folder tools."""
+    params = {"projectId": project_id} if project_id else None
+    return await get_client().get("api/releases", params=params)
+
+
+@mcp.tool()
+async def release_get(release_id: str) -> dict:
+    """Get one release by id (the id, not the R-<n> shortId — resolve via
+    release_list). Includes linked entity counts and the parent project."""
+    return await get_client().get(f"api/releases/{release_id}")
+
+
+@mcp.tool()
+async def release_contents(release_id: str) -> dict:
+    """Get the composition of a release: {"release", "tasks", "notes",
+    "folders"} — the release plus all entities bound to it. The project's
+    task/note/folder lists are fetched and filtered by releaseId, so this
+    needs read access to all three; for large projects prefer filtering
+    task_list/note_list/folder_list yourself."""
+    client = get_client()
+    release = await client.get(f"api/releases/{release_id}")
+    project_id = release.get("projectId") if isinstance(release, dict) else None
+    if not project_id:
+        return {"release": release, "tasks": [], "notes": [], "folders": []}
+    tasks = await client.get_paged_list("api/tasks", {"projectId": project_id})
+    notes = await client.get_paged_list("api/notes", {"projectId": project_id})
+    folders = await client.get_paged_list("api/folders", {"projectId": project_id})
+    return {
+        "release": release,
+        "tasks": [t for t in tasks["items"] if t.get("releaseId") == release_id],
+        "notes": [n for n in notes["items"] if n.get("releaseId") == release_id],
+        "folders": [f for f in folders["items"] if f.get("releaseId") == release_id],
+    }
 
 
 # --- navigation / metadata (read-only) -----------------------------------
