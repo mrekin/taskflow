@@ -265,6 +265,7 @@ export function TaskDetailDialog() {
       setStatus(task.status);
       setPriority(task.priority);
       setDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
+      setDueTime(task.dueDate ? format(parseISO(task.dueDate), 'HH:mm') : '09:00');
       setProjectId(task.projectId ?? null);
       setLocalTagIds(task.tagIds || []);
       setLocalAssigneeId(task.assigneeId ?? null);
