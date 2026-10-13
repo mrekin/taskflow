@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { VisibilityLock } from '@/components/visibility-lock';
+import { ReleasePicker } from '@/components/release-picker';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +49,7 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
 
   const [title, setTitle] = useState('');
   const [projectId, setProjectId] = useState<string>('none');
+  const [releaseId, setReleaseId] = useState<string | null>(null);
   const [folderId, setFolderId] = useState<string>('none');
   const [content, setContent] = useState('');
   const [visibility, setVisibility] = useState<string | null>(null);
@@ -71,6 +73,7 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
     if (open) {
       const resolvedProject = defaultProjectId ?? selectedProjectId ?? 'none';
       setProjectId(resolvedProject);
+      setReleaseId(null);
       setFolderId(defaultFolderId ?? 'none');
       setTitle('');
       setContent('');
@@ -85,6 +88,7 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
   const resetForm = () => {
     setTitle('');
     setProjectId(defaultProjectId ?? selectedProjectId ?? 'none');
+    setReleaseId(null);
     setFolderId(defaultFolderId ?? 'none');
     setContent('');
     setVisibility(null);
@@ -101,6 +105,7 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
         title: title.trim(),
         content: content,
         projectId: projectId === 'none' ? null : projectId,
+        releaseId,
         folderId: folderId === 'none' ? null : folderId,
         visibility,
         visibleUserIds,
@@ -168,7 +173,13 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
             {!hideProjectSelect && (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="note-project">Project</Label>
-                <Select value={projectId} onValueChange={setProjectId}>
+                <Select
+                  value={projectId}
+                  onValueChange={(v) => {
+                    setProjectId(v);
+                    setReleaseId(null);
+                  }}
+                >
                   <SelectTrigger id="note-project">
                     <SelectValue placeholder="Select a project" />
                   </SelectTrigger>
@@ -183,6 +194,15 @@ export function CreateNoteDialog({ open, onOpenChange, defaultProjectId, default
                 </Select>
               </div>
             )}
+
+            <div className="flex flex-col gap-2">
+              <Label>Release</Label>
+              <ReleasePicker
+                projectId={projectId === 'none' ? null : projectId}
+                value={releaseId}
+                onChange={setReleaseId}
+              />
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               {(folders.length > 0 || folderId !== 'none') && (

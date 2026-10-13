@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery, WebhookTrigger, Attachment, AttachmentConfig, TaskPrice, NoteVersionMeta, ApiToken, TokenPermissions, ApiTokenScopeType } from '@/lib/types';
+import type { Area, Project, Task, Note, NoteFolder, Comment, Tag, Webhook, WebhookDelivery, WebhookTrigger, Attachment, AttachmentConfig, TaskPrice, NoteVersionMeta, ApiToken, TokenPermissions, ApiTokenScopeType, Release } from '@/lib/types';
 import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig, resolveStatuses, DEFAULT_STATUSES } from '@/lib/constants';
 
 import { api } from '@/lib/api-utils';
@@ -28,14 +28,14 @@ function recomputeSubtaskAggregates(task: Task) {
   };
 }
 
-type ViewType = 'areas' | 'projects' | 'tasks' | 'kanban' | 'notes' | 'note-editor' | 'settings' | 'quick-create';
+type ViewType = 'areas' | 'projects' | 'tasks' | 'kanban' | 'notes' | 'note-editor' | 'releases' | 'settings' | 'quick-create';
 
 // ─── External-change sync (auto-refresh) ───
 
 export interface SyncConflict {
   /** Entity id (conflicts are keyed by entityType + id). */
   id: string;
-  entityType: 'task' | 'note' | 'folder' | 'project' | 'area' | 'tag';
+  entityType: 'task' | 'note' | 'folder' | 'project' | 'area' | 'tag' | 'release';
   kind: 'updated' | 'deleted';
   /** Display name for the conflict banner. */
   title: string;
@@ -54,6 +54,7 @@ interface SyncChangesPayload {
     tasks: unknown[];
     notes: unknown[];
     folders: unknown[];
+    releases: unknown[];
     tags: unknown[];
     users: Array<{ id: string; name: string | null; image: string | null }>;
   };
@@ -63,6 +64,7 @@ interface SyncChangesPayload {
     tasks: string[];
     notes: string[];
     folders: string[];
+    releases: string[];
     tags: string[];
   };
   openTask?: { commentsChanged: boolean };
@@ -183,6 +185,7 @@ interface AppState {
   /** Id of the task whose cost breakdown dialog is open (top-level, rendered once). */
   costBreakdownTaskId: string | null;
   selectedFolderId: string | null;
+  selectedReleaseId: string | null;
 
   // Data
   areas: Area[];
@@ -190,6 +193,7 @@ interface AppState {
   tasks: Task[];
   notes: Note[];
   folders: NoteFolder[];
+  releases: Release[];
   tags: Tag[];
   comments: Comment[];
   webhooks: Webhook[];
@@ -325,6 +329,13 @@ interface AppState {
   updateFolder: (id: string, data: Partial<NoteFolder>) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
 
+  // Actions - CRUD Releases
+  fetchReleases: (projectId?: string) => Promise<void>;
+  createRelease: (data: Partial<Release>) => Promise<Release | undefined>;
+  updateRelease: (id: string, data: Partial<Release>) => Promise<Release | undefined>;
+  deleteRelease: (id: string) => Promise<void>;
+  selectRelease: (id: string | null) => void;
+
   // Actions - CRUD Comments
   createComment: (data: { content: string; taskId: string; parentId?: string }) => Promise<Comment | undefined>;
   updateComment: (id: string, data: { content: string }) => Promise<void>;
@@ -378,6 +389,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedNoteId: null,
   costBreakdownTaskId: null,
   selectedFolderId: null,
+  selectedReleaseId: null,
 
   // Data initial state
   areas: [],
@@ -385,6 +397,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   tasks: [],
   notes: [],
   folders: [],
+  releases: [],
   tags: [],
   comments: [],
   webhooks: [],
@@ -966,6 +979,74 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  // CRUD Releases
+  fetchReleases: async (projectId?: string) => {
+    try {
+      const url = projectId ? api(`/api/releases?projectId=${projectId}`) : api('/api/releases');
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch releases');
+      const releases: Release[] = await res.json();
+      set((state) => ({
+        releases,
+        selectedReleaseId: state.selectedReleaseId && releases.some((r) => r.id === state.selectedReleaseId)
+          ? state.selectedReleaseId
+          : null,
+      }));
+    } catch (error) {
+      console.error('Failed to fetch releases:', error);
+    }
+  },
+
+  createRelease: async (data) => {
+    const res = await fetch(api('/api/releases'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to create release' }));
+      throw new Error(err.error || 'Failed to create release');
+    }
+    const newRelease: Release = await res.json();
+    set((state) => ({ releases: [...state.releases, newRelease] }));
+    return newRelease;
+  },
+
+  updateRelease: async (id, data) => {
+    const res = await fetch(api(`/api/releases/${id}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to update release' }));
+      throw new Error(err.error || 'Failed to update release');
+    }
+    const updatedRelease: Release = await res.json();
+    set((state) => ({
+      releases: state.releases.map((r) => (r.id === id ? updatedRelease : r)),
+    }));
+    return updatedRelease;
+  },
+
+  deleteRelease: async (id) => {
+    const res = await fetch(api(`/api/releases/${id}`), { method: 'DELETE' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to delete release' }));
+      throw new Error(err.error || 'Failed to delete release');
+    }
+    set((state) => ({
+      releases: state.releases.filter((r) => r.id !== id),
+      selectedReleaseId: state.selectedReleaseId === id ? null : state.selectedReleaseId,
+      // Linked entities lose the relation server-side (SetNull) — drop it locally too
+      tasks: state.tasks.map((t) => (t.releaseId === id ? { ...t, releaseId: null, release: undefined } : t)),
+      notes: state.notes.map((n) => (n.releaseId === id ? { ...n, releaseId: null, release: undefined } : n)),
+      folders: state.folders.map((f) => (f.releaseId === id ? { ...f, releaseId: null, release: undefined } : f)),
+    }));
+  },
+
+  selectRelease: (id) => set({ selectedReleaseId: id }),
+
   // CRUD Comments
   createComment: async (data) => {
     try {
@@ -1481,6 +1562,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       s.fetchTasks(s.tasksScope?.projectId, s.tasksScope?.search),
       s.fetchNotes(s.notesScope?.projectId),
       s.fetchFolders(s.foldersScope?.projectId),
+      s.fetchReleases(),
       s.fetchTags(),
     ]);
   },
@@ -1578,6 +1660,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       dismissed,
       conflicts,
     });
+    const releaseMerge = mergeSyncedEntities({
+      entityType: 'release',
+      current: cur.releases,
+      changed: payload.changed.releases as unknown as Array<{ id: string; updatedAt: string }>,
+      allIds: payload.allIds.releases,
+      allowAdditions: true,
+      isProtected: () => false,
+      dismissed,
+      conflicts,
+    });
     const folderMerge = mergeSyncedEntities({
       entityType: 'folder',
       current: cur.folders,
@@ -1637,6 +1729,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       projects: projectMerge.rows as Project[],
       tags: tagMerge.rows as Tag[],
       folders: folderMerge.rows as NoteFolder[],
+      releases: releaseMerge.rows as Release[],
       notes: noteMerge.rows as Note[],
       tasks,
       pendingConflicts: conflicts,
@@ -1651,6 +1744,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (folderMerge.deletedIds.has(cur.selectedFolderId ?? '')) patches.selectedFolderId = null;
     if (projectMerge.deletedIds.has(cur.selectedProjectId ?? '')) patches.selectedProjectId = null;
     if (areaMerge.deletedIds.has(cur.selectedAreaId ?? '')) patches.selectedAreaId = null;
+    if (releaseMerge.deletedIds.has(cur.selectedReleaseId ?? '')) patches.selectedReleaseId = null;
     set(patches);
 
     // Scoped views: search/project filters are server-side, so restore the exact
@@ -1658,6 +1752,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     const s2 = get();
     if (taskMerge.touched && (s2.tasksScope?.projectId || s2.tasksScope?.search)) {
       get().fetchTasks(s2.tasksScope?.projectId, s2.tasksScope?.search);
+    }
+    // Release rows carry the badge text/status shown on task/note/folder cards —
+    // refresh the entity lists so the denormalized `release` selects stay fresh.
+    if (releaseMerge.touched) {
+      get().fetchTasks(s2.tasksScope?.projectId, s2.tasksScope?.search);
+      get().fetchNotes(s2.notesScope?.projectId);
+      get().fetchFolders(s2.foldersScope?.projectId);
     }
     if (noteMerge.touched && s2.notesScope?.projectId) {
       get().fetchNotes(s2.notesScope.projectId);
@@ -1684,6 +1785,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         : entityType === 'folder' ? get().folders
         : entityType === 'project' ? get().projects
         : entityType === 'area' ? get().areas
+        : entityType === 'release' ? get().releases
         : get().tags;
       const curRow = pool.find((r) => r.id === entityId);
       if (curRow && new Date(curRow.updatedAt).getTime() >= new Date(conflict.serverUpdatedAt).getTime()) {
@@ -1737,6 +1839,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           next.areas = s.areas.filter((a) => a.id !== entityId);
         } else if (entityType === 'tag') {
           next.tags = s.tags.filter((t) => t.id !== entityId);
+        } else if (entityType === 'release') {
+          next.releases = s.releases.filter((r) => r.id !== entityId);
         }
         return next;
       }
@@ -1776,6 +1880,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       } else if (entityType === 'tag' && serverEntity) {
         const tg = serverEntity as Tag;
         next.tags = s.tags.map((row) => (row.id === tg.id ? tg : row));
+      } else if (entityType === 'release' && serverEntity) {
+        const r = serverEntity as Release;
+        next.releases = s.releases.map((row) => (row.id === r.id ? r : row));
       }
       return next;
     });

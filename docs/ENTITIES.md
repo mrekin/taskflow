@@ -8,6 +8,7 @@
 User
  ├── Area          (область)
  │    └── Project  (проект)
+ │         ├── Release    (релиз)
  │         ├── Task       (задача → подзадачи)
  │         │    └── Comment  (комментарий)
  │         ├── Note       (заметка → версии)
@@ -32,6 +33,7 @@ User
 | Заметка | `Note` | `src/app/api/notes/route.ts`<br>`src/app/api/notes/[id]/route.ts` | `src/components/note-editor.tsx`<br>`src/components/notes-list.tsx`<br>`src/components/create-note-dialog.tsx`<br>`src/components/markdown-renderer.tsx` | `src/store/app-store.ts` |
 | Версия заметки | `NoteVersion` | `src/app/api/notes/[id]/versions/route.ts`<br>`src/app/api/notes/[id]/versions/[number]/route.ts`<br>`src/app/api/notes/[id]/versions/[number]/restore/route.ts` | `src/components/note-version-history.tsx`<br>`src/components/note-editor.tsx`<br>`src/components/entity-id-badge.tsx` | `src/store/app-store.ts`<br>`src/services/note-version.service.ts` |
 | Папка заметок | `NoteFolder` | `src/app/api/folders/route.ts`<br>`src/app/api/folders/[id]/route.ts` | `src/components/notes-list.tsx`<br>`src/components/create-note-dialog.tsx` | `src/store/app-store.ts` |
+| Релиз | `Release` | `src/app/api/releases/route.ts`<br>`src/app/api/releases/[id]/route.ts` | `src/components/releases-view.tsx`<br>`src/components/release-card.tsx`<br>`src/components/release-badge.tsx`<br>`src/components/release-picker.tsx`<br>`src/components/create-release-dialog.tsx`<br>`src/components/project-detail.tsx` | `src/store/app-store.ts`<br>`src/services/release.service.ts` |
 | Комментарий | `Comment` | `src/app/api/comments/route.ts`<br>`src/app/api/comments/[id]/route.ts` | `src/components/task-comments.tsx` | `src/store/app-store.ts` |
 | Тег | `Tag` | `src/app/api/tags/route.ts`<br>`src/app/api/tags/[id]/route.ts` | `src/components/tag-picker.tsx`<br>`src/components/tag-badges.tsx` | `src/store/app-store.ts`<br>`src/lib/api-utils.ts` |
 | Вебхук | `Webhook` | `src/app/api/webhooks/route.ts`<br>`src/app/api/webhooks/[id]/route.ts` | `src/components/webhooks-section.tsx` | `src/store/app-store.ts`<br>`src/lib/webhook-engine.ts` |
@@ -296,3 +298,41 @@ $ 100 (250) USD
 | `src/store/app-store.ts` | `apiTokens`, `fetchApiTokens`, `createApiToken`, `revokeApiToken`, `deleteApiToken` |
 | `src/lib/demo-reset.ts` | Очистка токенов при demo-ресете |
 | `docs/API.md` | Справочник API для потребителей (в т.ч. MCP) |
+
+## Releases (релизы)
+
+### Модель Release
+
+Релиз группирует задачи, заметки и папки проекта в логическую единицу (версия/итерация). Иерархия: **Project → Release**. Каждый из Task, Note, NoteFolder может быть привязан к одному релизу (`releaseId?`), привязка меняется в любой момент; при удалении релиза связь обнуляется (Prisma `onDelete: SetNull`), сами сущности сохраняются.
+
+Поля: `title`, `description`, `version` (например «1.2.0»), `status`, `plannedStartDate`, `plannedEndDate`, `actualReleaseDate`, `projectId`, `tagIds`, `metadata`, `shortIdNum` (короткий ID «R-3», генерируется per-user как у всех сущностей), `ownerId`, `sortOrder`, `visibility` + `visibleUserIds` (как у проектов: owner/users/site/world; при null наследуется по цепочке release → project → area).
+
+Статусы (отдельный фиксированный набор, не кастомизируется пользователем): `planned`, `in_work`, `testing`, `ready`, `done` — константы `RELEASE_STATUSES` / `RELEASE_STATUS_LABELS` / `RELEASE_STATUS_COLORS` в `src/lib/constants.ts`. Закрытые для новых привязок статусы (`ready`, `done`) не показываются в ReleasePicker, кроме уже привязанного релиза (`RELEASE_ACTIVE_STATUSES`).
+
+### UI
+
+- **Sidebar**: пункт «Releases» виден только когда существует хотя бы один видимый релиз (`releases.length > 0`).
+- **ReleasesView** (`src/components/releases-view.tsx`): селектор проекта → релиза; карточки релизов (ReleaseCard); при выборе — детали, связанные задачи/заметки/папки, простой таймлайн задач по `dueDate`.
+- **Проект**: 4-й таб «Releases» в project-detail + кнопка создания релиза.
+- **Карточки**: ReleaseBadge (цвет = статус релиза, клик → вью релизов) на задачах/заметках/папках.
+- **Диалоги**: ReleasePicker в create/edit диалогах задачи и заметки.
+- **Deep-link**: `?release=R-3&id=<uuid>` — UUID основной резолвер, shortId для отображения (как у всех сущностей, `getEntityLink`).
+
+### Синхронизация
+
+Релизы включены в инкрементальный поллинг `/api/sync/changes` (`changed.releases` + `allIds.releases`); при изменении релиза клиент перезапрашивает задачи/заметки/папки, чтобы обновить денормализованные `release`-селекты на карточках. Серверные мутации релизов — только по сессии (`ensureNoBearer`), API-токены релизы не видят (прав на них нет); GET-лист доступен гостям в public-readonly (world-visible).
+
+### Связанные файлы
+
+| Файл | Назначение |
+|---|---|
+| `prisma/schema.prisma` | Модель `Release`, `releaseId` на Task/Note/NoteFolder |
+| `prisma/migrations/<ts>_add_releases/` | Миграция создания таблицы и колонок |
+| `src/services/release.service.ts` | CRUD релизов (visibility, shortId, валидация статусов) |
+| `src/app/api/releases/` | REST API релизов |
+| `src/components/releases-view.tsx` | Основной вью релизов (sidebar) |
+| `src/components/release-card.tsx` | Карточка релиза (вью + таб проекта) |
+| `src/components/release-badge.tsx` | Бейдж на карточках сущностей |
+| `src/components/release-picker.tsx` | Выбор релиза в диалогах |
+| `src/components/create-release-dialog.tsx` | Создание/редактирование релиза |
+| `src/store/app-store.ts` | `releases`, `selectedReleaseId`, CRUD-действия, sync-merge |

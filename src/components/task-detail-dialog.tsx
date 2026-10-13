@@ -76,6 +76,8 @@ import { useInlineFileUpload } from '@/hooks/use-inline-file-upload';
 import { TagPicker } from '@/components/tag-picker';
 import { TagBadges } from '@/components/tag-badges';
 import { UserPicker } from '@/components/user-picker';
+import { ReleasePicker } from '@/components/release-picker';
+import { ReleaseBadge } from '@/components/release-badge';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { VisibilityLock } from '@/components/visibility-lock';
@@ -128,6 +130,7 @@ export function TaskDetailDialog() {
   const [editingSubtaskTitle, setEditingSubtaskTitle] = useState('');
   const [localTagIds, setLocalTagIds] = useState<string[]>([]);
   const [localAssigneeId, setLocalAssigneeId] = useState<string | null>(null);
+  const [localReleaseId, setLocalReleaseId] = useState<string | null>(null);
   const [localVisibility, setLocalVisibility] = useState<string | null>(null);
   const [localVisibleUserIds, setLocalVisibleUserIds] = useState<string[]>([]);
   const [localPrices, setLocalPrices] = useState<TaskPrice[]>([]);
@@ -160,6 +163,7 @@ export function TaskDetailDialog() {
     projectId !== (task.projectId ?? null) ||
     localTagIds.join(',') !== (task.tagIds || []).join(',') ||
     localAssigneeId !== (task.assigneeId ?? null) ||
+    localReleaseId !== (task.releaseId ?? null) ||
     JSON.stringify(localPrices) !== JSON.stringify(task.prices || []) ||
     localCurrency !== (task.currency || parentCurrency || userPreferences.defaultCurrency)
   );
@@ -188,6 +192,7 @@ export function TaskDetailDialog() {
     setProjectId(task.projectId ?? null);
     setLocalTagIds(task.tagIds || []);
     setLocalAssigneeId(task.assigneeId ?? null);
+    setLocalReleaseId(task.releaseId ?? null);
     setLocalPrices(task.prices || []);
     setLocalCurrency(task.currency || parentCurrency || userPreferences.defaultCurrency);
     // task?.updatedAt (not the object): subtask edits replace the parent row too,
@@ -206,6 +211,7 @@ export function TaskDetailDialog() {
     setProjectId(task.projectId ?? null);
     setLocalTagIds(task.tagIds || []);
     setLocalAssigneeId(task.assigneeId ?? null);
+    setLocalReleaseId(task.releaseId ?? null);
     setLocalPrices(task.prices || []);
     setLocalCurrency(task.currency || parentCurrency || userPreferences.defaultCurrency);
   }, [task, parentCurrency, userPreferences.defaultCurrency]);
@@ -262,6 +268,7 @@ export function TaskDetailDialog() {
       setProjectId(task.projectId ?? null);
       setLocalTagIds(task.tagIds || []);
       setLocalAssigneeId(task.assigneeId ?? null);
+      setLocalReleaseId(task.releaseId ?? null);
       setLocalVisibility(task.visibility);
       setLocalVisibleUserIds(task.visibleUserIds || []);
       setLocalPrices(task.prices || []);
@@ -326,6 +333,7 @@ export function TaskDetailDialog() {
           return d.toISOString();
         })() : null,
         projectId,
+        releaseId: localReleaseId,
         tagIds: localTagIds,
         assigneeId: localAssigneeId,
         visibility: localVisibility,
@@ -356,6 +364,7 @@ export function TaskDetailDialog() {
           return d.toISOString();
         })() : null,
         projectId,
+        releaseId: localReleaseId,
         tagIds: localTagIds,
         assigneeId: localAssigneeId,
         visibility: localVisibility,
@@ -872,7 +881,10 @@ export function TaskDetailDialog() {
                           </Label>
                           <Select
                             value={projectId ?? 'none'}
-                            onValueChange={(v) => setProjectId(v === 'none' ? null : v)}
+                            onValueChange={(v) => {
+                              setProjectId(v === 'none' ? null : v);
+                              setLocalReleaseId(null);
+                            }}
                           >
                             <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select project" />
@@ -917,7 +929,29 @@ export function TaskDetailDialog() {
                           )}
                         </div>
                       )}
+                      {task.release && (
+                        <div className="space-y-1.5">
+                          <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                            Release
+                          </Label>
+                          <ReleaseBadge release={task.release} />
+                        </div>
+                      )}
                     </>
+                  )}
+
+                  {/* Release (edit mode, top-level tasks only) */}
+                  {isEditing && !task.parentId && (
+                    <div className="space-y-1.5">
+                      <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                        Release
+                      </Label>
+                      <ReleasePicker
+                        projectId={projectId}
+                        value={localReleaseId}
+                        onChange={setLocalReleaseId}
+                      />
+                    </div>
                   )}
 
                   {/* Tags - view mode only */}

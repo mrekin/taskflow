@@ -9,6 +9,7 @@ import {
   canWriteEntity,
   parseVisibleUserIds,
   sanitizeRelation,
+  normalizeSanitizedRelation,
   sanitizeUserProfile,
   getIgnoredUserIds,
 } from "@/lib/visibility";
@@ -39,6 +40,7 @@ export interface CreateTaskData {
   dueDate?: string | null;
   projectId?: string | null;
   parentId?: string | null;
+  releaseId?: string | null;
   assigneeId?: string | null;
   metadata?: Record<string, unknown>;
   tagIds?: string[];
@@ -56,6 +58,7 @@ export interface UpdateTaskData {
   dueDate?: string | null;
   projectId?: string | null;
   parentId?: string | null;
+  releaseId?: string | null;
   assigneeId?: string | null;
   sortOrder?: number;
   metadata?: Record<string, unknown>;
@@ -188,6 +191,7 @@ export const TaskService = {
         subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true, assigneeId: true, ownerId: true, metadata: true, assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } } } },
         assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
         project: { select: { id: true, name: true, color: true } },
+        release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true } },
       },
       }),
       ...(paginated ? [db.task.count({ where })] : []),
@@ -273,6 +277,7 @@ export const TaskService = {
         },
         assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
         project: { select: { id: true, name: true, color: true } },
+        release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true, ownerId: true, visibility: true, visibleUserIds: true } },
         parent: { select: { id: true, title: true } },
         comments: {
           orderBy: { createdAt: "asc" },
@@ -349,8 +354,18 @@ export const TaskService = {
       isAuthenticated,
       projectAreaChain,
     );
+    // A release inherits fallback visibility from the task's project chain
+    const sanitizedRelease = normalizeSanitizedRelation(
+      sanitizeRelation(
+        task.release,
+        (task.release as { ownerId?: string } | null)?.ownerId ?? '',
+        userId,
+        isAuthenticated,
+        projectAreaChain,
+      ),
+    );
 
-    const { subtasks, comments, project, parent, ...rest } = task;
+    const { subtasks, comments, project, release, parent, ...rest } = task;
     const parsedTask = parseJsonFields(rest, "task");
     const taskPrices = extractPricesFromMetadata(parsedTask.metadata as Record<string, unknown>);
     const taskCurrency = extractCurrencyFromMetadata(parsedTask.metadata as Record<string, unknown>);
@@ -378,6 +393,7 @@ export const TaskService = {
       ...parsedTask,
       assignee: task.assignee ? sanitizeUserProfile(task.assignee) : null,
       project: sanitizedProject,
+      release: sanitizedRelease,
       parent: sanitizedParent,
       _count: { subtasks: subtasks.length },
       completedSubtasks: subtasks.filter((s) => s.status === "done").length,
@@ -444,6 +460,7 @@ export const TaskService = {
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
         projectId: resolvedProjectId,
         parentId: data.parentId ?? null,
+        releaseId: data.releaseId ?? null,
         assigneeId: data.assigneeId ?? null,
         metadata: JSON.stringify(taskMetadata),
         tagIds: data.tagIds ? JSON.stringify(data.tagIds) : "[]",
@@ -456,6 +473,7 @@ export const TaskService = {
       include: {
         assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
         project: { select: { id: true, name: true, color: true } },
+        release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true } },
       },
     });
 
@@ -534,6 +552,7 @@ export const TaskService = {
     if (data.dueDate !== undefined) updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
     if (data.projectId !== undefined) updateData.projectId = data.projectId;
     if (data.parentId !== undefined) updateData.parentId = data.parentId || null;
+    if (data.releaseId !== undefined) updateData.releaseId = data.releaseId || null;
     if (data.assigneeId !== undefined) updateData.assigneeId = data.assigneeId || null;
     if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
     if (data.tagIds !== undefined) updateData.tagIds = JSON.stringify(data.tagIds);
@@ -587,6 +606,7 @@ export const TaskService = {
       include: {
         assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
         project: { select: { id: true, name: true, color: true, areaId: true } },
+        release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true } },
         parent: { select: { id: true, title: true } },
         _count: { select: { subtasks: true } },
         subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true, metadata: true } },

@@ -57,6 +57,7 @@ import { useCollapsedState } from '@/hooks/use-collapsed-state';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import { VisibilityBadge } from '@/components/visibility-badge';
+import { ReleaseBadge } from '@/components/release-badge';
 import { INVALID_STATE_COLUMN, TASK_PRIORITIES, PRIORITY_LABELS, PRIORITY_COLORS, getColumnLabelAndColor, type StatusConfig } from '@/lib/constants';
 import type { Task } from '@/lib/types';
 import type { Project } from '@/lib/types';
@@ -398,6 +399,8 @@ function MobileTaskCard({ task, visibleColumns, isSubtask = false }: { task: Tas
               {task._count!.attachments}
             </Badge>
           )}
+
+          {task.releaseId && task.release && <ReleaseBadge release={task.release} />}
 
           <VisibilityBadge visibility={task.visibility} visibleUserIds={task.visibleUserIds} users={users} className="shrink-0" />
 

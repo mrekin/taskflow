@@ -11,6 +11,7 @@ const ENTITY_LABELS: Record<SyncConflict['entityType'], string> = {
   project: 'Проект',
   area: 'Область',
   tag: 'Тег',
+  release: 'Релиз',
 };
 
 /**

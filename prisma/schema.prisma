@@ -26,6 +26,7 @@ model User {
   ownedTasks    Task[]
   ownedNotes    Note[]
   ownedFolders  NoteFolder[]
+  ownedReleases Release[]
   assignedTasks Task[]    @relation("TaskAssignee")
   comments      Comment[]
   tags          Tag[]
@@ -74,7 +75,35 @@ model Project {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  area    Area?        @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  area     Area?        @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  owner    User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tasks    Task[]
+  notes    Note[]
+  folders  NoteFolder[]
+  releases Release[]
+}
+
+model Release {
+  id                String    @id @default(cuid())
+  title             String
+  description       String?
+  version           String?
+  status            String    @default("planned")
+  plannedStartDate  DateTime?
+  plannedEndDate    DateTime?
+  actualReleaseDate DateTime?
+  projectId         String
+  metadata          String    @default("{}")
+  tagIds            String    @default("[]")
+  shortIdNum        Int       @default(0)
+  ownerId           String
+  sortOrder         Int       @default(0)
+  visibility        String?
+  visibleUserIds    String    @default("[]")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   owner   User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   tasks   Task[]
   notes   Note[]
@@ -91,6 +120,7 @@ model Task {
   assigneeId      String?
   projectId       String?
   parentId        String?
+  releaseId       String?
   metadata        String    @default("{}")
   tagIds          String    @default("[]")
   shortIdNum      Int       @default(0)
@@ -102,6 +132,7 @@ model Task {
   updatedAt       DateTime  @updatedAt
 
   project    Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  release    Release?  @relation(fields: [releaseId], references: [id], onDelete: SetNull)
   parent     Task?     @relation("TaskHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   subtasks   Task[]    @relation("TaskHierarchy")
   owner      User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -115,6 +146,7 @@ model Note {
   content         String   @default("")
   projectId       String?
   folderId        String?
+  releaseId       String?
   metadata        String   @default("{}")
   tagIds          String   @default("[]")
   shortIdNum      Int      @default(0)
@@ -128,6 +160,7 @@ model Note {
 
   project  Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
   folder   NoteFolder?   @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  release  Release?      @relation(fields: [releaseId], references: [id], onDelete: SetNull)
   owner    User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   versions NoteVersion[]
 }
@@ -160,6 +193,7 @@ model NoteFolder {
   name            String
   projectId       String?
   parentId        String?
+  releaseId       String?
   metadata        String   @default("{}")
   shortIdNum      Int      @default(0)
   ownerId         String
@@ -173,6 +207,7 @@ model NoteFolder {
   children  NoteFolder[] @relation("FolderHierarchy")
   notes     Note[]
   project   Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  release   Release?     @relation(fields: [releaseId], references: [id], onDelete: SetNull)
   owner     User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 }
 

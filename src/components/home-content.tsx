@@ -32,6 +32,7 @@ import {
   Folder,
   Share2,
   Lock,
+  Rocket,
 } from 'lucide-react';
 
 import { cn, findByShortId } from '@/lib/utils';
@@ -48,6 +49,7 @@ import { TaskDetailDialog } from '@/components/task-detail-dialog';
 import { CostBreakdownDialog } from '@/components/cost-breakdown-dialog';
 import { NotesList } from '@/components/notes-list';
 import { NoteEditor } from '@/components/note-editor';
+import { ReleasesView } from '@/components/releases-view';
 import { SettingsView } from '@/components/settings-view';
 import { QuickCreate } from '@/components/quick-create';
 import { TagBadges } from '@/components/tag-badges';
@@ -266,6 +268,8 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
     notes,
     folders,
     tags,
+    releases,
+    selectedReleaseId,
     sidebarOpen,
     tagFilter,
     projectFilter,
@@ -279,6 +283,7 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
     selectTask,
     selectNote,
     selectFolder,
+    selectRelease,
     toggleSidebar,
     setTaskStatusFilter,
     setTagFilter,
@@ -289,6 +294,7 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
     fetchNotes,
     fetchFolders,
     fetchTags,
+    fetchReleases,
     fetchUserPreferences,
     fetchStatuses,
     updateProject,
@@ -390,11 +396,12 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
       fetchNotes(),
       fetchFolders(),
       fetchTags(),
+      fetchReleases(),
       fetchUserPreferences(),
       fetchStatuses(),
       fetchUsers(),
     ]).finally(() => setInitialLoadDone(true));
-  }, [fetchAreas, fetchProjects, fetchTasks, fetchNotes, fetchFolders, fetchTags, fetchUserPreferences, fetchStatuses, fetchUsers]);
+  }, [fetchAreas, fetchProjects, fetchTasks, fetchNotes, fetchFolders, fetchTags, fetchReleases, fetchUserPreferences, fetchStatuses, fetchUsers]);
 
   // External-change auto-refresh: incremental polling + refetch on tab focus
   useSyncPoll(initialLoadDone);
@@ -415,6 +422,7 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
     const projectId = searchParams.get('project');
     const noteId = searchParams.get('note');
     const areaId = searchParams.get('area');
+    const releaseParam = searchParams.get('release');
     const entityUuid = searchParams.get('id');
 
     if (taskId) {
@@ -462,11 +470,22 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
         toast.error('Access denied', { description: 'This area does not exist or you do not have access to it.' });
       }
       deepLinkHandledRef.current = true;
+    } else if (releaseParam) {
+      const release = entityUuid
+        ? releases.find((r) => r.id === entityUuid)
+        : findByShortId(releases, releaseParam);
+      if (release) {
+        selectRelease(release.id);
+        setCurrentView('releases');
+      } else {
+        toast.error('Access denied', { description: 'This release does not exist or you do not have access to it.' });
+      }
+      deepLinkHandledRef.current = true;
     } else {
       setCurrentView(isGuest ? 'tasks' : userPreferences.defaultPage);
       deepLinkHandledRef.current = true;
     }
-  }, [searchParams, initialLoadDone, preferencesLoaded, isGuest, selectTask, selectNote, selectProject, selectArea, setCurrentView, fetchTasks, fetchNotes, tasks, notes, projects, areas, userPreferences.defaultPage]);
+  }, [searchParams, initialLoadDone, preferencesLoaded, isGuest, selectTask, selectNote, selectProject, selectArea, selectRelease, setCurrentView, fetchTasks, fetchNotes, tasks, notes, projects, areas, releases, userPreferences.defaultPage]);
 
   const handleAreaClick = (areaId: string) => {
     selectArea(areaId);
@@ -742,6 +761,8 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
         return <ScrollPage><QuickCreate /></ScrollPage>;
       case 'notes':
         return <ScrollPage><NotesList /></ScrollPage>;
+      case 'releases':
+        return <ScrollPage><ReleasesView /></ScrollPage>;
       case 'note-editor':
         if (selectedNoteId) {
           return (
@@ -776,6 +797,7 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
       case 'kanban': return 'Kanban Board';
       case 'quick-create': return 'Quick Create';
       case 'notes': return 'Notes';
+      case 'releases': return selectedReleaseId ? 'Release Details' : 'Releases';
       case 'note-editor': return selectedNoteId ? 'View Note' : 'Notes';
       case 'settings': return 'Settings';
       default: return 'TaskFlow';
@@ -913,6 +935,21 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
                 {notes.length}
               </Badge>
             </Button>
+            {releases.length > 0 && (
+              <Button
+                variant={currentView === 'releases' ? 'secondary' : 'ghost'}
+                className="w-full justify-start h-9 text-sm"
+                onClick={() => {
+                  selectRelease(null);
+                  setCurrentView('releases');
+                  fetchTasks();
+                  fetchNotes();
+                  fetchFolders();
+                }}
+              >
+                <Rocket className="size-4 mr-2" /> Releases
+              </Button>
+            )}
 
             {/* Notes tree */}
             {notesTreeEnabled && (() => {

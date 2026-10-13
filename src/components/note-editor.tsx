@@ -5,6 +5,8 @@ import { useAppStore, useIsGuest } from '@/store/app-store';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { TagPicker } from '@/components/tag-picker';
 import { TagBadges } from '@/components/tag-badges';
+import { ReleasePicker } from '@/components/release-picker';
+import { ReleaseBadge } from '@/components/release-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -109,6 +111,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
   const [title, setTitle] = useState(() => note?.title ?? '');
   const [content, setContent] = useState(() => note?.content ?? '');
   const [projectId, setProjectId] = useState<string>(() => note?.projectId ?? 'none');
+  const [releaseId, setReleaseId] = useState<string | null>(() => note?.releaseId ?? null);
   const [tagIds, setTagIds] = useState<string[]>(() => note?.tagIds ?? []);
   const [visibility, setVisibility] = useState<string | null>(() => note?.visibility ?? null);
   const [visibleUserIds, setVisibleUserIds] = useState<string[]>(() => note?.visibleUserIds ?? []);
@@ -119,6 +122,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
   const [lastSavedTitle, setLastSavedTitle] = useState(() => note?.title ?? '');
   const [lastSavedContent, setLastSavedContent] = useState(() => note?.content ?? '');
   const [lastSavedProjectId, setLastSavedProjectId] = useState(() => note?.projectId ?? 'none');
+  const [lastSavedReleaseId, setLastSavedReleaseId] = useState<string | null>(() => note?.releaseId ?? null);
   const [lastSavedTagIds, setLastSavedTagIds] = useState<string[]>(() => note?.tagIds ?? []);
   const [lastSavedVisibility, setLastSavedVisibility] = useState<string | null>(() => note?.visibility ?? null);
   const [lastSavedVisibleUserIds, setLastSavedVisibleUserIds] = useState<string[]>(() => note?.visibleUserIds ?? []);
@@ -148,11 +152,12 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
       title !== lastSavedTitle ||
       content !== lastSavedContent ||
       projectId !== lastSavedProjectId ||
+      releaseId !== lastSavedReleaseId ||
       JSON.stringify(tagIds) !== JSON.stringify(lastSavedTagIds) ||
       visibility !== lastSavedVisibility ||
       JSON.stringify(visibleUserIds) !== JSON.stringify(lastSavedVisibleUserIds)
     );
-  }, [title, content, projectId, tagIds, visibility, visibleUserIds, lastSavedTitle, lastSavedContent, lastSavedProjectId, lastSavedTagIds, lastSavedVisibility, lastSavedVisibleUserIds]);
+  }, [title, content, projectId, releaseId, tagIds, visibility, visibleUserIds, lastSavedTitle, lastSavedContent, lastSavedProjectId, lastSavedReleaseId, lastSavedTagIds, lastSavedVisibility, lastSavedVisibleUserIds]);
 
   // Register dirty state with the sync engine: a note with unsaved changes is
   // protected from silent external merges (they go through the conflict banner).
@@ -172,6 +177,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
         title: title.trim(),
         content,
         projectId: projectId === 'none' ? null : projectId,
+        releaseId,
         tagIds,
         visibility,
         visibleUserIds,
@@ -190,6 +196,10 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
         });
         setVersionComment('');
         if (version) toast.success(`Saved version v${version.number}`);
+        // releaseId is not part of version snapshots — persist it on the live note.
+        if (releaseId !== lastSavedReleaseId) {
+          await updateNote(note.id, { releaseId });
+        }
       } else {
         await updateNote(note.id, data);
       }
@@ -197,6 +207,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
       setLastSavedTitle(title);
       setLastSavedContent(content);
       setLastSavedProjectId(projectId);
+      setLastSavedReleaseId(releaseId);
       setLastSavedTagIds(tagIds);
       setLastSavedVisibility(visibility);
       setLastSavedVisibleUserIds(visibleUserIds);
@@ -207,7 +218,7 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
       toast.error(msg);
       setSaveStatus('unsaved');
     }
-  }, [note, title, content, projectId, tagIds, visibility, visibleUserIds, updateNote, versioningOn, isReadOnly, isGuest, versionComment, saveNoteVersion]);
+  }, [note, title, content, projectId, releaseId, lastSavedReleaseId, tagIds, visibility, visibleUserIds, updateNote, versioningOn, isReadOnly, isGuest, versionComment, saveNoteVersion]);
 
   // Auto-save with debounce (only when enabled and versioning is off)
   useEffect(() => {
@@ -528,7 +539,10 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
           {editorMode !== 'preview' && !isReadOnly && (
             <Select
               value={projectId}
-              onValueChange={(v) => setProjectId(v)}
+              onValueChange={(v) => {
+                setProjectId(v);
+                setReleaseId(null);
+              }}
             >
               <SelectTrigger className="w-[140px] h-7 text-xs">
                 <SelectValue placeholder="Project" />
@@ -548,6 +562,17 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
                 ))}
               </SelectContent>
             </Select>
+          )}
+
+          {/* Release selector */}
+          {editorMode !== 'preview' && !isReadOnly && (
+            <div className="w-[160px] shrink-0">
+              <ReleasePicker
+                projectId={projectId === 'none' ? null : projectId}
+                value={releaseId}
+                onChange={setReleaseId}
+              />
+            </div>
           )}
 
           {!isReadOnly && !isGuest && !viewingVersion && (
@@ -819,6 +844,9 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
               <div className="flex flex-wrap items-center gap-2 mb-5 text-muted-foreground">
                 {tagIds && tagIds.length > 0 && (
                   <TagBadges tagIds={tagIds} max={5} size="sm" />
+                )}
+                {note.releaseId && note.release && (
+                  <ReleaseBadge release={note.release} />
                 )}
                 <span className="flex items-center gap-1 text-[11px]">
                   <Clock className="h-3 w-3" />

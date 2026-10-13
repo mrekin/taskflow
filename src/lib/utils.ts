@@ -8,7 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Entity type prefix for mentions and links
  */
-export type EntityType = 'task' | 'project' | 'note' | 'area' | 'folder';
+export type EntityType = 'task' | 'project' | 'note' | 'area' | 'folder' | 'release';
 
 /**
  * Short ID prefix map - maps entity type to display prefix
@@ -19,6 +19,7 @@ export const SHORT_ID_PREFIX: Record<EntityType, string> = {
   note: 'N',
   area: 'A',
   folder: 'F',
+  release: 'R',
 };
 
 /**
@@ -50,10 +51,10 @@ export function getEntityLink(type: EntityType, shortId: string, entityId?: stri
 }
 
 /**
- * Check if a string looks like a shortId (e.g., "T-7", "P-3", "N-12", "A-2")
+ * Check if a string looks like a shortId (e.g., "T-7", "P-3", "N-12", "A-2", "R-1")
  */
 export function isShortId(value: string): boolean {
-  return /^[TPNAF]-\d+$/i.test(value);
+  return /^[TPNAFR]-\d+$/i.test(value);
 }
 
 /**

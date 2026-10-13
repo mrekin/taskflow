@@ -18,6 +18,7 @@ import { PRIORITY_LABELS, PRIORITY_COLORS, getColumnLabelAndColor } from '@/lib/
 import { useAppStore, useIsGuest } from '@/store/app-store';
 import { TagBadges } from '@/components/tag-badges';
 import { CostSummaryBadge } from '@/components/cost-breakdown-dialog';
+import { ReleaseBadge } from '@/components/release-badge';
 
 interface TaskCardProps {
   task: Task;
@@ -205,6 +206,9 @@ export function TaskCard({ task, isDragOverlay = false, isSubtask = false }: Tas
                 {project.name}
               </Badge>
             )}
+
+            {/* Release */}
+            {task.releaseId && task.release && <ReleaseBadge release={task.release} />}
 
             {/* Assignee */}
             {task.assignee && (

@@ -70,6 +70,7 @@ import {
 } from '@/lib/constants';
 import { TagPicker } from '@/components/tag-picker';
 import { UserPicker } from '@/components/user-picker';
+import { ReleasePicker } from '@/components/release-picker';
 import { VisibilityLock } from '@/components/visibility-lock';
 import { MarkdownToolbar } from '@/components/markdown-toolbar';
 import { MentionTextarea } from '@/components/mention-autocomplete';
@@ -120,6 +121,7 @@ export function CreateTaskDialog({
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
   const [dueTime, setDueTime] = useState('09:00');
   const [projectId, setProjectId] = useState<string>(defaultProjectId || selectedProjectId || 'none');
+  const [releaseId, setReleaseId] = useState<string | null>(null);
   const [parentTaskId, setParentTaskId] = useState<string>(parentId || defaultParentId || 'none');
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
@@ -140,7 +142,7 @@ export function CreateTaskDialog({
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isDirty = !!(title.trim() || description.trim() || dueDate || tagIds.length > 0 || assigneeId || webhookBindings.length > 0 || pendingFiles.length > 0 || prices.length > 0);
+  const isDirty = !!(title.trim() || description.trim() || dueDate || tagIds.length > 0 || assigneeId || releaseId || webhookBindings.length > 0 || pendingFiles.length > 0 || prices.length > 0);
 
   const handleClose = () => {
     setTitle(defaultTitle || '');
@@ -150,6 +152,7 @@ export function CreateTaskDialog({
     setDueDate(undefined);
     setDueTime('09:00');
     setProjectId(defaultProjectId || selectedProjectId || 'none');
+    setReleaseId(null);
     setParentTaskId(parentId || defaultParentId || 'none');
     setTagIds([]);
     setAssigneeId(null);
@@ -182,6 +185,7 @@ export function CreateTaskDialog({
       setDueDate(undefined);
       setDueTime('09:00');
       setProjectId(defaultProjectId || selectedProjectId || 'none');
+      setReleaseId(null);
       setParentTaskId(parentId || defaultParentId || 'none');
       setTagIds([]);
       setAssigneeId(null);
@@ -282,6 +286,7 @@ export function CreateTaskDialog({
             })()
           : null,
         projectId: projectId === 'none' ? null : projectId,
+        releaseId,
         parentId: parentTaskId === 'none' ? null : parentTaskId,
         tagIds,
         assigneeId,
@@ -484,32 +489,53 @@ export function CreateTaskDialog({
             )}
 
             {!parentId && (
-              <div className="grid grid-cols-[1fr_2fr] gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-muted-foreground text-xs uppercase tracking-wider">
-                    Project
-                  </Label>
-                  <Select value={projectId} onValueChange={setProjectId}>
-                    <SelectTrigger className="w-full" tabIndex={3}>
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No project</SelectItem>
-                      {projects.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <>
+                <div className="grid grid-cols-[1fr_2fr] gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                      Project
+                    </Label>
+                    <Select
+                      value={projectId}
+                      onValueChange={(v) => {
+                        setProjectId(v);
+                        setReleaseId(null);
+                      }}
+                    >
+                      <SelectTrigger className="w-full" tabIndex={3}>
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No project</SelectItem>
+                        {projects.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                      Tags
+                    </Label>
+                    <TagPicker selectedTagIds={tagIds} onTagIdsChange={setTagIds} />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-muted-foreground text-xs uppercase tracking-wider">
-                    Tags
-                  </Label>
-                  <TagPicker selectedTagIds={tagIds} onTagIdsChange={setTagIds} />
-                </div>
-              </div>
+
+                {projectId !== 'none' && (
+                  <div className="space-y-1.5">
+                    <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                      Release
+                    </Label>
+                    <ReleasePicker
+                      projectId={projectId === 'none' ? null : projectId}
+                      value={releaseId}
+                      onChange={setReleaseId}
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             {parentId && (

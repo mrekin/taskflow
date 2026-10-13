@@ -158,6 +158,20 @@ export function sanitizeRelation<T extends Record<string, unknown>>(
   return { id: relatedEntity.id as string };
 }
 
+/**
+ * Post-process a sanitizeRelation result that came back as the full object:
+ * its `visibleUserIds` is still the raw JSON string from the DB select —
+ * parse it to match the API shape of list endpoints.
+ */
+export function normalizeSanitizedRelation<T extends Record<string, unknown>>(
+  related: T | { id: string } | null,
+): T | { id: string } | null {
+  if (related && 'visibleUserIds' in related && typeof related.visibleUserIds === 'string') {
+    return { ...related, visibleUserIds: parseVisibleUserIds(related.visibleUserIds) } as T;
+  }
+  return related;
+}
+
 export function parseVisibleUserIds(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.filter((id): id is string => typeof id === 'string');
   if (typeof raw === 'string') {

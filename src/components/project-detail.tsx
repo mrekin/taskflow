@@ -10,6 +10,7 @@ import {
   List,
   FileText,
   StickyNote,
+  Rocket,
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,6 +59,8 @@ import { TaskList } from '@/components/task-list';
 import { KanbanBoard } from '@/components/kanban-board';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { CreateNoteDialog } from '@/components/create-note-dialog';
+import { CreateReleaseDialog } from '@/components/create-release-dialog';
+import { ReleaseCard } from '@/components/release-card';
 import { useAppStore, useIsGuest } from '@/store/app-store';
 import {
   STATUS_LABELS,
@@ -85,6 +88,10 @@ export function ProjectDetail() {
     notes,
     fetchNotes,
     tasks,
+    fetchTasks,
+    fetchFolders,
+    releases,
+    selectRelease,
     users,
     currentUserId,
   } = useAppStore();
@@ -103,6 +110,7 @@ export function ProjectDetail() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCreateNote, setShowCreateNote] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
+  const [showCreateRelease, setShowCreateRelease] = useState(false);
   const [editTagIds, setEditTagIds] = useState<string[]>([]);
   const [editVisibility, setEditVisibility] = useState<string | null>(null);
   const [editVisibleUserIds, setEditVisibleUserIds] = useState<string[]>([]);
@@ -188,6 +196,11 @@ export function ProjectDetail() {
   }
 
   const taskCount = tasks.filter((t) => t.projectId === selectedProjectId && !t.parentId).length;
+
+  // Releases of this project, oldest first
+  const projectReleases = releases
+    .filter((r) => r.projectId === project.id)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
     <div className="space-y-4">
@@ -300,6 +313,9 @@ export function ProjectDetail() {
             <TabsTrigger value="notes" className="gap-1.5">
               <StickyNote className="size-3.5" /> Notes
             </TabsTrigger>
+            <TabsTrigger value="releases" className="gap-1.5">
+              <Rocket className="size-3.5" /> Releases
+            </TabsTrigger>
           </TabsList>
           {!isGuest && (
             <div className="flex gap-2">
@@ -308,6 +324,9 @@ export function ProjectDetail() {
               </Button>
               <Button variant="outline" size="sm" onClick={() => setShowCreateNote(true)}>
                 <Plus className="size-4 mr-1" /> Add Note
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowCreateRelease(true)}>
+                <Plus className="size-4 mr-1" /> Add Release
               </Button>
             </div>
           )}
@@ -362,6 +381,36 @@ export function ProjectDetail() {
               title="No notes yet"
               description="Create a note to get started"
             />
+          )}
+        </TabsContent>
+
+        <TabsContent value="releases">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-muted-foreground">Releases</h3>
+            {!isGuest && (
+              <Button variant="outline" size="sm" onClick={() => setShowCreateRelease(true)}>
+                <Plus className="size-4 mr-1" /> New Release
+              </Button>
+            )}
+          </div>
+          {projectReleases.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
+              {projectReleases.map((cardRelease) => (
+                <ReleaseCard
+                  key={cardRelease.id}
+                  release={cardRelease}
+                  onClick={() => {
+                    selectRelease(cardRelease.id);
+                    setCurrentView('releases');
+                    fetchTasks();
+                    fetchNotes();
+                    fetchFolders();
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-3">No releases yet</p>
           )}
         </TabsContent>
       </Tabs>
@@ -481,6 +530,13 @@ export function ProjectDetail() {
         open={showCreateTask}
         onOpenChange={setShowCreateTask}
         defaultProjectId={selectedProjectId || undefined}
+      />
+
+      {/* Create Release Dialog */}
+      <CreateReleaseDialog
+        open={showCreateRelease}
+        onOpenChange={setShowCreateRelease}
+        projectId={project.id}
       />
     </div>
   );

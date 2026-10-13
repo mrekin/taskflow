@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { EntityIdBadge } from '@/components/entity-id-badge';
 import { useAppStore } from '@/store/app-store';
 import { CostSummaryBadge } from '@/components/cost-breakdown-dialog';
+import { ReleaseBadge } from '@/components/release-badge';
 import type { Task } from '@/lib/types';
 import {
   PRIORITY_COLORS,
@@ -124,6 +125,8 @@ export function TaskCardMobile({ task, isSubtask = false }: TaskCardMobileProps)
             {project.name}
           </span>
         ) : null}
+
+        {task.releaseId && task.release && <ReleaseBadge release={task.release} />}
 
         {(task.dueDate || project) && (totalSubtasks > 0 || taskTags.length > 0) ? (
           <span>·</span>

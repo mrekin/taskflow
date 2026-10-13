@@ -45,6 +45,7 @@ import { EntityIdBadge } from '@/components/entity-id-badge';
 import { VisibilityBadge } from '@/components/visibility-badge';
 import { VisibilityLock } from '@/components/visibility-lock';
 import { OwnerIndicator } from '@/components/owner-indicator';
+import { ReleaseBadge } from '@/components/release-badge';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -750,9 +751,14 @@ export function NotesList() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <h3 className="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-primary transition-colors">
-                              {folder.name}
-                            </h3>
+                            <div className="flex items-start gap-1.5">
+                              <h3 className="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-primary transition-colors flex-1 min-w-0">
+                                {folder.name}
+                              </h3>
+                              {folder.releaseId && folder.release && (
+                                <ReleaseBadge release={folder.release} className="shrink-0 h-5" />
+                              )}
+                            </div>
                             <div className="flex items-center gap-1 mt-0.5">
                               <p className="text-xs text-muted-foreground">
                                 {itemCount} item{itemCount !== 1 ? 's' : ''}
@@ -898,6 +904,9 @@ export function NotesList() {
                             />
                             {note.project.name}
                           </Badge>
+                        )}
+                        {note.releaseId && note.release && (
+                          <ReleaseBadge release={note.release} />
                         )}
                         <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                           <Clock className="h-3 w-3" />

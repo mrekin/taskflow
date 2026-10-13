@@ -37,6 +37,28 @@ export const TASK_STATUSES = ['todo', 'in_progress', 'done', 'cancelled'] as con
 export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
 export const PROJECT_STATUSES = ['active', 'archived', 'completed'] as const;
 
+export const RELEASE_STATUSES = ['planned', 'in_work', 'testing', 'ready', 'done'] as const;
+export type ReleaseStatus = (typeof RELEASE_STATUSES)[number];
+
+export const RELEASE_STATUS_LABELS: Record<string, string> = {
+  planned: 'Planned',
+  in_work: 'In Work',
+  testing: 'Testing',
+  ready: 'Ready',
+  done: 'Done',
+};
+
+export const RELEASE_STATUS_COLORS: Record<string, string> = {
+  planned: '#94a3b8',
+  in_work: '#3b82f6',
+  testing: '#f59e0b',
+  ready: '#8b5cf6',
+  done: '#22c55e',
+};
+
+/** Statuses that still accept new linked entities; ready/done releases are closed. */
+export const RELEASE_ACTIVE_STATUSES: readonly string[] = ['planned', 'in_work', 'testing'];
+
 export const STATUS_LABELS: Record<string, string> = {
   todo: 'To Do',
   in_progress: 'In Progress',

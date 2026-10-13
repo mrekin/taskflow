@@ -40,7 +40,32 @@ export interface Project {
   tasks?: Task[];
   notes?: Note[];
   folders?: NoteFolder[];
+  releases?: Release[];
   _count?: { tasks: number; topLevelTasks: number; notes: number; folders: number };
+}
+
+export interface Release {
+  id: string;
+  title: string;
+  description: string | null;
+  version: string | null;
+  status: string;
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  actualReleaseDate: string | null;
+  projectId: string;
+  metadata: Record<string, unknown>;
+  tagIds: string[];
+  shortIdNum: number;
+  shortId: string;
+  ownerId: string;
+  sortOrder: number;
+  visibility: string | null;
+  visibleUserIds: string[];
+  createdAt: string;
+  updatedAt: string;
+  project?: Project;
+  _count?: { tasks: number; notes: number; folders: number };
 }
 
 export interface Task {
@@ -53,6 +78,7 @@ export interface Task {
   assigneeId: string | null;
   projectId: string | null;
   parentId: string | null;
+  releaseId: string | null;
   metadata: Record<string, unknown>;
   tagIds: string[];
   shortIdNum: number;
@@ -65,6 +91,7 @@ export interface Task {
   updatedAt: string;
   assignee?: { id: string; name: string | null; email: string; image: string | null } | null;
   project?: Project;
+  release?: Release;
   parent?: Task;
   subtasks?: Task[];
   _count?: { subtasks: number; attachments: number };
@@ -139,6 +166,7 @@ export interface Note {
   content: string;
   projectId: string | null;
   folderId: string | null;
+  releaseId: string | null;
   metadata: Record<string, unknown>;
   tagIds: string[];
   shortIdNum: number;
@@ -152,6 +180,7 @@ export interface Note {
   updatedAt: string;
   project?: Project;
   folder?: NoteFolder;
+  release?: Release;
   _count?: { attachments: number };
 }
 
@@ -191,6 +220,7 @@ export interface NoteFolder {
   name: string;
   projectId: string | null;
   parentId: string | null;
+  releaseId: string | null;
   metadata: Record<string, unknown>;
   shortIdNum: number;
   shortId: string;
@@ -203,6 +233,7 @@ export interface NoteFolder {
   parent?: NoteFolder;
   children?: NoteFolder[];
   notes?: Note[];
+  release?: Release;
   _count?: { children: number; notes: number };
 }
 

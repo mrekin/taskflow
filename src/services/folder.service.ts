@@ -7,6 +7,7 @@ import {
   canWriteEntity,
   parseVisibleUserIds,
   sanitizeRelation,
+  normalizeSanitizedRelation,
 } from "@/lib/visibility";
 import { isPublicReadonly } from "@/lib/config";
 import type { ServiceResult } from "./types";
@@ -23,6 +24,7 @@ export interface CreateFolderData {
   name: string;
   projectId?: string | null;
   parentId?: string | null;
+  releaseId?: string | null;
   visibility?: string | null;
   visibleUserIds?: string[];
 }
@@ -30,6 +32,7 @@ export interface CreateFolderData {
 export interface UpdateFolderData {
   name?: string;
   parentId?: string | null;
+  releaseId?: string | null;
   visibility?: string | null;
   visibleUserIds?: string[];
 }
@@ -54,6 +57,7 @@ export const FolderService = {
         orderBy: { sortOrder: "asc" },
         include: {
           parent: { select: { id: true, name: true, parentId: true } },
+          release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true } },
           _count: { select: { children: true, notes: true } },
         },
       }),
@@ -74,6 +78,7 @@ export const FolderService = {
       where: { id },
       include: {
         parent: { select: { id: true, name: true, parentId: true, visibility: true, visibleUserIds: true, ownerId: true } },
+        release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true, ownerId: true, visibility: true, visibleUserIds: true } },
         _count: { select: { children: true, notes: true } },
       },
     });
@@ -136,6 +141,34 @@ export const FolderService = {
       );
     }
 
+    // A release inherits fallback visibility from the folder's project (+ area) chain
+    if (folder.release && folder.projectId) {
+      const releaseChain: Array<{ visibility: string | null; ownerId: string }> = [];
+      const project = await db.project.findFirst({
+        where: { id: folder.projectId },
+        select: { visibility: true, ownerId: true, areaId: true },
+      });
+      if (project) {
+        releaseChain.push({ visibility: project.visibility, ownerId: project.ownerId });
+        if (project.areaId) {
+          const area = await db.area.findFirst({
+            where: { id: project.areaId },
+            select: { visibility: true, ownerId: true },
+          });
+          if (area) releaseChain.push(area);
+        }
+      }
+      response.release = normalizeSanitizedRelation(
+        sanitizeRelation(
+          folder.release as any,
+          (folder.release as any).ownerId,
+          userId,
+          !!userId,
+          releaseChain,
+        ),
+      );
+    }
+
     return { ok: true, data: response };
   },
 
@@ -184,6 +217,7 @@ export const FolderService = {
         name: data.name.trim(),
         projectId: data.projectId ?? null,
         parentId: data.parentId ?? null,
+        releaseId: data.releaseId ?? null,
         shortIdNum,
         ownerId: userId,
         sortOrder: (maxSortFolder?.sortOrder ?? -1) + 1,
@@ -192,6 +226,7 @@ export const FolderService = {
       },
       include: {
         parent: { select: { id: true, name: true, parentId: true } },
+        release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true } },
         _count: { select: { children: true, notes: true } },
       },
     });
@@ -211,6 +246,7 @@ export const FolderService = {
 
     const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) updateData.name = data.name.trim();
+    if (data.releaseId !== undefined) updateData.releaseId = data.releaseId || null;
     if (data.visibility !== undefined) updateData.visibility = data.visibility;
     if (data.visibleUserIds !== undefined) updateData.visibleUserIds = JSON.stringify(data.visibleUserIds);
 
@@ -264,6 +300,7 @@ export const FolderService = {
       data: updateData,
       include: {
         parent: { select: { id: true, name: true, parentId: true } },
+        release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true } },
         _count: { select: { children: true, notes: true } },
       },
     });

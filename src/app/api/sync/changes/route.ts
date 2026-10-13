@@ -16,8 +16,8 @@ function emptyPayload() {
   return {
     serverTime: new Date().toISOString(),
     truncated: false,
-    changed: { areas: [], projects: [], tasks: [], notes: [], folders: [], tags: [], users: [] },
-    allIds: { areas: [], projects: [], tasks: [], notes: [], folders: [], tags: [] },
+    changed: { areas: [], projects: [], tasks: [], notes: [], folders: [], releases: [], tags: [], users: [] },
+    allIds: { areas: [], projects: [], tasks: [], notes: [], folders: [], releases: [], tags: [] },
   };
 }
 
@@ -84,6 +84,9 @@ export async function GET(request: NextRequest) {
         payload.allIds.notes = [];
         payload.allIds.folders = [];
       }
+      // Releases are not exposed to API tokens (no token permission exists for them)
+      payload.changed.releases = [];
+      payload.allIds.releases = [];
       return NextResponse.json(payload);
     }
 

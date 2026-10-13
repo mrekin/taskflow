@@ -1,23 +1,50 @@
 'use client';
 
-import { List, LayoutGrid, Plus, StickyNote, Menu } from 'lucide-react';
+import { List, LayoutGrid, Plus, StickyNote, Rocket, Menu, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore, useIsGuest } from '@/store/app-store';
+
+type NavItem = {
+  icon: LucideIcon;
+  label: string;
+  view: 'tasks' | 'kanban' | 'quick-create' | 'notes' | 'releases';
+  action: () => void;
+  highlight?: boolean;
+};
 
 export function MobileBottomNav() {
   const currentView = useAppStore((s) => s.currentView);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const fetchTasks = useAppStore((s) => s.fetchTasks);
   const fetchNotes = useAppStore((s) => s.fetchNotes);
+  const fetchFolders = useAppStore((s) => s.fetchFolders);
+  const selectRelease = useAppStore((s) => s.selectRelease);
+  const releases = useAppStore((s) => s.releases);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const isGuest = useIsGuest();
 
-  const items = [
+  const items: NavItem[] = [
     { icon: List, label: 'Tasks', view: 'tasks' as const, action: () => { setCurrentView('tasks'); fetchTasks(); } },
     { icon: LayoutGrid, label: 'Kanban', view: 'kanban' as const, action: () => { setCurrentView('kanban'); fetchTasks(); } },
     { icon: Plus, label: 'Create', view: 'quick-create' as const, action: () => setCurrentView('quick-create'), highlight: true },
     { icon: StickyNote, label: 'Notes', view: 'notes' as const, action: () => { setCurrentView('notes'); fetchNotes(); } },
   ];
+
+  // Releases shown only when at least one release exists
+  if (releases.length > 0) {
+    items.push({
+      icon: Rocket,
+      label: 'Releases',
+      view: 'releases' as const,
+      action: () => {
+        selectRelease(null);
+        setCurrentView('releases');
+        fetchTasks();
+        fetchNotes();
+        fetchFolders();
+      },
+    });
+  }
 
   // Guests are read-only — no Quick Create
   const visibleItems = isGuest ? items.filter((item) => item.view !== 'quick-create') : items;

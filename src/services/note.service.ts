@@ -7,6 +7,7 @@ import {
   canWriteEntity,
   parseVisibleUserIds,
   sanitizeRelation,
+  normalizeSanitizedRelation,
 } from "@/lib/visibility";
 import { cleanupAttachments } from "@/lib/attachment-cleanup";
 import { isPublicReadonly } from "@/lib/config";
@@ -32,6 +33,7 @@ export interface CreateNoteData {
   content?: string;
   projectId?: string | null;
   folderId?: string | null;
+  releaseId?: string | null;
   metadata?: Record<string, unknown>;
   tagIds?: string[];
   visibility?: string | null;
@@ -43,6 +45,7 @@ export interface UpdateNoteData {
   content?: string;
   projectId?: string | null;
   folderId?: string | null;
+  releaseId?: string | null;
   metadata?: Record<string, unknown>;
   tagIds?: string[];
   visibility?: string | null;
@@ -92,6 +95,7 @@ export const NoteService = {
         include: {
           project: { select: { id: true, name: true, color: true } },
           folder: { select: { id: true, name: true, parentId: true } },
+          release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true } },
         },
       }),
       ...(paginated ? [db.note.count({ where })] : []),
@@ -182,6 +186,7 @@ export const NoteService = {
       include: {
         project: { select: { id: true, name: true, color: true } },
         folder: { select: { id: true, name: true, parentId: true } },
+        release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true } },
       },
     });
 
@@ -239,6 +244,7 @@ export const NoteService = {
       include: {
         project: { select: { id: true, name: true, color: true, visibility: true, visibleUserIds: true, ownerId: true, areaId: true } },
         folder: { select: { id: true, name: true, parentId: true, visibility: true, visibleUserIds: true, ownerId: true } },
+        release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true, ownerId: true, visibility: true, visibleUserIds: true } },
       },
     });
 
@@ -314,6 +320,30 @@ export const NoteService = {
       );
     }
 
+    // A release inherits fallback visibility from the note's project (+ area) chain
+    if (note.release) {
+      const releaseChain: Array<{ visibility: string | null; ownerId: string }> = [];
+      if (note.projectId && note.project) {
+        releaseChain.push({ visibility: (note.project as any).visibility, ownerId: (note.project as any).ownerId });
+        if ((note.project as any).areaId) {
+          const area = await db.area.findFirst({
+            where: { id: (note.project as any).areaId },
+            select: { visibility: true, ownerId: true },
+          });
+          if (area) releaseChain.push(area);
+        }
+      }
+      response.release = normalizeSanitizedRelation(
+        sanitizeRelation(
+          note.release as any,
+          (note.release as any).ownerId,
+          userId,
+          !!userId,
+          releaseChain,
+        ),
+      );
+    }
+
     return { ok: true, data: response };
   },
 
@@ -350,6 +380,7 @@ export const NoteService = {
         content: data.content ?? "",
         projectId: data.projectId ?? null,
         folderId: data.folderId ?? null,
+        releaseId: data.releaseId ?? null,
         metadata: data.metadata ? JSON.stringify(data.metadata) : "{}",
         tagIds: data.tagIds ? JSON.stringify(data.tagIds) : "[]",
         shortIdNum,
@@ -360,6 +391,7 @@ export const NoteService = {
       },
       include: {
         project: { select: { id: true, name: true, color: true } },
+        release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true } },
       },
     });
 
@@ -381,6 +413,7 @@ export const NoteService = {
     if (data.content !== undefined) updateData.content = data.content;
     if (data.projectId !== undefined) updateData.projectId = data.projectId;
     if (data.folderId !== undefined) updateData.folderId = data.folderId;
+    if (data.releaseId !== undefined) updateData.releaseId = data.releaseId || null;
     if (data.metadata !== undefined) updateData.metadata = JSON.stringify(data.metadata);
     if (data.tagIds !== undefined) updateData.tagIds = JSON.stringify(data.tagIds);
     if (data.visibility !== undefined) updateData.visibility = data.visibility;
@@ -410,6 +443,7 @@ export const NoteService = {
       data: updateData,
       include: {
         project: { select: { id: true, name: true, color: true } },
+        release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true } },
       },
     });
 
