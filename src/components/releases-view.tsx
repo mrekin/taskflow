@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TagBadges } from '@/components/tag-badges';
+import { EntityIdBadge } from '@/components/entity-id-badge';
 import { OwnerIndicator } from '@/components/owner-indicator';
 import { EmptyState } from '@/components/empty-state';
 import { DeleteDialog } from '@/components/delete-dialog';
@@ -280,22 +281,35 @@ function ReleaseDetail({ release, onEdit, onDelete, isDeleting }: ReleaseDetailP
                   linkedTasks.map((t) => {
                     const { label, color } = getColumnLabelAndColor(statuses, t.status);
                     return (
-                      <button
+                      <div
                         key={t.id}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         className="flex items-center gap-2 w-full text-left text-sm rounded-md px-2 py-1.5 hover:bg-accent transition-colors min-w-0"
                         onClick={() => selectTask(t.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            selectTask(t.id);
+                          }
+                        }}
                       >
                         <span
                           className="size-2 rounded-full shrink-0"
                           style={{ backgroundColor: color }}
                           title={label}
                         />
+                        <EntityIdBadge
+                          id={t.id}
+                          shortId={t.shortId || 'T-?'}
+                          type="task"
+                          className="shrink-0"
+                        />
                         <span className="truncate min-w-0">{t.title}</span>
                         <span className="ml-auto text-xs text-muted-foreground shrink-0">
                           {t.dueDate ? formatDate(t.dueDate) : label}
                         </span>
-                      </button>
+                      </div>
                     );
                   })
                 )}
@@ -314,20 +328,31 @@ function ReleaseDetail({ release, onEdit, onDelete, isDeleting }: ReleaseDetailP
                   <p className="text-xs text-muted-foreground/70">No linked notes</p>
                 ) : (
                   linkedNotes.map((n) => (
-                    <button
+                    <div
                       key={n.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       className="flex items-center gap-2 w-full text-left text-sm rounded-md px-2 py-1.5 hover:bg-accent transition-colors min-w-0"
                       onClick={() => {
                         selectNote(n.id);
                         setCurrentView('note-editor');
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          selectNote(n.id);
+                          setCurrentView('note-editor');
+                        }
+                      }}
                     >
-                      <span className="font-mono text-[10px] text-muted-foreground shrink-0">
-                        {formatShortId('note', n.shortIdNum)}
-                      </span>
+                      <EntityIdBadge
+                        id={n.id}
+                        shortId={n.shortId || 'N-?'}
+                        type="note"
+                        className="shrink-0"
+                      />
                       <span className="truncate min-w-0">{n.title}</span>
-                    </button>
+                    </div>
                   ))
                 )}
               </CardContent>
@@ -345,20 +370,31 @@ function ReleaseDetail({ release, onEdit, onDelete, isDeleting }: ReleaseDetailP
                   <p className="text-xs text-muted-foreground/70">No linked folders</p>
                 ) : (
                   linkedFolders.map((f) => (
-                    <button
+                    <div
                       key={f.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       className="flex items-center gap-2 w-full text-left text-sm rounded-md px-2 py-1.5 hover:bg-accent transition-colors min-w-0"
                       onClick={() => {
                         selectFolder(f.id);
                         setCurrentView('notes');
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          selectFolder(f.id);
+                          setCurrentView('notes');
+                        }
+                      }}
                     >
-                      <span className="font-mono text-[10px] text-muted-foreground shrink-0">
-                        {formatShortId('folder', f.shortIdNum)}
-                      </span>
+                      <EntityIdBadge
+                        id={f.id}
+                        shortId={f.shortId || 'F-?'}
+                        type="folder"
+                        className="shrink-0"
+                      />
                       <span className="truncate min-w-0">{f.name}</span>
-                    </button>
+                    </div>
                   ))
                 )}
               </CardContent>
