@@ -411,15 +411,22 @@ export function ReleasesView() {
     releases,
     projects,
     selectedProjectId,
+    projectFilter,
     selectedReleaseId,
     fetchReleases,
     selectRelease,
     deleteRelease,
   } = useAppStore();
 
-  const [projectId, setProjectId] = useState<string | null>(
-    selectedProjectId ?? projects[0]?.id ?? null
-  );
+  // Preselect the first project from the active sidebar "Filter by Projects"
+  // (falling back through it if it no longer exists); the filter affects only
+  // the preselection, the selector itself still lists all projects.
+  const [projectId, setProjectId] = useState<string | null>(() => {
+    const filteredId = projectFilter.find((id) =>
+      projects.some((p) => p.id === id)
+    );
+    return filteredId ?? selectedProjectId ?? projects[0]?.id ?? null;
+  });
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
