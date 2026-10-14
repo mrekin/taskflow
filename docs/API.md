@@ -57,6 +57,7 @@ curl -H "Authorization: Bearer tfa_4f1a..." https://your-taskflow/taskflow/api/t
 | `/api/folders/[id]` | GET, PUT, DELETE | `notes:read/update/delete` | |
 | `/api/attachments` | GET, DELETE | право чтения/удаления родителя | GET: `?entityId=&entityType=`; родитель определяет тип права (task→tasks, note→notes, comment→comments) |
 | `/api/attachments/file/[blobId]` | GET | право чтения родителя | Файл доступен, если **хотя бы одна** ссылающаяся сущность в скоупе (блобы дедуплицируются по хэшу) |
+| `/api/attachments/upload` | POST (multipart: `file`, `entityId`, `entityType`) | право **`update`** родителя | Владение сущностью и лимиты (размер/количество/типы/хранилище) проверяет сервис — те же, что для сессии |
 | `/api/search` | только GET | `tasks:read` и/или `notes:read` | Глобальный поиск: `{ q, tasks, notes, folders, projects }`. Секции без права у токена опускаются; скоуп применяется к каждой секции. Параметры: `q` (обязателен, ≤ 200), `limit` на секцию (1..100, по умолчанию 20) |
 | `/api/tags` | только GET | любое право `read` | Теги — пользовательский уровень, мутации тегов через токен запрещены |
 | `/api/projects` | только GET | любое право `read` | Отдаёт только проекты в скоупе |
@@ -73,7 +74,7 @@ curl -H "Authorization: Bearer tfa_4f1a..." https://your-taskflow/taskflow/api/t
 
 ## Эндпоинты, закрытые для токенов
 
-`export`, `export-files`, `import`, `webhooks/*`, `users/*`, `user/profile`, `user/preferences`, `attachments/upload`, `attachments/check`, `attachments/config`, `attachments/storage`, `attachments/user-files`, `tags` (POST/PUT/DELETE), `tags/usage`, `projects`/`areas` (POST/PUT/DELETE).
+`export`, `export-files`, `import`, `webhooks/*`, `users/*`, `user/profile`, `user/preferences`, `attachments/check`, `attachments/config`, `attachments/storage`, `attachments/user-files`, `tags` (POST/PUT/DELETE), `tags/usage`, `projects`/`areas` (POST/PUT/DELETE).
 
 Запрос с валидным токеном на них → `403 {"error": "API tokens are not allowed on this endpoint"}`. Публичные эндпоинты (`/api/config`, `/api/settings`) заголовок игнорируют.
 

@@ -177,6 +177,36 @@ export function validateTokenPermissionsInput(raw: unknown): TokenPermissions | 
   return result;
 }
 
+// --- user tokens management (session-only routes) ---
+
+/** Shapes an ApiToken DB record for the user tokens management API (list/create/update). */
+
+export function formatApiTokenRecord(record: {
+  id: string;
+  name: string;
+  tokenPrefix: string;
+  scopeType: string;
+  projectIds: string;
+  permissions: string;
+  expiresAt: Date | null;
+  revokedAt: Date | null;
+  lastUsedAt: Date | null;
+  createdAt: Date;
+}) {
+  return {
+    id: record.id,
+    name: record.name,
+    tokenPrefix: record.tokenPrefix,
+    scopeType: record.scopeType,
+    projectIds: JSON.parse(record.projectIds || '[]'),
+    permissions: JSON.parse(record.permissions || '{}'),
+    expiresAt: record.expiresAt,
+    revokedAt: record.revokedAt,
+    lastUsedAt: record.lastUsedAt,
+    createdAt: record.createdAt,
+  };
+}
+
 // --- lastUsedAt (throttled) ---
 
 const globalForTokenThrottle = globalThis as typeof globalThis & {

@@ -9,6 +9,7 @@ import {
   Check,
   Copy,
   CircleAlert,
+  Pencil,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,23 @@ function emptyPermissions(): TokenPermissions {
   };
 }
 
+/** Fills in any missing entity/action keys so the matrix always has the full shape. */
+function mergePermissions(raw: TokenPermissions | undefined): TokenPermissions {
+  const base = emptyPermissions();
+  return {
+    tasks: { ...base.tasks, ...raw?.tasks },
+    notes: { ...base.notes, ...raw?.notes },
+    comments: { ...base.comments, ...raw?.comments },
+  };
+}
+
+/** Local-time YYYY-MM-DD for <input type="date"> (dialogs parse it back with `T23:59:59`). */
+function toDateInputValue(value: string): string {
+  const d = new Date(value);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function tokenStatus(token: ApiToken): { label: string; className: string } {
   if (token.revokedAt) return { label: 'Revoked', className: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' };
   if (token.expiresAt && new Date(token.expiresAt) <= new Date()) {
@@ -75,6 +93,193 @@ function formatDate(value: string | null): string {
   return new Date(value).toLocaleString();
 }
 
+/** 3x4 permissions grid with toggle-all on row and column headers. */
+function PermissionsMatrix({
+  permissions,
+  onChange,
+}: {
+  permissions: TokenPermissions;
+  onChange: (next: TokenPermissions) => void;
+}) {
+  const toggleEntityAction = (entity: TokenEntity, action: TokenAction) => {
+    onChange({
+      ...permissions,
+      [entity]: { ...permissions[entity], [action]: !permissions[entity][action] },
+    });
+  };
+
+  const toggleRow = (entity: TokenEntity) => {
+    const allOn = ACTIONS.every((a) => permissions[entity][a.key]);
+    onChange({
+      ...permissions,
+      [entity]: Object.fromEntries(ACTIONS.map((a) => [a.key, !allOn])) as Record<TokenAction, boolean>,
+    });
+  };
+
+  const toggleColumn = (action: TokenAction) => {
+    const allOn = ENTITIES.every((e) => permissions[e.key][action]);
+    onChange({
+      tasks: { ...permissions.tasks, [action]: !allOn },
+      notes: { ...permissions.notes, [action]: !allOn },
+      comments: { ...permissions.comments, [action]: !allOn },
+    });
+  };
+
+  return (
+    <div className="rounded-md border border-border/50 p-2">
+      <table className="w-full text-xs">
+        <thead>
+          <tr>
+            <th className="w-24" />
+            {ACTIONS.map((a) => (
+              <th key={a.key} className="px-1 py-1 text-center font-medium text-muted-foreground">
+                <button
+                  type="button"
+                  className="hover:text-foreground cursor-pointer"
+                  onClick={() => toggleColumn(a.key)}
+                  title={`Toggle all "${a.label}" permissions`}
+                >
+                  {a.label}
+                </button>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {ENTITIES.map((e) => (
+            <tr key={e.key}>
+              <td className="py-1">
+                <button
+                  type="button"
+                  className="font-medium hover:text-foreground cursor-pointer"
+                  onClick={() => toggleRow(e.key)}
+                  title={`Toggle all permissions for ${e.label}`}
+                >
+                  {e.label}
+                </button>
+              </td>
+              {ACTIONS.map((a) => (
+                <td key={a.key} className="px-1 py-1 text-center">
+                  <Checkbox
+                    checked={permissions[e.key][a.key]}
+                    onCheckedChange={() => toggleEntityAction(e.key, a.key)}
+                    aria-label={`${e.label} ${a.label}`}
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Scope radio ("all" / specific projects) with the project checkbox list. */
+function ScopePicker({
+  scopeType,
+  onScopeTypeChange,
+  selectedProjectIds,
+  onSelectedProjectIdsChange,
+}: {
+  scopeType: 'all' | 'projects';
+  onScopeTypeChange: (v: 'all' | 'projects') => void;
+  selectedProjectIds: string[];
+  onSelectedProjectIdsChange: (ids: string[]) => void;
+}) {
+  const projects = useAppStore((s) => s.projects);
+
+  return (
+    <div className="space-y-1.5">
+      <Label>Project scope</Label>
+      <RadioGroup value={scopeType} onValueChange={(v) => onScopeTypeChange(v as 'all' | 'projects')} className="gap-2">
+        <div className="flex items-center gap-2">
+          <RadioGroupItem value="all" id="scope-all" />
+          <Label htmlFor="scope-all" className="font-normal cursor-pointer">
+            All projects accessible to me
+          </Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <RadioGroupItem value="projects" id="scope-projects" />
+          <Label htmlFor="scope-projects" className="font-normal cursor-pointer">
+            Specific projects
+          </Label>
+        </div>
+      </RadioGroup>
+      {scopeType === 'projects' && (
+        <ScrollArea className="mt-2 max-h-36 rounded-md border border-border/50 p-2">
+          {projects.length === 0 ? (
+            <p className="p-2 text-xs text-muted-foreground">No projects available</p>
+          ) : (
+            <div className="space-y-1.5">
+              {projects.map((project) => (
+                <div key={project.id} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`project-${project.id}`}
+                    checked={selectedProjectIds.includes(project.id)}
+                    onCheckedChange={(checked) =>
+                      onSelectedProjectIdsChange(
+                        checked
+                          ? [...selectedProjectIds, project.id]
+                          : selectedProjectIds.filter((id) => id !== project.id)
+                      )
+                    }
+                  />
+                  <Label
+                    htmlFor={`project-${project.id}`}
+                    className="font-normal cursor-pointer text-xs"
+                    style={{ color: project.color }}
+                  >
+                    {project.name}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      )}
+    </div>
+  );
+}
+
+/** Expiration radio ("never" / a date). */
+function ExpiryPicker({
+  mode,
+  onModeChange,
+  date,
+  onDateChange,
+}: {
+  mode: 'never' | 'date';
+  onModeChange: (v: 'never' | 'date') => void;
+  date: string;
+  onDateChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label>Expiration</Label>
+      <RadioGroup value={mode} onValueChange={(v) => onModeChange(v as 'never' | 'date')} className="gap-2">
+        <div className="flex items-center gap-2">
+          <RadioGroupItem value="never" id="expiry-never" />
+          <Label htmlFor="expiry-never" className="font-normal cursor-pointer">Never expires</Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <RadioGroupItem value="date" id="expiry-date" />
+          <Label htmlFor="expiry-date" className="font-normal cursor-pointer">Expires on</Label>
+          {mode === 'date' && (
+            <Input
+              type="date"
+              value={date}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => onDateChange(e.target.value)}
+              className="h-8 w-40 text-xs"
+            />
+          )}
+        </div>
+      </RadioGroup>
+    </div>
+  );
+}
+
 export function ApiTokensSection() {
   const apiTokens = useAppStore((s) => s.apiTokens);
   const projects = useAppStore((s) => s.projects);
@@ -89,6 +294,7 @@ export function ApiTokensSection() {
   const [copied, setCopied] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<ApiToken | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiToken | null>(null);
+  const [editTarget, setEditTarget] = useState<ApiToken | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -183,15 +389,26 @@ export function ApiTokensSection() {
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     {!token.revokedAt && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2 text-muted-foreground hover:text-foreground"
-                        onClick={() => setRevokeTarget(token)}
-                        title="Revoke token"
-                      >
-                        <Ban className="size-4" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                          onClick={() => setEditTarget(token)}
+                          title="Edit token"
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                          onClick={() => setRevokeTarget(token)}
+                          title="Revoke token"
+                        >
+                          <Ban className="size-4" />
+                        </Button>
+                      </>
                     )}
                     <Button
                       variant="ghost"
@@ -219,6 +436,14 @@ export function ApiTokensSection() {
           setCreateOpen(false);
           setCreatedToken(raw);
         }}
+      />
+
+      <EditTokenDialog
+        token={editTarget}
+        open={!!editTarget}
+        onOpenChange={(open) => !open && setEditTarget(null)}
+        isSubmitting={isSubmitting}
+        setIsSubmitting={setIsSubmitting}
       />
 
       {/* One-time token display */}
@@ -278,8 +503,6 @@ function CreateTokenDialog({
   setIsSubmitting: (v: boolean) => void;
   onCreated: (rawToken: string) => void;
 }) {
-  const projects = useAppStore((s) => s.projects);
-
   const [name, setName] = useState('');
   const [scopeType, setScopeType] = useState<'all' | 'projects'>('all');
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
@@ -294,30 +517,6 @@ function CreateTokenDialog({
     setPermissions(emptyPermissions());
     setExpiryMode('never');
     setExpiryDate('');
-  };
-
-  const toggleEntityAction = (entity: TokenEntity, action: TokenAction) => {
-    setPermissions((prev) => ({
-      ...prev,
-      [entity]: { ...prev[entity], [action]: !prev[entity][action] },
-    }));
-  };
-
-  const toggleRow = (entity: TokenEntity) => {
-    const allOn = ACTIONS.every((a) => permissions[entity][a.key]);
-    setPermissions((prev) => ({
-      ...prev,
-      [entity]: Object.fromEntries(ACTIONS.map((a) => [a.key, !allOn])) as Record<TokenAction, boolean>,
-    }));
-  };
-
-  const toggleColumn = (action: TokenAction) => {
-    const allOn = ENTITIES.every((e) => permissions[e.key][action]);
-    setPermissions((prev) => ({
-      tasks: { ...prev.tasks, [action]: !allOn },
-      notes: { ...prev.notes, [action]: !allOn },
-      comments: { ...prev.comments, [action]: !allOn },
-    }));
   };
 
   const canSubmit =
@@ -373,132 +572,133 @@ function CreateTokenDialog({
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Project scope</Label>
-            <RadioGroup value={scopeType} onValueChange={(v) => setScopeType(v as 'all' | 'projects')} className="gap-2">
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="all" id="scope-all" />
-                <Label htmlFor="scope-all" className="font-normal cursor-pointer">
-                  All projects accessible to me
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="projects" id="scope-projects" />
-                <Label htmlFor="scope-projects" className="font-normal cursor-pointer">
-                  Specific projects
-                </Label>
-              </div>
-            </RadioGroup>
-            {scopeType === 'projects' && (
-              <ScrollArea className="mt-2 max-h-36 rounded-md border border-border/50 p-2">
-                {projects.length === 0 ? (
-                  <p className="p-2 text-xs text-muted-foreground">No projects available</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {projects.map((project) => (
-                      <div key={project.id} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`project-${project.id}`}
-                          checked={selectedProjectIds.includes(project.id)}
-                          onCheckedChange={(checked) =>
-                            setSelectedProjectIds((prev) =>
-                              checked ? [...prev, project.id] : prev.filter((id) => id !== project.id)
-                            )
-                          }
-                        />
-                        <Label
-                          htmlFor={`project-${project.id}`}
-                          className="font-normal cursor-pointer text-xs"
-                          style={{ color: project.color }}
-                        >
-                          {project.name}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            )}
-          </div>
+          <ScopePicker
+            scopeType={scopeType}
+            onScopeTypeChange={setScopeType}
+            selectedProjectIds={selectedProjectIds}
+            onSelectedProjectIdsChange={setSelectedProjectIds}
+          />
 
           <div className="space-y-1.5">
             <Label>Permissions</Label>
-            <div className="rounded-md border border-border/50 p-2">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr>
-                    <th className="w-24" />
-                    {ACTIONS.map((a) => (
-                      <th key={a.key} className="px-1 py-1 text-center font-medium text-muted-foreground">
-                        <button
-                          type="button"
-                          className="hover:text-foreground cursor-pointer"
-                          onClick={() => toggleColumn(a.key)}
-                          title={`Toggle all "${a.label}" permissions`}
-                        >
-                          {a.label}
-                        </button>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {ENTITIES.map((e) => (
-                    <tr key={e.key}>
-                      <td className="py-1">
-                        <button
-                          type="button"
-                          className="font-medium hover:text-foreground cursor-pointer"
-                          onClick={() => toggleRow(e.key)}
-                          title={`Toggle all permissions for ${e.label}`}
-                        >
-                          {e.label}
-                        </button>
-                      </td>
-                      {ACTIONS.map((a) => (
-                        <td key={a.key} className="px-1 py-1 text-center">
-                          <Checkbox
-                            checked={permissions[e.key][a.key]}
-                            onCheckedChange={() => toggleEntityAction(e.key, a.key)}
-                            aria-label={`${e.label} ${a.label}`}
-                          />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <PermissionsMatrix permissions={permissions} onChange={setPermissions} />
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Expiration</Label>
-            <RadioGroup value={expiryMode} onValueChange={(v) => setExpiryMode(v as 'never' | 'date')} className="gap-2">
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="never" id="expiry-never" />
-                <Label htmlFor="expiry-never" className="font-normal cursor-pointer">Never expires</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="date" id="expiry-date" />
-                <Label htmlFor="expiry-date" className="font-normal cursor-pointer">Expires on</Label>
-                {expiryMode === 'date' && (
-                  <Input
-                    type="date"
-                    value={expiryDate}
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) => setExpiryDate(e.target.value)}
-                    className="h-8 w-40 text-xs"
-                  />
-                )}
-              </div>
-            </RadioGroup>
-          </div>
+          <ExpiryPicker
+            mode={expiryMode}
+            onModeChange={setExpiryMode}
+            date={expiryDate}
+            onDateChange={setExpiryDate}
+          />
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={!canSubmit || isSubmitting}>
             {isSubmitting ? 'Creating…' : 'Create Token'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditTokenDialog({
+  token,
+  open,
+  onOpenChange,
+  isSubmitting,
+  setIsSubmitting,
+}: {
+  token: ApiToken | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isSubmitting: boolean;
+  setIsSubmitting: (v: boolean) => void;
+}) {
+  const [scopeType, setScopeType] = useState<'all' | 'projects'>('all');
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [permissions, setPermissions] = useState<TokenPermissions>(emptyPermissions());
+  const [expiryMode, setExpiryMode] = useState<'never' | 'date'>('never');
+  const [expiryDate, setExpiryDate] = useState('');
+
+  // Prefill from the token being edited each time the dialog opens
+  useEffect(() => {
+    if (!open || !token) return;
+    setScopeType(token.scopeType === 'projects' ? 'projects' : 'all');
+    setSelectedProjectIds(token.projectIds);
+    setPermissions(mergePermissions(token.permissions));
+    if (token.expiresAt) {
+      setExpiryMode('date');
+      setExpiryDate(toDateInputValue(token.expiresAt));
+    } else {
+      setExpiryMode('never');
+      setExpiryDate('');
+    }
+  }, [open, token]);
+
+  const canSubmit =
+    (scopeType === 'all' || selectedProjectIds.length > 0) &&
+    ENTITIES.some((e) => ACTIONS.some((a) => permissions[e.key][a.key]));
+
+  const handleSubmit = async () => {
+    if (!token || !canSubmit || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const expiresAt =
+        expiryMode === 'date' && expiryDate
+          ? new Date(`${expiryDate}T23:59:59`).toISOString()
+          : null;
+      await useAppStore.getState().updateApiToken(token.id, {
+        permissions,
+        scopeType,
+        projectIds: scopeType === 'projects' ? selectedProjectIds : undefined,
+        expiresAt,
+      });
+      toast.success(`Token "${token.name}" updated`);
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update token');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit API token</DialogTitle>
+          <DialogDescription>
+            Changes to &quot;{token?.name}&quot; apply immediately. The token value itself does not change.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <ScopePicker
+            scopeType={scopeType}
+            onScopeTypeChange={setScopeType}
+            selectedProjectIds={selectedProjectIds}
+            onSelectedProjectIdsChange={setSelectedProjectIds}
+          />
+
+          <div className="space-y-1.5">
+            <Label>Permissions</Label>
+            <PermissionsMatrix permissions={permissions} onChange={setPermissions} />
+          </div>
+
+          <ExpiryPicker
+            mode={expiryMode}
+            onModeChange={setExpiryMode}
+            date={expiryDate}
+            onDateChange={setExpiryDate}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={!canSubmit || isSubmitting}>
+            {isSubmitting ? 'Saving…' : 'Save Changes'}
           </Button>
         </DialogFooter>
       </DialogContent>

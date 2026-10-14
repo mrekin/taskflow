@@ -362,6 +362,7 @@ interface AppState {
   // Actions - API tokens
   fetchApiTokens: () => Promise<void>;
   createApiToken: (data: { name: string; scopeType: ApiTokenScopeType; projectIds?: string[]; permissions: TokenPermissions; expiresAt?: string | null }) => Promise<{ token: string; record: ApiToken }>;
+  updateApiToken: (id: string, data: { permissions?: TokenPermissions; scopeType?: ApiTokenScopeType; projectIds?: string[]; expiresAt?: string | null }) => Promise<ApiToken>;
   revokeApiToken: (id: string) => Promise<void>;
   deleteApiToken: (id: string) => Promise<void>;
 
@@ -1326,6 +1327,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { token, record } = await res.json() as { token: string; record: ApiToken };
     set((state) => ({ apiTokens: [record, ...state.apiTokens] }));
     return { token, record };
+  },
+
+  updateApiToken: async (id, data) => {
+    const res = await fetch(api(`/api/user/tokens/${id}`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to update API token');
+    }
+    const record: ApiToken = await res.json();
+    set((state) => ({
+      apiTokens: state.apiTokens.map((t) => (t.id === id ? record : t)),
+    }));
+    return record;
   },
 
   revokeApiToken: async (id) => {

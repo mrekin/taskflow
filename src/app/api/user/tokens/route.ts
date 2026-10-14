@@ -2,38 +2,12 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth-utils';
 import { buildVisibilityWhereClause } from '@/lib/visibility';
-import { ensureNoBearer, generateApiToken, logToken, validateTokenPermissionsInput } from '@/lib/api-token';
+import { ensureNoBearer, formatApiTokenRecord, generateApiToken, logToken, validateTokenPermissionsInput } from '@/lib/api-token';
 import type { ApiTokenScopeType } from '@/lib/types';
 
 const MAX_TOKENS_PER_USER = 20;
 const MAX_NAME_LENGTH = 64;
 const SCOPE_TYPES: ApiTokenScopeType[] = ['all', 'projects'];
-
-function formatToken(record: {
-  id: string;
-  name: string;
-  tokenPrefix: string;
-  scopeType: string;
-  projectIds: string;
-  permissions: string;
-  expiresAt: Date | null;
-  revokedAt: Date | null;
-  lastUsedAt: Date | null;
-  createdAt: Date;
-}) {
-  return {
-    id: record.id,
-    name: record.name,
-    tokenPrefix: record.tokenPrefix,
-    scopeType: record.scopeType,
-    projectIds: JSON.parse(record.projectIds || '[]'),
-    permissions: JSON.parse(record.permissions || '{}'),
-    expiresAt: record.expiresAt,
-    revokedAt: record.revokedAt,
-    lastUsedAt: record.lastUsedAt,
-    createdAt: record.createdAt,
-  };
-}
 
 export async function GET(request: Request) {
   const blocked = await ensureNoBearer(request);
@@ -47,7 +21,7 @@ export async function GET(request: Request) {
     orderBy: { createdAt: 'desc' },
   });
 
-  return NextResponse.json(tokens.map(formatToken));
+  return NextResponse.json(tokens.map(formatApiTokenRecord));
 }
 
 export async function POST(request: Request) {
@@ -144,7 +118,7 @@ export async function POST(request: Request) {
       },
     });
     logToken(`created token "${name}" (${prefix}) for user ${userId}, scope=${scopeType}`);
-    return NextResponse.json({ token: raw, record: formatToken(record) }, { status: 201 });
+    return NextResponse.json({ token: raw, record: formatApiTokenRecord(record) }, { status: 201 });
   } catch (error: unknown) {
     if ((error as { code?: string })?.code === 'P2002') {
       return NextResponse.json({ error: 'A token with this name already exists' }, { status: 409 });
