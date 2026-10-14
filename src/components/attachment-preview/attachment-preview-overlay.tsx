@@ -23,6 +23,7 @@ export function AttachmentPreviewOverlay() {
   const attachmentPreview = useAppStore((s) => s.attachmentPreview);
   const closeAttachmentPreview = useAppStore((s) => s.closeAttachmentPreview);
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Portals need a real document.body — wait for the client
   const [mounted, setMounted] = useState(false);
@@ -59,6 +60,15 @@ export function AttachmentPreviewOverlay() {
     return () => el.removeEventListener('pointerdown', stopPointerDown);
   }, [attachmentPreview]);
 
+  // Modal Radix dialogs (e.g. the task Sheet) set `body { pointer-events: none }`;
+  // this portal is not a Radix layer, so without an explicit override the whole
+  // overlay inherits `none` and real clicks fall through to the dialog beneath.
+  // `pointer-events-auto` on the root keeps every hit-test inside the preview.
+  // Focus follows, so keyboard input starts here too.
+  useEffect(() => {
+    if (attachmentPreview) panelRef.current?.focus();
+  }, [attachmentPreview]);
+
   if (!mounted) return null;
 
   const category = attachmentPreview
@@ -79,7 +89,7 @@ export function AttachmentPreviewOverlay() {
   return createPortal(
     <AnimatePresence>
       {attachmentPreview && category && (
-        <div ref={rootRef} className="fixed inset-0 z-[70] flex items-center justify-center">
+        <div ref={rootRef} className="pointer-events-auto fixed inset-0 z-[70] flex items-center justify-center">
           {/* Backdrop */}
           <motion.div
             className="absolute inset-0 bg-black/70"
@@ -92,7 +102,9 @@ export function AttachmentPreviewOverlay() {
 
           {/* Panel */}
           <motion.div
-            className="relative flex h-[90vh] w-[90vw] flex-col overflow-hidden rounded-lg border bg-background shadow-2xl"
+            ref={panelRef}
+            tabIndex={-1}
+            className="relative flex h-[90vh] w-[90vw] flex-col overflow-hidden rounded-lg border bg-background shadow-2xl outline-none"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}

@@ -199,7 +199,7 @@ export function AttachmentList({ entityId, entityType, ownerId, compact, refresh
                 {att.blob && (
                   <span className="text-muted-foreground whitespace-nowrap">{formatFileSize(att.blob.size)}</span>
                 )}
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-0.5">
                   {isPreviewable(att.displayName || att.blob?.originalName || '') && (
                     <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => openPreview(att)} title="Preview">
                       <Eye className="h-2.5 w-2.5" />
@@ -293,7 +293,7 @@ export function AttachmentList({ entityId, entityType, ownerId, compact, refresh
                   {formatFileSize(att.blob.size)}
                 </span>
               )}
-              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-0.5">
                 {isPreviewable(att.displayName || att.blob?.originalName || '') && (
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openPreview(att)} title="Preview">
                     <Eye className="h-3.5 w-3.5" />

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Maximize2, RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { RefreshCcw, RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
 
 import { api } from '@/lib/api-utils';
 import { Button } from '@/components/ui/button';
@@ -128,7 +128,7 @@ export function ImageViewer({ blobId, alt }: ImageViewerProps) {
           <RotateCw className="h-4 w-4" />
         </Button>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={reset} title="Reset">
-          <Maximize2 className="h-4 w-4" />
+          <RefreshCcw className="h-4 w-4" />
         </Button>
       </div>
     </div>
