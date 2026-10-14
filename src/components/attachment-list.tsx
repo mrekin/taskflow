@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Paperclip, Upload, Download, Trash2, Copy, FileText, File, Loader2, ChevronDown, ChevronUp, Check, AlertCircle } from 'lucide-react';
+import { Paperclip, Upload, Download, Trash2, Copy, Eye, FileText, File, Loader2, ChevronDown, ChevronUp, Check, AlertCircle } from 'lucide-react';
 import { useAppStore } from '@/store/app-store';
 import { api } from '@/lib/api-utils';
+import { isPreviewable } from '@/lib/attachment-preview';
 import { formatFileSize, computeFileHash, validateAttachmentFiles, uploadFilesConcurrently, uploadAttachmentApi } from '@/lib/attachment-utils';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -40,6 +41,7 @@ export function AttachmentList({ entityId, entityType, ownerId, compact, refresh
     attachmentConfig,
     fetchAttachmentConfig,
     currentUserId,
+    openAttachmentPreview,
   } = useAppStore();
 
   const [localAttachments, setLocalAttachments] = useState<Attachment[]>([]);
@@ -155,6 +157,31 @@ export function AttachmentList({ entityId, entityType, ownerId, compact, refresh
     navigator.clipboard.writeText(url);
   };
 
+  const openPreview = (attachment: Attachment) => {
+    openAttachmentPreview({
+      blobId: attachment.blobId,
+      displayName: attachment.displayName || attachment.blob?.originalName || attachment.blobId,
+      mimeType: attachment.blob?.mimeType,
+      size: attachment.blob?.size,
+    });
+  };
+
+  // Previewable files (image/pdf/json/yaml, by extension) get a clickable name; others render as before
+  const renderAttachmentName = (attachment: Attachment, className: string) => {
+    const name = attachment.displayName || attachment.blob?.originalName || '';
+    if (!isPreviewable(name)) return <span className={className}>{name}</span>;
+    return (
+      <button
+        type="button"
+        className={cn(className, 'cursor-pointer text-left hover:underline')}
+        onClick={() => openPreview(attachment)}
+        title={name}
+      >
+        {name}
+      </button>
+    );
+  };
+
   if (compact && localAttachments.length === 0 && uploadQueue.length === 0) {
     return null;
   }
@@ -168,11 +195,16 @@ export function AttachmentList({ entityId, entityType, ownerId, compact, refresh
             {localAttachments.map((att) => (
               <div key={att.id} className="flex items-center gap-1.5 text-xs group">
                 {att.blob && <FileIcon mimeType={att.blob.mimeType} />}
-                <span className="truncate min-w-0">{att.displayName || att.blob?.originalName}</span>
+                {renderAttachmentName(att, 'truncate min-w-0')}
                 {att.blob && (
                   <span className="text-muted-foreground whitespace-nowrap">{formatFileSize(att.blob.size)}</span>
                 )}
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {isPreviewable(att.displayName || att.blob?.originalName || '') && (
+                    <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => openPreview(att)} title="Preview">
+                      <Eye className="h-2.5 w-2.5" />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => handleDownload(att)} title="Download">
                     <Download className="h-2.5 w-2.5" />
                   </Button>
@@ -255,15 +287,18 @@ export function AttachmentList({ entityId, entityType, ownerId, compact, refresh
               className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm group"
             >
               {att.blob && <FileIcon mimeType={att.blob.mimeType} />}
-              <span className="flex-1 truncate min-w-0" title={att.displayName || ''}>
-                {att.displayName || att.blob?.originalName}
-              </span>
+              {renderAttachmentName(att, 'flex-1 truncate min-w-0')}
               {att.blob && (
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
                   {formatFileSize(att.blob.size)}
                 </span>
               )}
               <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                {isPreviewable(att.displayName || att.blob?.originalName || '') && (
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openPreview(att)} title="Preview">
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                )}
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopyLink(att)} title="Copy link">
                   <Copy className="h-3.5 w-3.5" />
                 </Button>

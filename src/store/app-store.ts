@@ -4,6 +4,7 @@ import { DEFAULT_PREFERENCES, type UserPreferences, type StatusConfig, resolveSt
 
 import { api } from '@/lib/api-utils';
 import { summarize } from '@/lib/prices';
+import type { AttachmentPreviewTarget } from '@/lib/attachment-preview';
 
 // Aggregate a task's price summary from its own prices plus its direct subtasks' prices.
 // Mirrors the server-side computation in TaskService.listTasks/getTask (one level of subtasks).
@@ -184,6 +185,8 @@ interface AppState {
   selectedNoteId: string | null;
   /** Id of the task whose cost breakdown dialog is open (top-level, rendered once). */
   costBreakdownTaskId: string | null;
+  /** Currently open attachment preview (top-level, rendered once above any dialog). */
+  attachmentPreview: AttachmentPreviewTarget | null;
   selectedFolderId: string | null;
   selectedReleaseId: string | null;
 
@@ -257,6 +260,8 @@ interface AppState {
   selectProject: (id: string | null) => void;
   selectTask: (id: string | null) => void;
   setCostBreakdownTask: (id: string | null) => void;
+  openAttachmentPreview: (target: AttachmentPreviewTarget) => void;
+  closeAttachmentPreview: () => void;
   selectNote: (id: string | null) => void;
   selectFolder: (id: string | null) => void;
   toggleSidebar: () => void;
@@ -389,6 +394,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedTaskId: null,
   selectedNoteId: null,
   costBreakdownTaskId: null,
+  attachmentPreview: null,
   selectedFolderId: null,
   selectedReleaseId: null,
 
@@ -453,6 +459,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectProject: (id) => set({ selectedProjectId: id }),
   selectTask: (id) => set({ selectedTaskId: id }),
   setCostBreakdownTask: (id) => set({ costBreakdownTaskId: id }),
+  openAttachmentPreview: (target) => set({ attachmentPreview: target }),
+  closeAttachmentPreview: () => set({ attachmentPreview: null }),
   selectNote: (id) => set({ selectedNoteId: id }),
   selectFolder: (id) => set({ selectedFolderId: id }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),

@@ -47,6 +47,7 @@ import { AreaDetail } from '@/components/area-detail';
 import { ProjectDetail } from '@/components/project-detail';
 import { TaskDetailDialog } from '@/components/task-detail-dialog';
 import { CostBreakdownDialog } from '@/components/cost-breakdown-dialog';
+import { AttachmentPreviewOverlay } from '@/components/attachment-preview/attachment-preview-overlay';
 import { NotesList } from '@/components/notes-list';
 import { NoteEditor } from '@/components/note-editor';
 import { ReleasesView } from '@/components/releases-view';
@@ -1376,6 +1377,8 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
       {/* Cost Breakdown Dialog (global — rendered outside any task card so its
           clicks don't bubble to a card's onClick/drag handlers) */}
       <CostBreakdownDialog />
+      {/* Attachment Preview Overlay (global — opens above any open dialog) */}
+      <AttachmentPreviewOverlay />
 
       {/* Create Area Dialog */}
       <CreateAreaDialog open={showCreateArea} onOpenChange={setShowCreateArea} />
