@@ -6,6 +6,7 @@ All API errors surface as ToolError with plain text (no tracebacks):
 
 import base64
 import binascii
+from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 
@@ -182,3 +183,42 @@ class TaskFlowClient:
             "size": len(content),
             "base64": encoded,
         }
+
+    async def upload_attachment(self, entity_type: str, entity_id: str,
+                                file_path: str) -> dict:
+        """Uploads a local file as an attachment (multipart POST), returns the
+        created attachment. Size/count/file-pattern limits are enforced by the
+        server — a 400 passes the server's error text through."""
+        self._require_token()
+        path = Path(file_path)
+        try:
+            payload = path.read_bytes()
+        except OSError as exc:
+            raise ToolError(f"Cannot read file {file_path}: {exc}") from None
+        try:
+            resp = await self._http.post(
+                "api/attachments/upload",
+                files={"file": (path.name, payload)},
+                data={"entityId": entity_id, "entityType": entity_type},
+            )
+        except httpx.ConnectError:
+            raise ToolError(
+                f"Cannot connect to TaskFlow at {self.api_base} — is the server running?"
+            ) from None
+        except httpx.TimeoutException:
+            raise ToolError(
+                f"TaskFlow request timed out after {self.timeout:g}s: POST api/attachments/upload"
+            ) from None
+        if resp.status_code >= 400:
+            err = _extract_api_error(resp.content, resp.status_code)
+            if resp.status_code == 400:
+                raise ToolError(f"Upload rejected (400): {err}")
+            if resp.status_code in (401, 403, 404):
+                raise ToolError(
+                    {401: f"Authentication failed (401): {err}. Check TASKFLOW_API_TOKEN.",
+                     403: f"Forbidden (403): {err}. Fix the token's permissions or scope.",
+                     404: f"Not found (404): {err} — is the TaskFlow backend new enough "
+                          "to allow token uploads?"}[resp.status_code]
+                )
+            raise ToolError(f"TaskFlow API {resp.status_code}: {err}")
+        return resp.json()

@@ -2,8 +2,8 @@
 
 Transport: stdio. Auth: a personal API token (Bearer) via TASKFLOW_API_TOKEN.
 The tool surface mirrors what tokens can access in TaskFlow; mutations the
-API rejects for tokens (uploads, webhooks, token management, tag/project/area
-writes, release create/update/delete) are intentionally not exposed. Releases
+API rejects for tokens (webhooks, token management, tag/project/area writes,
+release create/update/delete) are intentionally not exposed. Releases
 are read-only (release_list/release_get/release_contents); entities are linked
 to a release via the release_id field of the task/note/folder tools.
 """
@@ -591,6 +591,27 @@ async def attachment_get(blob_id: str) -> dict:
     {"fileName", "mimeType", "size", "base64"}. Refuses files above the
     configured download cap — use the TaskFlow UI for large files."""
     return await get_client().download_attachment(blob_id)
+
+
+@mcp.tool()
+async def attachment_upload(
+    entity_id: str,
+    entity_type: Literal["task", "note", "comment"],
+    file_path: str,
+) -> dict:
+    """Upload a local file as an attachment to a task, note or comment.
+    file_path is a path on the machine running this MCP server; it must
+    exist and be a regular file. Requires update permission on the parent
+    entity (and the parent's project in the token scope). Size, per-entity
+    count and file-type limits are enforced by the server — its error text
+    is passed through when a limit is hit. Returns the created attachment."""
+    path = Path(file_path).expanduser()
+    if not path.is_file():
+        raise ToolError(
+            f"File not found (or not a regular file): {file_path} — pass an "
+            "existing local file path"
+        )
+    return await get_client().upload_attachment(entity_type, entity_id, str(path))
 
 
 @mcp.tool()
