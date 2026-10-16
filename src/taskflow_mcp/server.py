@@ -11,6 +11,7 @@ to a release via the release_id field of the task/note/folder tools.
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
+import re
 
 from mcp.server.fastmcp import FastMCP
 
@@ -158,12 +159,38 @@ async def task_list(
     return await client.get_paged_list("api/tasks", filters, limit, offset)
 
 
+_SHORT_ID_RE = re.compile(r"^T-(\d+)$", re.IGNORECASE)
+
+
+async def _resolve_task_id(task_id: str) -> str:
+    """Maps a T-<n> shortId to the internal task id (the list endpoint's
+    search matches shortIdNum exactly); plain ids pass through untouched."""
+    m = _SHORT_ID_RE.match(task_id.strip())
+    if not m:
+        return task_id
+    num = int(m.group(1))
+    result = await get_client().get_paged_list("api/tasks", {"search": f"T-{num}"})
+    matches = [t for t in result.get("items", []) if t.get("shortIdNum") == num]
+    if not matches:
+        raise ToolError(
+            f"Task T-{num} not found — no task with this shortId is visible to "
+            "the token (check the number or the token's project scope)"
+        )
+    if len(matches) > 1:
+        listing = "; ".join(f"{t.get('id')} «{t.get('title', '')}»" for t in matches)
+        raise ToolError(
+            f"ShortId T-{num} is ambiguous (shortIdNum is per-owner): {listing}. "
+            "Retry with the full internal id."
+        )
+    return str(matches[0]["id"])
+
+
 @mcp.tool()
 async def task_get(task_id: str) -> dict:
-    """Get one task by id (the id, not the T-<n> shortId — resolve the shortId
-    via task_list/search first). Includes one level of subtasks, the parent
-    task, comments and costs."""
-    return await get_client().get(f"api/tasks/{task_id}")
+    """Get one task by id or T-<n> shortId (e.g. "T-1" — resolved
+    automatically). Includes one level of subtasks, the parent task,
+    comments and costs."""
+    return await get_client().get(f"api/tasks/{await _resolve_task_id(task_id)}")
 
 
 def _task_body(
@@ -243,12 +270,13 @@ async def task_update(
     sort_order: int | None = None,
     release_id: str | None = None,
 ) -> dict:
-    """Update a task. Only the provided fields change; omit fields to leave
-    them untouched. status takes a status id from statuses_list; priority is
-    one of "low" | "medium" | "high" | "urgent". release_id links the task to
-    a release (see release_list) or unlinks it when set to an empty string "".
-    Requires tasks:update; moving the task to another project requires the
-    target project to be in the token scope."""
+    """Update a task by id or T-<n> shortId. Only the provided fields change;
+    omit fields to leave them untouched. status takes a status id from
+    statuses_list; priority is one of "low" | "medium" | "high" | "urgent".
+    release_id links the task to a release (see release_list) or unlinks it
+    when set to an empty string "". Requires tasks:update; moving the task to
+    another project requires the target project to be in the token scope."""
+    task_id = await _resolve_task_id(task_id)
     body = _task_body(
         description=description, status=status, priority=priority,
         due_date=due_date, project_id=project_id, parent_id=parent_id,
@@ -264,8 +292,9 @@ async def task_update(
 
 @mcp.tool()
 async def task_delete(task_id: str) -> dict:
-    """Delete a task. WARNING: cascades — subtasks, comments and attachments
-    of the task are deleted too. Requires tasks:delete."""
+    """Delete a task by id or T-<n> shortId. WARNING: cascades — subtasks,
+    comments and attachments of the task are deleted too. Requires tasks:delete."""
+    task_id = await _resolve_task_id(task_id)
     return await get_client().request("DELETE", f"api/tasks/{task_id}")
 
 
@@ -398,8 +427,10 @@ async def note_version_restore(note_id: str, number: int) -> dict:
 
 @mcp.tool()
 async def comment_list(task_id: str) -> list:
-    """List comments of a task (task_id is the internal id, not T-<n>)."""
-    return await get_client().get("api/comments", params={"taskId": task_id})
+    """List comments of a task (task_id accepts the internal id or T-<n> shortId)."""
+    return await get_client().get(
+        "api/comments", params={"taskId": await _resolve_task_id(task_id)}
+    )
 
 
 @mcp.tool()
@@ -408,8 +439,9 @@ async def comment_create(
     content: str,
     parent_id: str | None = None,
 ) -> dict:
-    """Add a comment to a task. parent_id makes it a threaded reply.
-    Requires comments:create."""
+    """Add a comment to a task (task_id accepts the internal id or T-<n>
+    shortId). parent_id makes it a threaded reply. Requires comments:create."""
+    task_id = await _resolve_task_id(task_id)
     body: dict[str, object] = {"taskId": task_id, "content": content}
     if parent_id is not None:
         body["parentId"] = parent_id
@@ -584,7 +616,10 @@ async def attachment_list(
     entity_type: Literal["task", "note", "comment"],
 ) -> list:
     """List attachments of a task, note or comment (deduplicated blobs).
+    A task entity_id accepts the internal id or T-<n> shortId.
     Requires read access to the parent entity."""
+    if entity_type == "task":
+        entity_id = await _resolve_task_id(entity_id)
     return await get_client().get(
         "api/attachments", params={"entityId": entity_id, "entityType": entity_type}
     )
@@ -605,11 +640,14 @@ async def attachment_upload(
     file_path: str,
 ) -> dict:
     """Upload a local file as an attachment to a task, note or comment.
+    A task entity_id accepts the internal id or T-<n> shortId.
     file_path is a path on the machine running this MCP server; it must
     exist and be a regular file. Requires update permission on the parent
     entity (and the parent's project in the token scope). Size, per-entity
     count and file-type limits are enforced by the server — its error text
     is passed through when a limit is hit. Returns the created attachment."""
+    if entity_type == "task":
+        entity_id = await _resolve_task_id(entity_id)
     path = Path(file_path).expanduser()
     if not path.is_file():
         raise ToolError(
