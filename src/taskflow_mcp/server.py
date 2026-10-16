@@ -16,6 +16,7 @@ from mcp.server.fastmcp import FastMCP
 
 from .client import TaskFlowClient, ToolError
 from .config import Config, load_config
+from .schema_cleanup import cleanup_registered_tools
 
 _client: TaskFlowClient | None = None
 _config: Config | None = None
@@ -60,11 +61,13 @@ _HOWTO_SETUP_HINT = (
 )
 
 _HOWTO_INSTRUCTIONS = (
-    "Before using any other tool, call `howto` to read the user's TaskFlow "
-    "usage rules and follow them for the whole session. Then call `whoami` "
-    "to check what the API token is allowed to do. When you need to filter by "
-    "or set a task status, call `statuses_list` first — the status set is "
-    "per-user configuration, not a fixed list."
+    "Main session (not a subagent): before using any other tool, call `howto` "
+    "to read the user's TaskFlow usage rules and follow them for the whole "
+    "session, then call `whoami` to check what the API token is allowed to do. "
+    "Subagents: skip `howto` and `whoami` — the main session already knows the "
+    "rules and the token permissions; use the tools you were given directly. "
+    "Whenever you filter by or set a task status, call `statuses_list` first "
+    "— the status set is per-user configuration, not a fixed list."
 )
 
 
@@ -77,8 +80,9 @@ mcp = FastMCP("taskflow", instructions=_HOWTO_INSTRUCTIONS, lifespan=lifespan)
 async def howto() -> str:
     """Read the user's rules for working with TaskFlow.
 
-    Call this BEFORE any other tool and follow the returned rules for the
-    whole session (e.g. "always ask before creating tasks"). The user
+    Main sessions: call this before any other tool and follow the returned
+    rules for the whole session (e.g. "always ask before creating tasks").
+    Subagents can skip it — the main session applies the rules. The user
     configures the rules via TASKFLOW_HOWTO (inline Markdown text) or
     TASKFLOW_HOWTO_FILE (path to a Markdown file, wins over TASKFLOW_HOWTO)."""
     config = get_config()
@@ -102,9 +106,10 @@ async def whoami() -> dict:
     """Introspect the configured API token: name, permissions matrix,
     effective project scope (with project names) and expiry.
 
-    Call this first to learn what the token is allowed to do before
-    attempting writes. 401/403 errors on other tools mean the token or its
-    configuration is wrong — this tool shows which part."""
+    Call this once in a main session to learn what the token is allowed to
+    do before attempting writes; subagents can skip it. 401/403 errors on
+    other tools mean the token or its configuration is wrong — this tool
+    shows which part."""
     return await get_client().get("api/token-info")
 
 
@@ -639,6 +644,9 @@ async def search(q: str, limit: int | None = None) -> dict:
 
 
 def main() -> None:
+    # shrink published schemas before serving; validation is unaffected
+    # (it uses func_metadata, not these dicts)
+    cleanup_registered_tools(mcp)
     mcp.run(transport="stdio")
 
 
