@@ -13,7 +13,7 @@ MCP-сервер (Model Context Protocol) для работы с [TaskFlow](../t
 | Задачи | `task_list`, `task_get`, `task_create`, `task_update`, `task_delete` |
 | Заметки | `note_list`, `note_get`, `note_create`, `note_update`, `note_delete`, `note_search` |
 | Версии заметок | `note_version_list`, `note_version_restore` |
-| Комментарии | `comment_list`, `comment_create`, `comment_update`, `comment_delete` |
+| Комментарии | `comment_list` (лимит «N последних», поиск по подстроке), `comment_create`, `comment_update`, `comment_delete` |
 | Папки | `folder_list`, `folder_create`, `folder_update`, `folder_delete` |
 | Релизы | `release_list`, `release_get`, `release_contents` (только чтение) |
 | Навигация | `project_list`, `area_list`, `tag_list` (только чтение) |

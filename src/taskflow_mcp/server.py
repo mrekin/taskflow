@@ -426,11 +426,26 @@ async def note_version_restore(note_id: str, number: int) -> dict:
 # --- comments ------------------------------------------------------------
 
 @mcp.tool()
-async def comment_list(task_id: str) -> list:
-    """List comments of a task (task_id accepts the internal id or T-<n> shortId)."""
-    return await get_client().get(
+async def comment_list(
+    task_id: str,
+    limit: int | None = None,
+    search: str | None = None,
+) -> dict:
+    """List comments of a task (task_id accepts the internal id or T-<n> shortId).
+    Returns {"items", "total", "truncated"}; items are chronological (oldest
+    first). limit keeps the N most recent matching comments. search filters by
+    case-insensitive substring of the comment text."""
+    items = await get_client().get(
         "api/comments", params={"taskId": await _resolve_task_id(task_id)}
     )
+    if search:
+        needle = search.lower()
+        items = [c for c in items if needle in (c.get("content") or "").lower()]
+    total = len(items)
+    truncated = limit is not None and total > limit
+    if truncated:
+        items = items[-limit:]
+    return {"items": items, "total": total, "truncated": truncated}
 
 
 @mcp.tool()
