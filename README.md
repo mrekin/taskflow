@@ -45,6 +45,12 @@ MCP-сервер (Model Context Protocol) для работы с [TaskFlow](../t
 | `TASKFLOW_MAX_DOWNLOAD_MB` | `5` | Кап размера вложения для base64-выдачи |
 | `TASKFLOW_HOWTO` | — | Правила работы (markdown прямо в env) для тула `howto` |
 | `TASKFLOW_HOWTO_FILE` | — | Путь к md-файлу с правилами; главнее `TASKFLOW_HOWTO` |
+| `TASKFLOW_MCP_TRANSPORT` | `stdio` | Транспорт MCP: `stdio` (локальный клиент) или `streamable-http` (по сети), см. [«Работа по сети»](#работа-по-сети) |
+| `TASKFLOW_MCP_HOST` | `127.0.0.1` | Адрес bind HTTP-сервера (только сетевой режим) |
+| `TASKFLOW_MCP_PORT` | `8000` | Порт HTTP-сервера (только сетевой режим) |
+| `TASKFLOW_MCP_PATH` | `/mcp` | URL-путь MCP-эндпоинта (только сетевой режим) |
+| `TASKFLOW_MCP_AUTH_TOKEN` | — | Общий секрет эндпоинта: клиенты шлют `Authorization: Bearer <значение>`. Пусто — эндпоинт открыт |
+| `TASKFLOW_MCP_STATELESS` | `false` | Stateless-сессии HTTP (каждый запрос самостоятелен, без `Mcp-Session-Id`) |
 
 Все переменные можно передавать и через `env` конфига MCP-клиента (тогда `.env` не нужен).
 
@@ -110,6 +116,47 @@ claude mcp add taskflow \
 ```
 
 Токен эквивалентен паролю — используйте токен с минимальными правами (например, только чтение) и отзывайте, когда он больше не нужен.
+
+## Работа по сети
+
+По умолчанию сервер работает по stdio — клиент должен быть на той же машине. Чтобы подключаться с других машин, включите streamable-http транспорт:
+
+```bash
+TASKFLOW_MCP_TRANSPORT=streamable-http \
+TASKFLOW_MCP_HOST=0.0.0.0 \
+TASKFLOW_MCP_PORT=8000 \
+TASKFLOW_MCP_AUTH_TOKEN=<случайный секрет, напр. openssl rand -hex 24> \
+uv run taskflow-mcp
+```
+
+Подключение с другой машины — в `.mcp.json` клиента:
+
+```jsonc
+{
+  "mcpServers": {
+    "taskflow": {
+      "type": "http",
+      "url": "http://server-host:8000/mcp",
+      "headers": { "Authorization": "Bearer <TASKFLOW_MCP_AUTH_TOKEN>" }
+    }
+  }
+}
+```
+
+или одной командой:
+
+```bash
+claude mcp add --transport http taskflow http://server-host:8000/mcp \
+  --header "Authorization: Bearer <TASKFLOW_MCP_AUTH_TOKEN>"
+```
+
+Как это устроено:
+
+- **Токен TaskFlow по-прежнему один и хранится на сервере** (`TASKFLOW_API_TOKEN` в его env). Все подключённые клиенты действуют с правами этого токена — выдавайте `TASKFLOW_MCP_AUTH_TOKEN` только тем, кому доверяете такие права.
+- `TASKFLOW_MCP_AUTH_TOKEN` защищает сам MCP-эндпоинт. Без него эндпоинт открыт — при bind не на loopback сервер предупредит в логе.
+- По умолчанию сервер слушает `127.0.0.1` — доступен только с той же машины; для доступа извне укажите `TASKFLOW_MCP_HOST=0.0.0.0` (или IP нужного интерфейса).
+- **Шифрование (HTTPS) — не внутри сервера**: в доверенной сети (LAN, Tailscale/WireGuard — там трафик уже зашифрован) достаточно HTTP. Для доступа из интернета поставьте перед сервером reverse-proxy (nginx/caddy) с Let's Encrypt и держите сервер на `127.0.0.1`; либо используйте SSH-туннель (`ssh -L 8000:localhost:8000 server`) — тогда вовсе без секретов и открытых портов.
+- `TASKFLOW_MCP_STATELESS=1` полезен за прокси/при нестабильных соединениях: каждая сессия живёт один запрос, `Mcp-Session-Id` не нужен.
 
 ## Отладка
 

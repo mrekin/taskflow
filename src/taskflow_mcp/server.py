@@ -1,6 +1,9 @@
 """TaskFlow MCP server: exposes the TaskFlow REST API as MCP tools.
 
-Transport: stdio. Auth: a personal API token (Bearer) via TASKFLOW_API_TOKEN.
+Transport: stdio (default) or streamable-http for network access
+(TASKFLOW_MCP_TRANSPORT). Auth: a personal API token (Bearer) via
+TASKFLOW_API_TOKEN, held server-side in both transports; the HTTP endpoint is
+optionally protected by its own shared secret (TASKFLOW_MCP_AUTH_TOKEN).
 The tool surface mirrors what tokens can access in TaskFlow; mutations the
 API rejects for tokens (webhooks, token management, tag/project/area writes,
 release create/update/delete) are intentionally not exposed. Releases
@@ -11,12 +14,13 @@ to a release via the release_id field of the task/note/folder tools.
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
+import logging
 import re
 
 from mcp.server.fastmcp import FastMCP
 
 from .client import TaskFlowClient, ToolError
-from .config import Config, load_config
+from .config import Config, is_loopback_host, load_config
 from .schema_cleanup import cleanup_registered_tools
 
 _client: TaskFlowClient | None = None
@@ -696,11 +700,70 @@ async def search(q: str, limit: int | None = None) -> dict:
     return await get_client().get("api/search", params=params)
 
 
+class BearerAuthMiddleware:
+    """Pure-ASGI middleware protecting the HTTP endpoint with a shared secret.
+
+    When a token is configured, every http request must carry
+    `Authorization: Bearer <token>`; anything else gets a bare 401. Non-http
+    scopes (e.g. the ASGI `lifespan`, which starts/stops the MCP session
+    manager) are forwarded untouched. With no token configured the request
+    passes through — the caller is expected to warn at startup in that case.
+    """
+
+    def __init__(self, app: object, token: str) -> None:
+        self.app = app
+        self.token = token
+
+    async def __call__(self, scope: dict, receive: object, send: object) -> None:
+        if scope["type"] != "http" or not self.token:
+            await self.app(scope, receive, send)  # type: ignore[arg-type]
+            return
+        headers = dict(scope.get("headers") or [])
+        expected = f"Bearer {self.token}".encode()
+        if headers.get(b"authorization") == expected:
+            await self.app(scope, receive, send)  # type: ignore[arg-type]
+            return
+        response = b'{"error":"unauthorized"}'
+        await send({
+            "type": "http.response.start",
+            "status": 401,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(response)).encode()),
+                (b"www-authenticate", b"Bearer"),
+            ],
+        })
+        await send({
+            "type": "http.response.body",
+            "body": response,
+        })
+
+
 def main() -> None:
+    config = load_config()
     # shrink published schemas before serving; validation is unaffected
     # (it uses func_metadata, not these dicts)
     cleanup_registered_tools(mcp)
-    mcp.run(transport="stdio")
+    if config.transport == "stdio":
+        mcp.run(transport="stdio")
+        return
+
+    # streamable-http: expose the same tools over TCP for remote MCP clients.
+    mcp.settings.host = config.host
+    mcp.settings.port = config.port
+    mcp.settings.streamable_http_path = config.mcp_path
+    mcp.settings.stateless_http = config.stateless_http
+    if not config.auth_token and not is_loopback_host(config.host):
+        logging.getLogger("taskflow-mcp").warning(
+            "HTTP endpoint on %s:%s has no auth (TASKFLOW_MCP_AUTH_TOKEN is "
+            "empty) — anyone who can reach it can use the TaskFlow token",
+            config.host,
+            config.port,
+        )
+    import uvicorn
+
+    app = BearerAuthMiddleware(mcp.streamable_http_app(), config.auth_token)
+    uvicorn.run(app, host=config.host, port=config.port, log_level="info")
 
 
 if __name__ == "__main__":
