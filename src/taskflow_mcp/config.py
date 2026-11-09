@@ -74,7 +74,7 @@ def load_config() -> Config:
         howto_text=os.environ.get("TASKFLOW_HOWTO", "").strip(),
         howto_file=os.environ.get("TASKFLOW_HOWTO_FILE", "").strip(),
         transport=_env_choice(
-            "TASKFLOW_MCP_TRANSPORT", "stdio", ("stdio", "streamable-http")
+            "TASKFLOW_MCP_TRANSPORT", "stdio", ("stdio", "streamable-http", "both")
         ),
         host=os.environ.get("TASKFLOW_MCP_HOST", "127.0.0.1").strip(),
         port=_env_int("TASKFLOW_MCP_PORT", 8000),

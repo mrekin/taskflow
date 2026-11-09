@@ -24,9 +24,12 @@ URL = f"http://127.0.0.1:{PORT}/mcp"
 TOKEN = "verify-secret-1234"
 SERVER_ENV = {
     **os.environ,
+    # hermetic: pin the endpoint path so a custom TASKFLOW_MCP_PATH in .env
+    # (e.g. /taskflow-mcp for a reverse proxy) can't shift it under the test
     "TASKFLOW_MCP_TRANSPORT": "streamable-http",
     "TASKFLOW_MCP_HOST": "127.0.0.1",
     "TASKFLOW_MCP_PORT": str(PORT),
+    "TASKFLOW_MCP_PATH": "/mcp",
     "TASKFLOW_MCP_AUTH_TOKEN": TOKEN,
 }
 

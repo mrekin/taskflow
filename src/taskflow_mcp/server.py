@@ -1,8 +1,8 @@
 """TaskFlow MCP server: exposes the TaskFlow REST API as MCP tools.
 
-Transport: stdio (default) or streamable-http for network access
+Transport: stdio (default), streamable-http (network access), or both
 (TASKFLOW_MCP_TRANSPORT). Auth: a personal API token (Bearer) via
-TASKFLOW_API_TOKEN, held server-side in both transports; the HTTP endpoint is
+TASKFLOW_API_TOKEN, held server-side in all transports; the HTTP endpoint is
 optionally protected by its own shared secret (TASKFLOW_MCP_AUTH_TOKEN).
 The tool surface mirrors what tokens can access in TaskFlow; mutations the
 API rejects for tokens (webhooks, token management, tag/project/area writes,
@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Literal
 import logging
 import re
+import threading
 
 from mcp.server.fastmcp import FastMCP
 
@@ -739,16 +740,12 @@ class BearerAuthMiddleware:
         })
 
 
-def main() -> None:
-    config = load_config()
-    # shrink published schemas before serving; validation is unaffected
-    # (it uses func_metadata, not these dicts)
-    cleanup_registered_tools(mcp)
-    if config.transport == "stdio":
-        mcp.run(transport="stdio")
-        return
+def _make_http_server(config: Config):
+    """Configure FastMCP for the HTTP transport and build a uvicorn server.
 
-    # streamable-http: expose the same tools over TCP for remote MCP clients.
+    Not started here — the caller decides whether to run it on the main
+    thread (streamable-http) or in a background one (both).
+    """
     mcp.settings.host = config.host
     mcp.settings.port = config.port
     mcp.settings.streamable_http_path = config.mcp_path
@@ -763,7 +760,51 @@ def main() -> None:
     import uvicorn
 
     app = BearerAuthMiddleware(mcp.streamable_http_app(), config.auth_token)
-    uvicorn.run(app, host=config.host, port=config.port, log_level="info")
+    return uvicorn.Server(
+        uvicorn.Config(app, host=config.host, port=config.port, log_level="info")
+    )
+
+
+def _run_http_background(config: Config) -> threading.Thread | None:
+    """Start the HTTP server in a daemon thread; stdio keeps working even if
+    the port is busy (e.g. another session's server already owns it)."""
+
+    def _serve() -> None:
+        try:
+            _make_http_server(config).run()
+        except Exception:  # port busy, bad bind address, ... — log, don't die
+            logging.getLogger("taskflow-mcp").exception(
+                "HTTP transport failed to start on %s:%s — stdio continues",
+                config.host,
+                config.port,
+            )
+
+    thread = threading.Thread(target=_serve, name="mcp-http", daemon=True)
+    thread.start()
+    return thread
+
+
+def main() -> None:
+    config = load_config()
+    # shrink published schemas before serving; validation is unaffected
+    # (it uses func_metadata, not these dicts)
+    cleanup_registered_tools(mcp)
+    if config.transport == "stdio":
+        mcp.run(transport="stdio")
+        return
+
+    if config.transport == "both":
+        # stdio on the main thread for the local MCP client, HTTP in a
+        # daemon thread for network clients — one process, one TaskFlow client
+        http_thread = _run_http_background(config)
+        mcp.run(transport="stdio")
+        if http_thread is not None:
+            http_thread.join(timeout=5)
+        return
+
+    # streamable-http only
+    http_server = _make_http_server(config)
+    http_server.run()
 
 
 if __name__ == "__main__":

@@ -45,7 +45,7 @@ MCP-сервер (Model Context Protocol) для работы с [TaskFlow](../t
 | `TASKFLOW_MAX_DOWNLOAD_MB` | `5` | Кап размера вложения для base64-выдачи |
 | `TASKFLOW_HOWTO` | — | Правила работы (markdown прямо в env) для тула `howto` |
 | `TASKFLOW_HOWTO_FILE` | — | Путь к md-файлу с правилами; главнее `TASKFLOW_HOWTO` |
-| `TASKFLOW_MCP_TRANSPORT` | `stdio` | Транспорт MCP: `stdio` (локальный клиент) или `streamable-http` (по сети), см. [«Работа по сети»](#работа-по-сети) |
+| `TASKFLOW_MCP_TRANSPORT` | `stdio` | Транспорт MCP: `stdio` (локальный клиент), `streamable-http` (по сети) или `both` (stdio + сеть в одном процессе), см. [«Работа по сети»](#работа-по-сети) |
 | `TASKFLOW_MCP_HOST` | `127.0.0.1` | Адрес bind HTTP-сервера (только сетевой режим) |
 | `TASKFLOW_MCP_PORT` | `8000` | Порт HTTP-сервера (только сетевой режим) |
 | `TASKFLOW_MCP_PATH` | `/mcp` | URL-путь MCP-эндпоинта (только сетевой режим) |
@@ -119,7 +119,21 @@ claude mcp add taskflow \
 
 ## Работа по сети
 
-По умолчанию сервер работает по stdio — клиент должен быть на той же машине. Чтобы подключаться с других машин, включите streamable-http транспорт:
+По умолчанию сервер работает по stdio — клиент должен быть на той же машине. Чтобы подключаться с других машин, включите streamable-http транспорт.
+
+**Одновременно stdio и сеть** (`both`) — локальный клиент (Claude Code) продолжает запускать процесс как обычно, и тот же процесс слушает TCP:
+
+```bash
+TASKFLOW_MCP_TRANSPORT=both \
+TASKFLOW_MCP_HOST=0.0.0.0 \
+TASKFLOW_MCP_PORT=8000 \
+TASKFLOW_MCP_AUTH_TOKEN=<случайный секрет, напр. openssl rand -hex 24> \
+uv run taskflow-mcp
+```
+
+stdio живёт в главном потоке, HTTP — в фоновом; если порт занят (например, другой уже запущенный экземпляр), HTTP не стартует, но stdio продолжает работать.
+
+**Только сеть** (`streamable-http`) — то же самое без stdio:
 
 ```bash
 TASKFLOW_MCP_TRANSPORT=streamable-http \

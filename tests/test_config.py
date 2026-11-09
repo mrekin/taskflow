@@ -4,10 +4,16 @@ import os
 import unittest
 from unittest import mock
 
+from taskflow_mcp import config
 from taskflow_mcp.config import is_loopback_host, load_config
 
 
 class NetworkConfigTests(unittest.TestCase):
+    def setUp(self):
+        # hermetic: no repo .env leaking into the assertions
+        patcher = mock.patch.object(config, "load_dotenv")
+        patcher.start()
+        self.addCleanup(patcher.stop)
     def test_defaults_are_stdio_loopback_open(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             cfg = load_config()
@@ -35,6 +41,10 @@ class NetworkConfigTests(unittest.TestCase):
         self.assertEqual(cfg.mcp_path, "/taskflow-mcp")
         self.assertEqual(cfg.auth_token, "s3cret")
         self.assertTrue(cfg.stateless_http)
+
+    def test_both_transport_accepted(self):
+        with mock.patch.dict(os.environ, {"TASKFLOW_MCP_TRANSPORT": "both"}, clear=True):
+            self.assertEqual(load_config().transport, "both")
 
     def test_invalid_transport_and_port_fall_back_to_defaults(self):
         env = {
