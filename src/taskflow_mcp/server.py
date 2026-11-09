@@ -750,6 +750,18 @@ def _make_http_server(config: Config):
     mcp.settings.port = config.port
     mcp.settings.streamable_http_path = config.mcp_path
     mcp.settings.stateless_http = config.stateless_http
+    # The SDK auto-enables DNS-rebinding protection only when constructed with
+    # a loopback host — our FastMCP is constructed before the config is known,
+    # so its allowlist stays loopback-only and LAN clients get HTTP 421. On a
+    # non-loopback bind the check is useless anyway (it guards browser-side
+    # attacks; our endpoint already requires the Bearer secret), so switch it
+    # off. On loopback the SDK default protection stays in place.
+    if not is_loopback_host(config.host):
+        from mcp.server.transport_security import TransportSecuritySettings
+
+        mcp.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=False
+        )
     if not config.auth_token and not is_loopback_host(config.host):
         logging.getLogger("taskflow-mcp").warning(
             "HTTP endpoint on %s:%s has no auth (TASKFLOW_MCP_AUTH_TOKEN is "
