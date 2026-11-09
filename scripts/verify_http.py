@@ -10,6 +10,7 @@ then checks:
 Run:  uv run python scripts/verify_http.py
 """
 
+import asyncio
 import os
 import socket
 import subprocess
@@ -52,24 +53,7 @@ def main() -> int:
     failures: list[str] = []
     try:
         wait_port(PORT)
-
-        # 1+2: proper MCP client with the auth header
-        from mcp.client.streamable_http import streamablehttp_client
-        from mcp import ClientSession
-
-        headers = {"Authorization": f"Bearer {TOKEN}"}
-        with streamablehttp_client(URL, headers=headers) as (read, write, _):
-            with ClientSession(read, write) as session:
-                session.initialize()
-                tools = session.list_tools().tools
-                print(f"[ok] list_tools: {len(tools)} tools")
-                if not tools:
-                    failures.append("tools list is empty")
-                result = session.call_tool("whoami", {})
-                payload = getattr(result, "structuredContent", None) or {}
-                print(f"[ok] whoami: {str(payload)[:120]}")
-                if result.isError:
-                    failures.append(f"whoami returned isError: {result}")
+        failures.extend(asyncio.run(mcp_checks()))
 
         # 3: no auth header -> 401
         r = httpx.get(URL, timeout=5)
@@ -97,6 +81,27 @@ def main() -> int:
         return 1
     print("\nAll HTTP-transport checks passed.")
     return 0
+
+
+async def mcp_checks() -> list[str]:
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
+
+    failures: list[str] = []
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+    async with streamablehttp_client(URL, headers=headers) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            tools = (await session.list_tools()).tools
+            print(f"[ok] list_tools: {len(tools)} tools")
+            if not tools:
+                failures.append("tools list is empty")
+            result = await session.call_tool("whoami", {})
+            payload = getattr(result, "structuredContent", None) or {}
+            print(f"[ok] whoami: {str(payload)[:120]}")
+            if result.isError:
+                failures.append(f"whoami returned isError: {result}")
+    return failures
 
 
 if __name__ == "__main__":
