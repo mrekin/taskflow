@@ -158,11 +158,27 @@ export function AttachmentList({ entityId, entityType, ownerId, compact, refresh
   };
 
   const openPreview = (attachment: Attachment) => {
+    const previewable = localAttachments.filter((att) =>
+      isPreviewable(att.displayName || att.blob?.originalName || ''),
+    );
+    const currentIndex = previewable.findIndex((att) => att.blobId === attachment.blobId);
+    const items = previewable.length > 1
+      ? previewable.map((att) => ({
+          blobId: att.blobId,
+          displayName: att.displayName || att.blob?.originalName || att.blobId,
+          mimeType: att.blob?.mimeType,
+          size: att.blob?.size,
+          createdAt: att.createdAt,
+        }))
+      : undefined;
     openAttachmentPreview({
       blobId: attachment.blobId,
       displayName: attachment.displayName || attachment.blob?.originalName || attachment.blobId,
       mimeType: attachment.blob?.mimeType,
       size: attachment.blob?.size,
+      createdAt: attachment.createdAt,
+      items,
+      currentIndex: currentIndex >= 0 ? currentIndex : undefined,
     });
   };
 
@@ -199,6 +215,12 @@ export function AttachmentList({ entityId, entityType, ownerId, compact, refresh
                 {att.blob && (
                   <span className="text-muted-foreground whitespace-nowrap">{formatFileSize(att.blob.size)}</span>
                 )}
+                <span
+                  className="text-muted-foreground whitespace-nowrap text-[10px]"
+                  title={att.createdAt ? new Date(att.createdAt).toLocaleString() : undefined}
+                >
+                  {att.createdAt ? new Date(att.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''}
+                </span>
                 <div className="flex items-center gap-0.5">
                   {isPreviewable(att.displayName || att.blob?.originalName || '') && (
                     <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => openPreview(att)} title="Preview">
@@ -291,6 +313,11 @@ export function AttachmentList({ entityId, entityType, ownerId, compact, refresh
               {att.blob && (
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
                   {formatFileSize(att.blob.size)}
+                </span>
+              )}
+              {att.createdAt && (
+                <span className="text-xs text-muted-foreground whitespace-nowrap" title={new Date(att.createdAt).toLocaleString()}>
+                  {new Date(att.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                 </span>
               )}
               <div className="flex items-center gap-0.5">

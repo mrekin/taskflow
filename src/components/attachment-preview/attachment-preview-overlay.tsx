@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Download, X } from 'lucide-react';
+import { Download, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { api } from '@/lib/api-utils';
 import { getPreviewCategory } from '@/lib/attachment-preview';
@@ -22,6 +22,7 @@ import { TextViewer } from './text-viewer';
 export function AttachmentPreviewOverlay() {
   const attachmentPreview = useAppStore((s) => s.attachmentPreview);
   const closeAttachmentPreview = useAppStore((s) => s.closeAttachmentPreview);
+  const previewNavigate = useAppStore((s) => s.previewNavigate);
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -29,22 +30,34 @@ export function AttachmentPreviewOverlay() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // ESC in the capture phase with stopPropagation: Radix dialogs (the Sheet/Dialog
-  // underneath) also listen for Escape — without this both would close at once.
-  // The listener sits on `window`, not `document`: Radix's useEscapeKeydown also
-  // uses a capture-phase document listener registered earlier (its dialog opened
-  // first), and same-node listeners run in registration order — only a window
-  // capture handler + stopPropagation can reliably preempt it.
+  // ESC + arrow keys in the capture phase with stopPropagation: Radix dialogs
+  // (the Sheet/Dialog underneath) also listen for Escape — without this both
+  // would close at once. The listener sits on `window`, not `document`: Radix's
+  // useEscapeKeydown also uses a capture-phase document listener registered
+  // earlier (its dialog opened first), and same-node listeners run in
+  // registration order — only a window capture handler + stopPropagation can
+  // reliably preempt it.
   useEffect(() => {
     if (!attachmentPreview) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.stopPropagation();
-      closeAttachmentPreview();
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closeAttachmentPreview();
+      } else if (
+        (e.key === 'ArrowLeft' || e.key === 'ArrowRight') &&
+        attachmentPreview.items &&
+        attachmentPreview.items.length > 1
+      ) {
+        // Intercept arrows only when navigation is actually available, so a
+        // single-attachment preview (or PDF iframe scroll) keeps them intact.
+        e.stopPropagation();
+        e.preventDefault();
+        previewNavigate(e.key === 'ArrowLeft' ? -1 : 1);
+      }
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [attachmentPreview, closeAttachmentPreview]);
+  }, [attachmentPreview, closeAttachmentPreview, previewNavigate]);
 
   // Keep pointer presses inside the preview away from document-level listeners:
   // Radix DismissableLayer (the Sheet/Dialog underneath) treats any pointerdown
@@ -111,6 +124,19 @@ export function AttachmentPreviewOverlay() {
             transition={{ duration: 0.15 }}
           >
             <div className="flex items-center gap-2 border-b px-4 py-2.5">
+              {/* Prev button */}
+              {attachmentPreview.items && attachmentPreview.items.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  disabled={attachmentPreview.currentIndex === 0}
+                  onClick={() => previewNavigate(-1)}
+                  title="Previous"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium" title={attachmentPreview.displayName}>
                   {attachmentPreview.displayName}
@@ -118,10 +144,28 @@ export function AttachmentPreviewOverlay() {
                 {attachmentPreview.size !== undefined && (
                   <p className="text-xs text-muted-foreground">{formatFileSize(attachmentPreview.size)}</p>
                 )}
+                {attachmentPreview.items && attachmentPreview.items.length > 1 && (
+                  <p className="text-xs text-muted-foreground">
+                    {(attachmentPreview.currentIndex ?? 0) + 1} / {attachmentPreview.items.length}
+                  </p>
+                )}
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleDownload} title="Download">
                 <Download className="h-4 w-4" />
               </Button>
+              {/* Next button */}
+              {attachmentPreview.items && attachmentPreview.items.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  disabled={attachmentPreview.currentIndex === attachmentPreview.items.length - 1}
+                  onClick={() => previewNavigate(1)}
+                  title="Next"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              )}
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={closeAttachmentPreview} title="Close">
                 <X className="h-4 w-4" />
               </Button>

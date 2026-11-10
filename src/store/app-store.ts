@@ -262,6 +262,7 @@ interface AppState {
   setCostBreakdownTask: (id: string | null) => void;
   openAttachmentPreview: (target: AttachmentPreviewTarget) => void;
   closeAttachmentPreview: () => void;
+  previewNavigate: (delta: number) => void;
   selectNote: (id: string | null) => void;
   selectFolder: (id: string | null) => void;
   toggleSidebar: () => void;
@@ -461,6 +462,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   setCostBreakdownTask: (id) => set({ costBreakdownTaskId: id }),
   openAttachmentPreview: (target) => set({ attachmentPreview: target }),
   closeAttachmentPreview: () => set({ attachmentPreview: null }),
+  previewNavigate: (delta) => set((state) => {
+    const preview = state.attachmentPreview;
+    if (!preview?.items) return {};
+    const idx = (preview.currentIndex ?? 0) + delta;
+    if (idx < 0 || idx >= preview.items.length) return {};
+    const item = preview.items[idx];
+    return {
+      attachmentPreview: { ...preview, blobId: item.blobId, displayName: item.displayName, mimeType: item.mimeType, size: item.size, createdAt: item.createdAt, currentIndex: idx },
+    };
+  }),
   selectNote: (id) => set({ selectedNoteId: id }),
   selectFolder: (id) => set({ selectedFolderId: id }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),

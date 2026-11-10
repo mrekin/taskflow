@@ -32,4 +32,9 @@ export interface AttachmentPreviewTarget {
   displayName: string;
   mimeType?: string;
   size?: number;
+  createdAt?: string;
+  /** All previewable attachments in the same list (for navigation). */
+  items?: AttachmentPreviewTarget[];
+  /** Index within `items`. */
+  currentIndex?: number;
 }
