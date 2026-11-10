@@ -185,20 +185,30 @@ class TaskFlowClient:
         }
 
     async def upload_attachment(self, entity_type: str, entity_id: str,
-                                file_path: str) -> dict:
-        """Uploads a local file as an attachment (multipart POST), returns the
-        created attachment. Size/count/file-pattern limits are enforced by the
-        server — a 400 passes the server's error text through."""
+                                file_path: str | None = None, *,
+                                content: bytes | None = None,
+                                file_name: str | None = None) -> dict:
+        """Uploads an attachment (multipart POST), returns the created
+        attachment. Source is either file_path (read from the local disk) or
+        content (raw bytes, named file_name) — exactly one of them. Size/
+        count/file-pattern limits are enforced by the server — a 400 passes
+        the server's error text through."""
         self._require_token()
-        path = Path(file_path)
-        try:
-            payload = path.read_bytes()
-        except OSError as exc:
-            raise ToolError(f"Cannot read file {file_path}: {exc}") from None
+        if (file_path is None) == (content is None):
+            raise ToolError("Pass exactly one of file_path or content")
+        if content is None:
+            path = Path(file_path)
+            try:
+                content = path.read_bytes()
+            except OSError as exc:
+                raise ToolError(f"Cannot read file {file_path}: {exc}") from None
+            upload_name = path.name
+        else:
+            upload_name = file_name or "attachment"
         try:
             resp = await self._http.post(
                 "api/attachments/upload",
-                files={"file": (path.name, payload)},
+                files={"file": (upload_name, content)},
                 data={"entityId": entity_id, "entityType": entity_type},
             )
         except httpx.ConnectError:

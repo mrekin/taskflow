@@ -18,7 +18,7 @@ MCP-сервер (Model Context Protocol) для работы с [TaskFlow](../t
 | Релизы | `release_list`, `release_get`, `release_contents` (только чтение) |
 | Навигация | `project_list`, `area_list`, `tag_list` (только чтение) |
 | Статусы | `statuses_list` — набор статусов владельца токена (как в его настройках Kanban) |
-| Вложения | `attachment_list`, `attachment_get`, `attachment_upload` (требует update-право на родительскую сущность), `attachment_delete` |
+| Вложения | `attachment_list`, `attachment_get`, `attachment_upload` (требует update-право на родительскую сущность; источник — `file_path` на машине сервера **или** `content_base64`+`file_name` для удалённых клиентов), `attachment_delete` |
 | Поиск | `search` — глобальный (задачи + заметки + папки + проекты) |
 
 Не выставлены (API не даёт токену): webhooks, управление токенами, мутации проектов/областей/тегов, мутации релизов (создание/редактирование/удаление — только по сессии в UI), ручные снапшоты/pin/delete версий заметок.
@@ -42,7 +42,7 @@ MCP-сервер (Model Context Protocol) для работы с [TaskFlow](../t
 | `TASKFLOW_API_TOKEN` | — | Персональный токен (обязателен для вызовов) |
 | `TASKFLOW_TIMEOUT` | `30` | Таймаут запроса, сек |
 | `TASKFLOW_MAX_LIST_ITEMS` | `200` | Кап списков, когда вызывающий не задал `limit` |
-| `TASKFLOW_MAX_DOWNLOAD_MB` | `5` | Кап размера вложения для base64-выдачи |
+| `TASKFLOW_MAX_DOWNLOAD_MB` | `5` | Кап размера вложения: для base64-выдачи (`attachment_get`) и для inline-загрузки (`attachment_upload` с `content_base64`, размер декодированный) |
 | `TASKFLOW_HOWTO` | — | Правила работы (markdown прямо в env) для тула `howto` |
 | `TASKFLOW_HOWTO_FILE` | — | Путь к md-файлу с правилами; главнее `TASKFLOW_HOWTO` |
 | `TASKFLOW_MCP_TRANSPORT` | `stdio` | Транспорт MCP: `stdio` (локальный клиент), `streamable-http` (по сети) или `both` (stdio + сеть в одном процессе), см. [«Работа по сети»](#работа-по-сети) |
@@ -50,6 +50,7 @@ MCP-сервер (Model Context Protocol) для работы с [TaskFlow](../t
 | `TASKFLOW_MCP_PORT` | `8000` | Порт HTTP-сервера (только сетевой режим) |
 | `TASKFLOW_MCP_PATH` | `/mcp` | URL-путь MCP-эндпоинта (только сетевой режим) |
 | `TASKFLOW_MCP_AUTH_TOKEN` | — | Общий секрет эндпоинта: клиенты шлют `Authorization: Bearer <значение>`. Пусто — эндпоинт открыт |
+| `TASKFLOW_MCP_LOG_FILE` | — | Файл для зеркала логов HTTP-транспорта (ротация 50 МБ + одна копия). Без него проблемы сетевой стороны невидимы при stdio-спавне клиентом |
 | `TASKFLOW_MCP_STATELESS` | `false` | Stateless-сессии HTTP (каждый запрос самостоятелен, без `Mcp-Session-Id`) |
 
 Все переменные можно передавать и через `env` конфига MCP-клиента (тогда `.env` не нужен).

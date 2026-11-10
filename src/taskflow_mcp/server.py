@@ -14,7 +14,11 @@ to a release via the release_id field of the task/note/folder tools.
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
+import base64
+import binascii
 import logging
+import logging.handlers
+import os
 import re
 import threading
 
@@ -657,24 +661,55 @@ async def attachment_get(blob_id: str) -> dict:
 async def attachment_upload(
     entity_id: str,
     entity_type: Literal["task", "note", "comment"],
-    file_path: str,
+    file_path: str = "",
+    content_base64: str = "",
+    file_name: str = "",
 ) -> dict:
-    """Upload a local file as an attachment to a task, note or comment.
+    """Upload a file as an attachment to a task, note or comment.
     A task entity_id accepts the internal id or T-<n> shortId.
-    file_path is a path on the machine running this MCP server; it must
-    exist and be a regular file. Requires update permission on the parent
+    Two mutually exclusive sources, pass exactly one:
+    - file_path: path on the machine running this MCP server (works for
+      local clients only);
+    - content_base64: file content encoded as base64, plus file_name —
+      for remote/network clients that have no filesystem on the server.
+    content_base64 is capped at TASKFLOW_MAX_DOWNLOAD_MB decoded (the same
+    cap as attachment_get). Requires update permission on the parent
     entity (and the parent's project in the token scope). Size, per-entity
     count and file-type limits are enforced by the server — its error text
     is passed through when a limit is hit. Returns the created attachment."""
     if entity_type == "task":
         entity_id = await _resolve_task_id(entity_id)
-    path = Path(file_path).expanduser()
-    if not path.is_file():
+    if bool(file_path) == bool(content_base64):
         raise ToolError(
-            f"File not found (or not a regular file): {file_path} — pass an "
-            "existing local file path"
+            "Pass exactly one source: file_path (a file on the machine "
+            "running this server) or content_base64+file_name (inline "
+            "content, for remote clients)"
         )
-    return await get_client().upload_attachment(entity_type, entity_id, str(path))
+    if file_path:
+        path = Path(file_path).expanduser()
+        if not path.is_file():
+            raise ToolError(
+                f"File not found (or not a regular file): {file_path} — pass an "
+                "existing local file path, or use content_base64"
+            )
+        return await get_client().upload_attachment(entity_type, entity_id,
+                                                    file_path=str(path))
+    try:
+        content = base64.b64decode(content_base64, validate=True)
+    except (binascii.Error, ValueError):
+        raise ToolError("content_base64 is not valid base64") from None
+    cap = get_client().max_download_bytes
+    if len(content) > cap:
+        raise ToolError(
+            f"Decoded content is {len(content)} bytes, above the {cap} byte "
+            "cap (TASKFLOW_MAX_DOWNLOAD_MB) — inline content travels through "
+            "the model context; put the file on the server machine and use "
+            "file_path instead"
+        )
+    return await get_client().upload_attachment(
+        entity_type, entity_id, content=content,
+        file_name=file_name or "attachment",
+    )
 
 
 @mcp.tool()
@@ -740,6 +775,52 @@ class BearerAuthMiddleware:
         })
 
 
+def _setup_http_logging(config: Config) -> dict | None:
+    """Mirror HTTP-transport logs to a file when one is configured.
+
+    Returns a uvicorn log_config that routes uvicorn's own loggers into the
+    same file too — uvicorn applies dictConfig at startup, which would
+    otherwise drop handlers added to its loggers in advance.
+
+    stderr of a stdio-spawned process is swallowed by the MCP client, so
+    without this, network-side problems (port busy, bind errors, auth
+    warnings) are invisible. TASKFLOW_MCP_LOG_FILE is opt-in per deployment.
+    """
+    log_file = os.environ.get("TASKFLOW_MCP_LOG_FILE", "").strip()
+    if not log_file:
+        return None
+    # cap total size at ~100 MB: 50 MB live + one 50 MB backup
+    handler = logging.handlers.RotatingFileHandler(
+        log_file, maxBytes=50 * 1024 * 1024, backupCount=1
+    )
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    )
+    for name in ("taskflow-mcp", "mcp.server.streamable_http_manager",
+                 "mcp.server.transport_security"):
+        logging.getLogger(name).addHandler(handler)
+
+    import copy
+
+    from uvicorn.config import LOGGING_CONFIG
+
+    log_config = copy.deepcopy(LOGGING_CONFIG)
+    log_config["handlers"]["taskflow_file"] = {
+        "class": "logging.handlers.RotatingFileHandler",
+        "formatter": "default",
+        "filename": log_file,
+        "maxBytes": 50 * 1024 * 1024,
+        "backupCount": 1,
+    }
+    log_config["formatters"]["default"]["use_colors"] = False
+    # Not "uvicorn.error": it propagates into "uvicorn", which already gets
+    # the handler — adding it here would duplicate every startup/error line.
+    for name in ("uvicorn", "uvicorn.access"):
+        handlers = log_config["loggers"][name].setdefault("handlers", [])
+        handlers.append("taskflow_file")
+    return log_config
+
+
 def _make_http_server(config: Config):
     """Configure FastMCP for the HTTP transport and build a uvicorn server.
 
@@ -773,7 +854,13 @@ def _make_http_server(config: Config):
 
     app = BearerAuthMiddleware(mcp.streamable_http_app(), config.auth_token)
     return uvicorn.Server(
-        uvicorn.Config(app, host=config.host, port=config.port, log_level="info")
+        uvicorn.Config(
+            app,
+            host=config.host,
+            port=config.port,
+            log_level="info",
+            log_config=_setup_http_logging(config),
+        )
     )
 
 

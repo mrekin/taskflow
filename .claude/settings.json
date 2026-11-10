@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python -m unittest discover -s tests -q)",
+      "Bash(.venv/bin/python scripts/verify_upload.py)"
+    ]
+  }
+}
