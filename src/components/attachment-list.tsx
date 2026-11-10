@@ -27,6 +27,8 @@ interface AttachmentListProps {
   ownerId: string;
   compact?: boolean;
   refreshTrigger?: number;
+  /** Hide upload UI even for the owner (e.g. read-only views). */
+  readOnly?: boolean;
 }
 
 function FileIcon({ mimeType }: { mimeType: string }) {
@@ -36,7 +38,7 @@ function FileIcon({ mimeType }: { mimeType: string }) {
   return <File className="h-4 w-4 text-muted-foreground" />;
 }
 
-export function AttachmentList({ entityId, entityType, ownerId, compact, refreshTrigger }: AttachmentListProps) {
+export function AttachmentList({ entityId, entityType, ownerId, compact, refreshTrigger, readOnly }: AttachmentListProps) {
   const {
     attachmentConfig,
     fetchAttachmentConfig,
@@ -78,7 +80,7 @@ export function AttachmentList({ entityId, entityType, ownerId, compact, refresh
     : localAttachments;
 
   const isOwner = currentUserId === ownerId;
-  const canUpload = isOwner;
+  const canUpload = isOwner && !readOnly;
 
   const handleFiles = useCallback(async (files: FileList | File[]) => {
     if (!attachmentConfig) return;
@@ -230,7 +232,7 @@ export function AttachmentList({ entityId, entityType, ownerId, compact, refresh
                   <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => handleDownload(att)} title="Download">
                     <Download className="h-2.5 w-2.5" />
                   </Button>
-                  {isOwner && (
+                  {!readOnly && isOwner && (
                     <Button variant="ghost" size="icon" className="h-4 w-4 text-destructive hover:text-destructive" onClick={() => setDeleteTarget({ id: att.id, name: att.displayName || att.blob?.originalName || '' })} title="Delete">
                       <Trash2 className="h-2.5 w-2.5" />
                     </Button>
@@ -332,7 +334,7 @@ export function AttachmentList({ entityId, entityType, ownerId, compact, refresh
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDownload(att)} title="Download">
                   <Download className="h-3.5 w-3.5" />
                 </Button>
-                {isOwner && (
+                {!readOnly && isOwner && (
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteTarget({ id: att.id, name: att.displayName || att.blob?.originalName || '' })} title="Delete">
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>

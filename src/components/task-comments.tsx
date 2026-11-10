@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Send, Pencil, Trash2, Check, X, ListTodo, Reply, ChevronDown, ChevronUp, Paperclip, Loader2, AlertCircle } from 'lucide-react';
+import { MessageSquare, Send, Pencil, Trash2, Check, X, ListTodo, Reply, ChevronDown, ChevronUp, Paperclip, Loader2, AlertCircle, Maximize2, NotebookPen } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { MentionTextarea } from '@/components/mention-autocomplete';
 import { CreateTaskDialog } from '@/components/create-task-dialog';
+import { CreateNoteFromCommentDialog } from '@/components/create-note-from-comment-dialog';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { MarkdownToolbar } from '@/components/markdown-toolbar';
 import {
@@ -73,6 +74,9 @@ function CommentItem({
   onReplyCancel,
   onReplyKeyDown,
   onCreateTaskFromComment,
+  onOpenFullView,
+  onCreateNote,
+  taskOwnerId,
   depth,
   currentUserId,
   prices,
@@ -96,6 +100,9 @@ function CommentItem({
   onReplyCancel: () => void;
   onReplyKeyDown: (e: React.KeyboardEvent) => void;
   onCreateTaskFromComment: (content: string) => void;
+  onOpenFullView: (comment: Comment) => void;
+  onCreateNote: (comment: Comment) => void;
+  taskOwnerId: string;
   depth: number;
   currentUserId: string;
   prices?: TaskPrice[];
@@ -138,6 +145,9 @@ function CommentItem({
   };
 
   const hasReplies = comment.replies && comment.replies.length > 0;
+
+  // "Create note from comment" — mirror the server rule: comment author or task owner
+  const canCreateNote = !!currentUserId && (comment.ownerId === currentUserId || currentUserId === taskOwnerId);
 
   // Attachment list is shown below comment body for non-deleted comments
   const showAttachments = !isDeleted && !isEditing;
@@ -237,6 +247,14 @@ function CommentItem({
                   </Button>
                   <Button variant="ghost" size="icon" className="size-5" onClick={() => onCreateTaskFromComment(comment.content)} title="Create task from comment">
                     <ListTodo className="size-2.5" />
+                  </Button>
+                  {canCreateNote && (
+                    <Button variant="ghost" size="icon" className="size-5" onClick={() => onCreateNote(comment)} title="Create note from comment">
+                      <NotebookPen className="size-2.5" />
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="icon" className="size-5" onClick={() => onOpenFullView(comment)} title="Open full view">
+                    <Maximize2 className="size-2.5" />
                   </Button>
                   <Button variant="ghost" size="icon" className="size-5" onClick={() => onCommentAttach(comment.id)} title="Attach file" style={{ display: currentUserId === comment.ownerId ? undefined : 'none' }}>
                     <Paperclip className="size-2.5" />
@@ -341,6 +359,9 @@ function CommentItem({
                   onReplyCancel={onReplyCancel}
                   onReplyKeyDown={onReplyKeyDown}
                   onCreateTaskFromComment={onCreateTaskFromComment}
+                  onOpenFullView={onOpenFullView}
+                  onCreateNote={onCreateNote}
+                  taskOwnerId={taskOwnerId}
                   depth={depth + 1}
                   currentUserId={currentUserId}
                   prices={prices}
@@ -368,6 +389,7 @@ export function TaskComments({ taskId, prices, currency }: TaskCommentsProps) {
     attachmentConfig,
     fetchAttachmentConfig,
   } = useAppStore();
+  const openCommentView = useAppStore((s) => s.openCommentView);
 
   const [newContent, setNewContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -390,6 +412,9 @@ export function TaskComments({ taskId, prices, currency }: TaskCommentsProps) {
   const [prefilledTitle, setPrefilledTitle] = useState('');
   const [prefilledDescription, setPrefilledDescription] = useState('');
   const [prefilledParentId, setPrefilledParentId] = useState('');
+
+  const task = tasks.find((t) => t.id === taskId);
+  const [noteFromComment, setNoteFromComment] = useState<Comment | null>(null);
 
   useEffect(() => {
     if (taskId) {
@@ -654,6 +679,9 @@ export function TaskComments({ taskId, prices, currency }: TaskCommentsProps) {
                     onReplyCancel={handleReplyCancel}
                     onReplyKeyDown={handleReplyKeyDown}
                     onCreateTaskFromComment={handleCreateTaskFromComment}
+                    onOpenFullView={(c) => openCommentView(c.id)}
+                    onCreateNote={setNoteFromComment}
+                    taskOwnerId={task?.ownerId ?? ''}
                     depth={0}
                     currentUserId={currentUserId || ''}
                     prices={prices}
@@ -801,6 +829,12 @@ export function TaskComments({ taskId, prices, currency }: TaskCommentsProps) {
         defaultParentId={prefilledParentId}
         defaultTitle={prefilledTitle}
         defaultDescription={prefilledDescription}
+      />
+
+      <CreateNoteFromCommentDialog
+        comment={noteFromComment}
+        task={task ?? null}
+        onOpenChange={(open) => { if (!open) setNoteFromComment(null); }}
       />
     </div>
   );

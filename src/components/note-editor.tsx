@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DeleteDialog } from '@/components/delete-dialog';
+import { DocumentViewShell } from '@/components/document-view-shell';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -450,14 +451,10 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
   const currentProject = projects.find((p) => p.id === (projectId === 'none' ? null : projectId));
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Compact header bar */}
-      <div className="flex items-center justify-between gap-3 px-2 py-2 border-b shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <Button variant="ghost" size="icon" onClick={handleBack} className="shrink-0 size-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <Separator orientation="vertical" className="h-5" />
+    <DocumentViewShell
+      onBack={handleBack}
+      headerLeft={
+        <>
           {getSaveStatusDisplay()}
           {isReadOnly && (
             <>
@@ -494,9 +491,10 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
               </Button>
             </>
           )}
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
+        </>
+      }
+      headerActions={
+        <>
           <VisibilityLock
             value={visibility}
             visibleUserIds={visibleUserIds}
@@ -598,9 +596,51 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
               />
             </>
           )}
-        </div>
-      </div>
+        </>
+      }
+      footer={
+        <>
+          {/* Attachments */}
+          {note && !viewingVersion && (
+            <div className="border-t pt-4 mt-4 px-3 pb-16 md:pb-2">
+              <AttachmentList
+                entityId={note.id}
+                entityType="note"
+                ownerId={note.ownerId}
+              />
+            </div>
+          )}
 
+          {note && (
+            <NoteVersionHistory
+              note={note}
+              open={showHistoryDialog}
+              onOpenChange={setShowHistoryDialog}
+            />
+          )}
+
+          <AlertDialog open={showDiscardConfirm} onOpenChange={setShowDiscardConfirm}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You have unsaved changes. Are you sure you want to close this note? All unsaved edits will be lost.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Continue editing</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleConfirmDiscard}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Discard
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      }
+    >
       {editorMode !== 'preview' && !isReadOnly && !viewingVersion && (
         <div className="sticky top-0 z-10 flex items-center gap-1 px-3 py-1.5 border-b shrink-0 bg-background">
           <MarkdownToolbar
@@ -983,45 +1023,6 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
         </>
         )}
       </div>
-
-      {/* Attachments */}
-      {note && !viewingVersion && (
-        <div className="border-t pt-4 mt-4 px-3 pb-16 md:pb-2">
-          <AttachmentList
-            entityId={note.id}
-            entityType="note"
-            ownerId={note.ownerId}
-          />
-        </div>
-      )}
-
-      {note && (
-        <NoteVersionHistory
-          note={note}
-          open={showHistoryDialog}
-          onOpenChange={setShowHistoryDialog}
-        />
-      )}
-
-      <AlertDialog open={showDiscardConfirm} onOpenChange={setShowDiscardConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have unsaved changes. Are you sure you want to close this note? All unsaved edits will be lost.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Continue editing</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDiscard}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Discard
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+    </DocumentViewShell>
   );
 }

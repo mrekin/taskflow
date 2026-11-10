@@ -48,6 +48,7 @@ import { ProjectDetail } from '@/components/project-detail';
 import { TaskDetailDialog } from '@/components/task-detail-dialog';
 import { CostBreakdownDialog } from '@/components/cost-breakdown-dialog';
 import { AttachmentPreviewOverlay } from '@/components/attachment-preview/attachment-preview-overlay';
+import { CommentView } from '@/components/comment-view';
 import { NotesList } from '@/components/notes-list';
 import { NoteEditor } from '@/components/note-editor';
 import { ReleasesView } from '@/components/releases-view';
@@ -1379,6 +1380,8 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
       <CostBreakdownDialog />
       {/* Attachment Preview Overlay (global — opens above any open dialog) */}
       <AttachmentPreviewOverlay />
+      {/* Large Comment View overlay (global — opens above the task Sheet) */}
+      <CommentView />
 
       {/* Create Area Dialog */}
       <CreateAreaDialog open={showCreateArea} onOpenChange={setShowCreateArea} />

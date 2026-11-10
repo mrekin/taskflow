@@ -247,6 +247,8 @@ interface AppState {
   taskDialogDirty: boolean;
   /** Registered by note-editor: which note is open and whether it has unsaved changes. */
   noteEditor: { noteId: string | null; dirty: boolean };
+  /** Full-screen comment view overlay (T-188): the comment currently open, if any. */
+  commentView: { commentId: string | null };
   /** Set by kanban-board while a card is being dragged. */
   draggedTaskId: string | null;
   /** Bump to remount NoteEditor with fresh server data (external apply on an open note). */
@@ -263,6 +265,8 @@ interface AppState {
   openAttachmentPreview: (target: AttachmentPreviewTarget) => void;
   closeAttachmentPreview: () => void;
   previewNavigate: (delta: number) => void;
+  openCommentView: (commentId: string) => void;
+  closeCommentView: () => void;
   selectNote: (id: string | null) => void;
   selectFolder: (id: string | null) => void;
   toggleSidebar: () => void;
@@ -450,6 +454,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   dismissedConflicts: {},
   taskDialogDirty: false,
   noteEditor: { noteId: null, dirty: false },
+  commentView: { commentId: null },
   draggedTaskId: null,
   noteEditorReloadTick: 0,
   taskDialogRefreshTick: 0,
@@ -462,6 +467,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setCostBreakdownTask: (id) => set({ costBreakdownTaskId: id }),
   openAttachmentPreview: (target) => set({ attachmentPreview: target }),
   closeAttachmentPreview: () => set({ attachmentPreview: null }),
+  openCommentView: (commentId) => set({ commentView: { commentId } }),
+  closeCommentView: () => set({ commentView: { commentId: null } }),
   previewNavigate: (delta) => set((state) => {
     const preview = state.attachmentPreview;
     if (!preview?.items) return {};
