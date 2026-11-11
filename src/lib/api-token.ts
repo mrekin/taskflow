@@ -376,7 +376,7 @@ export function tokenScopeDeniedResponse(token: ValidatedApiToken): NextResponse
 
 // --- entity -> project resolution ---
 
-export type TokenScopeEntityType = 'task' | 'note' | 'comment' | 'folder';
+export type TokenScopeEntityType = 'task' | 'note' | 'comment' | 'noteComment' | 'folder';
 
 /** Resolves the owning project of an entity. Comment inherits its parent task's project. Inbox -> null. */
 export async function resolveEntityProjectId(
@@ -394,6 +394,13 @@ export async function resolveEntityProjectId(
   if (entityType === 'folder') {
     const folder = await db.noteFolder.findUnique({ where: { id: entityId }, select: { projectId: true } });
     return folder?.projectId ?? null;
+  }
+  if (entityType === 'noteComment') {
+    const nc = await db.noteComment.findUnique({
+      where: { id: entityId },
+      select: { note: { select: { projectId: true } } },
+    });
+    return nc?.note?.projectId ?? null;
   }
   const comment = await db.comment.findUnique({
     where: { id: entityId },

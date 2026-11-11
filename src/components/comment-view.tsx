@@ -49,10 +49,31 @@ export function CommentView() {
     (comment.ownerId === currentUserId || (!!task && task.ownerId === currentUserId));
   const readOnly = !canEdit || isGuest;
 
-  const [mode, setMode] = useState<'preview' | 'edit'>('preview');
+  const [mode, setMode] = useState<'preview' | 'edit' | 'split'>('preview');
   const [content, setContent] = useState('');
   const [lastSavedContent, setLastSavedContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  // Split mode: keep the preview pane scrolled proportionally to the editor
+  // (same behavior as the note editor's split mode).
+  const syncPreviewScroll = useCallback(() => {
+    const textarea = textareaRef.current;
+    const preview = previewRef.current;
+    if (!textarea || !preview) return;
+    const maxScroll = textarea.scrollHeight - textarea.clientHeight;
+    if (maxScroll <= 0) {
+      preview.scrollTop = 0;
+      return;
+    }
+    const ratio = textarea.scrollTop / maxScroll;
+    preview.scrollTop = ratio * (preview.scrollHeight - preview.clientHeight);
+  }, []);
+
+  useEffect(() => {
+    syncPreviewScroll();
+  }, [content, syncPreviewScroll]);
 
   // Fresh state per opened comment
   const openId = commentView?.commentId ?? null;
@@ -229,7 +250,7 @@ export function CommentView() {
               </div>
             }
           >
-            {mode === 'edit' && !readOnly ? (
+            {mode !== 'preview' && !readOnly ? (
               <>
                 <div className="sticky top-0 z-10 flex items-center gap-1 px-3 py-1.5 border-b shrink-0 bg-background">
                   <MarkdownToolbar
@@ -244,16 +265,47 @@ export function CommentView() {
                     {content.length} chars
                   </span>
                 </div>
-                <div className="flex-1 min-h-0">
-                  <MentionTextarea
-                    ref={textareaRef}
-                    value={content}
-                    onChange={(val) => setContent(val)}
-                    placeholder="Edit comment... (Markdown supported)"
-                    className="h-full w-full resize-none border-none rounded-none px-4 pt-4 pb-8 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar"
-                    autoFocus
-                  />
-                </div>
+                {mode === 'split' ? (
+                  <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 divide-x divide-border">
+                    <MentionTextarea
+                      ref={textareaRef}
+                      value={content}
+                      onChange={(val) => setContent(val)}
+                      onScroll={syncPreviewScroll}
+                      placeholder="Edit comment... (Markdown supported)"
+                      className="h-full w-full resize-none border-none rounded-none px-4 pt-4 pb-8 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar"
+                      autoFocus
+                    />
+                    <div
+                      ref={previewRef}
+                      className="h-full overflow-y-auto custom-scrollbar hidden lg:block"
+                    >
+                      <div className="w-full px-4 py-6">
+                        {!content.trim() ? (
+                          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50">
+                            <FileText className="h-12 w-12 mb-3 opacity-30" />
+                            <p className="text-sm">This comment is empty</p>
+                          </div>
+                        ) : (
+                          <div className="prose-container">
+                            <MarkdownRenderer content={content} compact={false} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 min-h-0">
+                    <MentionTextarea
+                      ref={textareaRef}
+                      value={content}
+                      onChange={(val) => setContent(val)}
+                      placeholder="Edit comment... (Markdown supported)"
+                      className="h-full w-full resize-none border-none rounded-none px-4 pt-4 pb-8 font-mono text-sm leading-relaxed focus-visible:ring-0 placeholder:text-muted-foreground/50 overflow-y-auto custom-scrollbar"
+                      autoFocus
+                    />
+                  </div>
+                )}
               </>
             ) : (
               <div className="h-full overflow-y-auto custom-scrollbar">

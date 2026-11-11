@@ -42,6 +42,9 @@ const VALID_EVENTS = [
   'task.created',
   'project.status_changed',
   'project.created',
+  'note.comment_created',
+  'note.comment_resolved',
+  'note.comment_deleted',
 ];
 
 function parseWebhook(wh: Record<string, unknown>) {

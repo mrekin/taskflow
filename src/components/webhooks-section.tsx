@@ -57,6 +57,9 @@ const WEBHOOK_EVENTS = [
   { value: 'entity.access_granted', label: 'Access Granted', description: 'When a user is granted access to an entity' },
   { value: 'entity.access_revoked', label: 'Access Revoked', description: 'When user access is revoked from an entity' },
   { value: 'entity.visibility_changed', label: 'Visibility Changed', description: 'When entity visibility level is changed' },
+  { value: 'note.comment_created', label: 'Note Inline Comment Added', description: 'When an inline comment is added to a note' },
+  { value: 'note.comment_resolved', label: 'Note Inline Comment Resolved', description: 'When an inline note comment is marked resolved' },
+  { value: 'note.comment_deleted', label: 'Note Inline Comment Deleted', description: 'When an inline note comment is deleted' },
 ] as const;
 
 const PLACEHOLDERS = [

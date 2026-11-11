@@ -29,6 +29,7 @@ model User {
   ownedReleases Release[]
   assignedTasks Task[]    @relation("TaskAssignee")
   comments      Comment[]
+  noteComments  NoteComment[]
   tags          Tag[]
   webhooks      Webhook[]
   scheduledJobs ScheduledJob[]
@@ -163,6 +164,7 @@ model Note {
   release  Release?      @relation(fields: [releaseId], references: [id], onDelete: SetNull)
   owner    User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   versions NoteVersion[]
+  comments NoteComment[]
 }
 
 model NoteVersion {
@@ -186,6 +188,25 @@ model NoteVersion {
 
   @@unique([noteId, number])
   @@index([noteId, number])
+}
+
+model NoteComment {
+  id        String   @id @default(cuid())
+  noteId    String
+  quote     String
+  prefix    String   @default("")
+  suffix    String   @default("")
+  offset    Int      @default(0)
+  content   String
+  resolved  Boolean  @default(false)
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  note  Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
 }
 
 model NoteFolder {

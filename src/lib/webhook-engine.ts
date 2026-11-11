@@ -11,7 +11,10 @@ export type WebhookEvent =
   | 'project.created'
   | 'entity.access_granted'
   | 'entity.access_revoked'
-  | 'entity.visibility_changed';
+  | 'entity.visibility_changed'
+  | 'note.comment_created'
+  | 'note.comment_resolved'
+  | 'note.comment_deleted';
 
 export interface WebhookContext {
   event: WebhookEvent;
@@ -258,6 +261,35 @@ export function buildProjectContext(
     projectId: project.id,
     areaId: project.areaId,
     ownerId: project.ownerId,
+  };
+}
+
+/**
+ * Context for note inline-comment events (T-190). Entity is the note itself
+ * (entityType 'note', N-<n> shortId), so scope matching (note/project/area)
+ * and owner-directed delivery ("уведомление владельцу заметки") reuse the
+ * standard fireWebhookEvent flow.
+ */
+export function buildNoteCommentContext(
+  note: { id: string; title: string; shortIdNum: number; projectId: string | null; ownerId: string },
+  event: Extract<WebhookEvent, `note.comment_${string}`>,
+  areaId?: string | null,
+  changes?: {
+    resolved?: { from: boolean; to: boolean };
+    comment?: string;
+    authorName?: string;
+  }
+): WebhookContext {
+  return {
+    event,
+    entityType: 'note',
+    entityId: note.id,
+    entityTitle: note.title,
+    entityShortId: formatShortId('note', note.shortIdNum),
+    ...(changes ? { changes: changes as WebhookContext['changes'] } : {}),
+    projectId: note.projectId,
+    areaId: areaId ?? null,
+    ownerId: note.ownerId,
   };
 }
 

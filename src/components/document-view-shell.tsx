@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ArrowLeft, Eye, Pencil } from 'lucide-react';
+import { ArrowLeft, Columns2, Eye, Pencil } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,7 @@ import {
   ToggleGroupItem,
 } from '@/components/ui/toggle-group';
 
-export type DocumentViewMode = 'preview' | 'edit';
+export type DocumentViewMode = 'preview' | 'edit' | 'split';
 
 interface DocumentViewShellProps {
   /** Crumbs row rendered under the header bar (optional). */
@@ -87,6 +87,12 @@ export function DocumentViewShell({
                   <ToggleGroupItem value="edit" className="h-7 px-2.5 text-xs gap-1.5" title="Edit">
                     <Pencil className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Edit</span>
+                  </ToggleGroupItem>
+                )}
+                {!readOnly && (
+                  <ToggleGroupItem value="split" className="h-7 px-2.5 text-xs gap-1.5" title="Side by side">
+                    <Columns2 className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Split</span>
                   </ToggleGroupItem>
                 )}
               </ToggleGroup>

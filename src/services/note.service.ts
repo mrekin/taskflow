@@ -209,6 +209,25 @@ export const NoteService = {
       return false;
     });
 
+    // T-190: also match notes via their inline comments' content
+    const scopedNoteIds = allScopedNotes.map((n) => n.id);
+    if (scopedNoteIds.length > 0) {
+      const inlineComments = await db.noteComment.findMany({
+        where: { noteId: { in: scopedNoteIds } },
+        select: { noteId: true, content: true },
+      });
+      const matchedIds = new Set(matchedNotes.map((n) => n.id));
+      for (const c of inlineComments) {
+        if (!matchedIds.has(c.noteId) && c.content.toLowerCase().includes(searchLower)) {
+          const note = allScopedNotes.find((n) => n.id === c.noteId);
+          if (note) {
+            matchedNotes.push(note);
+            matchedIds.add(c.noteId);
+          }
+        }
+      }
+    }
+
     // Fetch all folders in scope, filter in JS for case-insensitive Unicode
     const allScopedFolders = await db.noteFolder.findMany({
       where: {
@@ -236,7 +255,15 @@ export const NoteService = {
     };
   },
 
-  async getNote(userId: string | null, id: string): Promise<ServiceResult<Record<string, unknown>>> {
+  /**
+   * Fetch a note with visibility-chain includes and check read access.
+   * Shared by getNote and the note-comment service (inline comments inherit
+   * the note's visibility — T-190).
+   */
+  async getReadableNote(
+    userId: string | null,
+    id: string,
+  ): Promise<{ ok: true; note: Record<string, unknown> } | { ok: false; status: number; error: string }> {
     if (!userId && !isPublicReadonly()) return { ok: false, status: 401, error: "Authentication required" };
 
     const note = await db.note.findFirst({
@@ -290,7 +317,15 @@ export const NoteService = {
       return { ok: false, status: 404, error: "Note not found" };
     }
 
-    const response: Record<string, unknown> = { ...parseJsonFields(note, "note") };
+    return { ok: true, note: note as unknown as Record<string, unknown> };
+  },
+
+  async getNote(userId: string | null, id: string): Promise<ServiceResult<Record<string, unknown>>> {
+    const access = await NoteService.getReadableNote(userId, id);
+    if (!access.ok) return { ok: false, status: access.status, error: access.error };
+    const note = access.note;
+
+    const response: Record<string, unknown> = { ...parseJsonFields(note as any, "note") };
 
     if (note.project) {
       const projectParentChain: Array<{ visibility: string | null; ownerId: string }> = [];
@@ -311,12 +346,24 @@ export const NoteService = {
     }
 
     if (note.folder) {
+      // Folder inherits visibility from its project (+ area) chain.
+      const folderParentChain: Array<{ visibility: string | null; ownerId: string }> = [];
+      if (note.projectId && note.project) {
+        folderParentChain.push({ visibility: (note.project as any).visibility, ownerId: (note.project as any).ownerId });
+        if ((note.project as any).areaId) {
+          const area = await db.area.findFirst({
+            where: { id: (note.project as any).areaId },
+            select: { visibility: true, ownerId: true },
+          });
+          if (area) folderParentChain.push(area);
+        }
+      }
       response.folder = sanitizeRelation(
         note.folder as any,
         (note.folder as any).ownerId,
         userId,
         !!userId,
-        parentChain.filter((_, i) => i < parentChain.length),
+        folderParentChain,
       );
     }
 
