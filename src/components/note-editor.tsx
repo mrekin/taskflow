@@ -379,6 +379,9 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
   };
 
   const previewRef = useRef<HTMLDivElement>(null);
+  // Slot in the header actions row where NoteInlineComments portals its badge,
+  // so the comments entry point sits inline with View/Edit/Split (no overlap).
+  const inlineCommentsBadgeRef = useRef<HTMLDivElement>(null);
 
   const syncPreviewScroll = useCallback(() => {
     const textarea = textareaRef.current;
@@ -534,6 +537,10 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
               </ToggleGroupItem>
             </ToggleGroup>
           )}
+
+          {/* Inline comments badge (portal target — filled by NoteInlineComments
+              when the note has inline comments; optional element of this row) */}
+          <div ref={inlineCommentsBadgeRef} className="inline-flex items-center" />
 
           <Separator orientation="vertical" className="h-5" />
 
@@ -1040,10 +1047,12 @@ export function NoteEditor({ noteId, initialMode = 'preview' }: NoteEditorProps)
           <NoteInlineComments
             noteId={note.id}
             noteOwnerId={note.ownerId}
+            noteShortId={note.shortId || `N-${note.shortIdNum}`}
             content={content}
             active={editorMode !== 'edit' && !viewingVersion && !versionLoading}
             allowCreate={!isGuest && !!currentUserId}
             syncKey={editorMode}
+            badgePortalRef={inlineCommentsBadgeRef}
           />
         )}
       </div>

@@ -111,7 +111,13 @@ export const entityUrlProcessor: ContentProcessor = {
           const t = type.toUpperCase();
           const idMatch = match.match(/[?&]id=([a-f0-9-]{36})/i);
           const ref = idMatch ? idMatch[1] : num;
-          return `[${t}-${num}](entity:${t}:${ref})`;
+          // Preserve the comment deep-link parameter (T-196): a URL pointing at
+          // a specific comment (?nc= / ?comment=) linifies into the entity badge
+          // as before, but the comment param travels inside the entity: dest so
+          // the rendered badge keeps a working deep-link href.
+          const commentParam = match.match(/[?&]((?:nc|comment)=[A-Za-z0-9_-]+)/i);
+          const dest = commentParam ? `${ref}?${commentParam[1]}` : ref;
+          return `[${t}-${num}](entity:${t}:${dest})`;
         });
 
         result = result.replace(new RegExp(`${linkPlaceholder.replace(/\x00/g, '\\x00')}(\\d+)\\x00`, 'g'), (_m, idx: string) => {

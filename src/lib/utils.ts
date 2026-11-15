@@ -30,6 +30,39 @@ export function formatShortId(type: EntityType, shortIdNum: number): string {
 }
 
 /**
+ * Comment short ID types: TC-x (task comments, incl. replies) and NC-x
+ * (inline note comments, incl. replies). Kept separate from EntityType —
+ * comments are not entities in the mentions/link system (no #TC-5 refs).
+ */
+export type CommentIdType = 'task-comment' | 'note-comment';
+
+export const COMMENT_SHORT_ID_PREFIX: Record<CommentIdType, string> = {
+  'task-comment': 'TC',
+  'note-comment': 'NC',
+};
+
+/**
+ * Format a comment short ID for display (e.g., "TC-7", "NC-3").
+ * Returns null for legacy comments created before numbering (shortIdNum = 0) —
+ * badges are hidden for them instead of showing "TC-0".
+ */
+export function formatCommentShortId(type: CommentIdType, shortIdNum?: number): string | null {
+  if (!shortIdNum || shortIdNum <= 0) return null;
+  return `${COMMENT_SHORT_ID_PREFIX[type]}-${shortIdNum}`;
+}
+
+/**
+ * Build a comment deep-link URL (relative, like getEntityLink): current
+ * pathname (includes NEXT_BASE_PATH) + query params, e.g.
+ * ?note=N-3&id=<noteCuid>&nc=<commentCuid> or
+ * ?task=T-7&id=<taskCuid>&comment=<commentCuid>.
+ */
+export function getCommentLink(params: Record<string, string>): string {
+  const qs = new URLSearchParams(params).toString();
+  return `${window.location.pathname}?${qs}`;
+}
+
+/**
  * Get a short display ID from a CUID (legacy).
  * Shows first 8 characters for readability while remaining unique enough.
  */

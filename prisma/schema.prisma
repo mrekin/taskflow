@@ -191,22 +191,27 @@ model NoteVersion {
 }
 
 model NoteComment {
-  id        String   @id @default(cuid())
-  noteId    String
-  quote     String
-  prefix    String   @default("")
-  suffix    String   @default("")
-  offset    Int      @default(0)
-  content   String
-  resolved  Boolean  @default(false)
-  ownerId   String
+  id         String   @id @default(cuid())
+  noteId     String
+  quote      String
+  prefix     String   @default("")
+  suffix     String   @default("")
+  offset     Int      @default(0)
+  content    String
+  resolved   Boolean  @default(false)
+  shortIdNum Int      @default(0)
+  ownerId    String
+  parentId   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   note  Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
   owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  parent NoteComment? @relation("NoteCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies NoteComment[] @relation("NoteCommentReplies")
 
   @@index([noteId])
+  @@index([parentId])
 }
 
 model NoteFolder {
@@ -233,12 +238,13 @@ model NoteFolder {
 }
 
 model Comment {
-  id        String   @id @default(cuid())
-  content   String
-  taskId    String
-  ownerId   String
-  parentId  String?
-  deleted   Boolean  @default(false)
+  id         String   @id @default(cuid())
+  content    String
+  taskId     String
+  ownerId    String
+  parentId   String?
+  deleted    Boolean  @default(false)
+  shortIdNum Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

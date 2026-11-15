@@ -5,5 +5,8 @@ export async function register() {
 
     const { startDemoReset } = await import('@/lib/demo-reset');
     startDemoReset();
+
+    const { runStartupBackfills } = await import('@/services/backfill.service');
+    runStartupBackfills();
   }
 }

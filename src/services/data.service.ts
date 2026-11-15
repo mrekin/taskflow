@@ -45,6 +45,7 @@ export interface ExportBundle {
     notes: unknown[];
     noteVersions: unknown[];
     comments: unknown[];
+    noteComments: unknown[];
     webhooks: unknown[];
     webhookTriggers: unknown[];
   };
@@ -113,7 +114,7 @@ function remapTagIdsString(value: unknown, remap: Map<string, string>): string {
 export const DataService = {
   /** Build a full-data bundle for the given user. */
   async exportData(userId: string, appVersion: string): Promise<ServiceResult<ExportBundle>> {
-    const [tags, areas, projects, tasks, noteFolders, notes, noteVersions, comments, webhooks] =
+    const [tags, areas, projects, tasks, noteFolders, notes, noteVersions, comments, noteComments, webhooks] =
       await Promise.all([
         db.tag.findMany({ where: { ownerId: userId } }),
         db.area.findMany({ where: { ownerId: userId } }),
@@ -123,6 +124,7 @@ export const DataService = {
         db.note.findMany({ where: { ownerId: userId } }),
         db.noteVersion.findMany({ where: { authorId: userId } }),
         db.comment.findMany({ where: { ownerId: userId } }),
+        db.noteComment.findMany({ where: { ownerId: userId } }),
         db.webhook.findMany({ where: { ownerId: userId } }),
       ]);
 
@@ -147,6 +149,7 @@ export const DataService = {
           notes,
           noteVersions,
           comments,
+          noteComments,
           webhooks,
           webhookTriggers,
         },
@@ -183,6 +186,7 @@ export const DataService = {
       notes: asArray(d.notes),
       noteVersions: asArray(d.noteVersions),
       comments: nullMissingParents(topoSort(asArray(d.comments), "parentId"), "parentId"),
+      noteComments: nullMissingParents(topoSort(asArray(d.noteComments), "parentId"), "parentId"),
       webhooks: asArray(d.webhooks),
       webhookTriggers: asArray(d.webhookTriggers),
     };
@@ -196,6 +200,7 @@ export const DataService = {
       notes: newStat(),
       noteVersions: newStat(),
       comments: newStat(),
+      noteComments: newStat(),
       webhooks: newStat(),
       webhookTriggers: newStat(),
     };
@@ -224,6 +229,7 @@ export const DataService = {
         }));
         const notes = rows.notes.map((r) => ({ ...r, ownerId: userId, visibleUserIds: "[]", tagIds: remap(r.tagIds) }));
         const comments = rows.comments.map((r) => ({ ...r, ownerId: userId }));
+        const noteComments = rows.noteComments.map((r) => ({ ...r, ownerId: userId }));
         const noteVersions = rows.noteVersions.map((r) => ({
           ...r,
           authorId: userId,
@@ -239,6 +245,7 @@ export const DataService = {
         await insertTable(tx, "task", tasks, mode, stat.tasks);
         await insertTable(tx, "note", notes, mode, stat.notes);
         await insertTable(tx, "comment", comments, mode, stat.comments);
+        await insertTable(tx, "noteComment", noteComments, mode, stat.noteComments);
         await insertTable(tx, "noteVersion", noteVersions, mode, stat.noteVersions);
         await insertTable(tx, "webhook", webhooks, mode, stat.webhooks);
         await insertTable(tx, "webhookTrigger", webhookTriggers, mode, stat.webhookTriggers);
@@ -335,6 +342,7 @@ async function wipeUser(tx: Prisma.TransactionClient, userId: string): Promise<v
   await tx.scheduledJob.deleteMany({ where: { ownerId: userId } });
   await tx.noteVersion.deleteMany({ where: { authorId: userId } });
   await tx.comment.deleteMany({ where: { ownerId: userId } });
+  await tx.noteComment.deleteMany({ where: { ownerId: userId } });
   await tx.webhook.deleteMany({ where: { ownerId: userId } }); // cascades triggers + deliveries
   await tx.note.deleteMany({ where: { ownerId: userId } });
   await tx.noteFolder.deleteMany({ where: { ownerId: userId } });

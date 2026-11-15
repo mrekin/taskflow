@@ -1,12 +1,14 @@
 import { db } from "@/lib/db";
 import { NoteService } from "./note.service";
 import { fireWebhookEvent, buildNoteCommentContext, resolveTaskAreaId } from "@/lib/webhook-engine";
+import { getNextShortIdNum } from "@/lib/api-utils";
 import type { NoteCommentAnchor } from "@/lib/note-anchors";
 import type { ServiceResult } from "./types";
 
 export interface CreateNoteCommentData extends NoteCommentAnchor {
   noteId: string;
   content: string;
+  parentId?: string;
 }
 
 export interface UpdateNoteCommentData {
@@ -62,8 +64,26 @@ export const NoteCommentService = {
     if (!data.content || typeof data.content !== "string" || !data.content.trim()) {
       return { ok: false, status: 400, error: "Comment content is required" };
     }
-    if (!data.quote || typeof data.quote !== "string" || !data.quote.trim()) {
-      return { ok: false, status: 400, error: "quote (anchored text) is required" };
+
+    // If parentId is provided (reply to a comment), validate parent
+    if (data.parentId) {
+      const parent = await db.noteComment.findUnique({ where: { id: data.parentId } });
+      if (!parent) return { ok: false, status: 404, error: "Parent comment not found" };
+      if (parent.noteId !== data.noteId) {
+        return { ok: false, status: 400, error: "Parent comment must belong to the same note" };
+      }
+      if (parent.resolved) {
+        return { ok: false, status: 400, error: "Cannot reply to a resolved comment" };
+      }
+      // Replies don't need anchor fields
+      if (data.quote || data.prefix || data.suffix || typeof data.offset === "number") {
+        return { ok: false, status: 400, error: "Reply comments cannot have anchor fields" };
+      }
+    } else {
+      // Root comments require anchor
+      if (!data.quote || typeof data.quote !== "string" || !data.quote.trim()) {
+        return { ok: false, status: 400, error: "quote (anchored text) is required" };
+      }
     }
 
     const access = await NoteService.getReadableNote(userId, data.noteId);
@@ -79,12 +99,14 @@ export const NoteCommentService = {
     const comment = await db.noteComment.create({
       data: {
         noteId: data.noteId,
-        quote: data.quote,
+        quote: data.quote ?? "",
         prefix: data.prefix ?? "",
         suffix: data.suffix ?? "",
         offset: typeof data.offset === "number" ? Math.max(0, Math.floor(data.offset)) : 0,
         content: data.content.trim(),
         ownerId: userId,
+        parentId: data.parentId ?? null,
+        shortIdNum: await getNextShortIdNum(db.noteComment, userId),
       },
       include: {
         owner: { select: { id: true, name: true, email: true, image: true } },
@@ -184,7 +206,23 @@ export const NoteCommentService = {
       return { ok: false, status: 403, error: "Not allowed to delete this comment" };
     }
 
-    await db.noteComment.delete({ where: { id } });
+    // Cascade delete the whole reply subtree. Collected level by level (BFS),
+    // then deleted from the leaves up — works even if the DB-level cascade
+    // (schema onDelete) is not applied yet.
+    const levels: string[][] = [[id]];
+    let frontier = [id];
+    while (frontier.length > 0) {
+      const children = await db.noteComment.findMany({
+        where: { parentId: { in: frontier } },
+        select: { id: true },
+      });
+      if (children.length === 0) break;
+      frontier = children.map((c) => c.id);
+      levels.push(frontier);
+    }
+    for (let i = levels.length - 1; i >= 0; i--) {
+      await db.noteComment.deleteMany({ where: { id: { in: levels[i] } } });
+    }
 
     void fireWebhookEvent(
       buildNoteCommentContext(note, "note.comment_deleted", await resolveTaskAreaId(note.projectId), {

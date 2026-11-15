@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  ArrowLeft,
   MessageSquare,
   X,
   Save,
@@ -11,7 +12,11 @@ import {
   Circle,
   Trash2,
   ChevronRight,
+  ChevronDown,
   Unlink,
+  Pencil,
+  Quote,
+  Reply,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -38,8 +43,9 @@ import {
   locateRangeInRendered,
   type NoteCommentAnchor,
 } from '@/lib/note-anchors';
-import { cn } from '@/lib/utils';
+import { cn, formatCommentShortId, getCommentLink } from '@/lib/utils';
 import { toast } from 'sonner';
+import { CommentIdBadge } from '@/components/comment-id-badge';
 
 export interface NoteCommentData extends NoteCommentAnchor {
   id: string;
@@ -49,15 +55,19 @@ export interface NoteCommentData extends NoteCommentAnchor {
   offset: number;
   content: string;
   resolved: boolean;
+  shortIdNum?: number;
   ownerId: string;
   createdAt: string;
   updatedAt: string;
+  parentId?: string;
   owner?: { id: string; name?: string | null; email?: string | null; image?: null | string };
 }
 
 interface NoteInlineCommentsProps {
   noteId: string;
   noteOwnerId: string;
+  /** Note short ID (e.g. "N-3") — used to build comment deep-links (T-196). */
+  noteShortId?: string;
   content: string;
   /** Preview DOM is mounted (View or Split mode) — gutter + selection are active. */
   active: boolean;
@@ -68,6 +78,12 @@ interface NoteInlineCommentsProps {
    * DOM; triggers a re-sync of highlights/clouds onto the new container.
    */
   syncKey?: string | number;
+  /**
+   * Ref to an inline slot in the note header actions row. When provided, the
+   * comments badge (panel entry point) is portaled there — it renders as one
+   * more optional element of the header toolbar instead of floating above it.
+   */
+  badgePortalRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 /** Small speech-bubble SVG for DOM-injected clouds (no React there). */
@@ -81,6 +97,23 @@ const CLOUD_RESOLVED_CLS =
 
 const HL_BASE_CLS = 'nc-highlight';
 const HL_RESOLVED_CLS = 'nc-resolved';
+
+// --- panel resize (T-198) ---------------------------------------------------
+// Desktop only (md+); on mobile the panel stays full-width. The width is kept
+// in localStorage and mirrored to --nc-panel-width on :root (see
+// ANNOTATION_STYLES: it drives both the panel width and the note-content
+// margin-right shift).
+const NC_PANEL_DEFAULT_WIDTH = 380;
+const NC_PANEL_MIN_WIDTH = 300;
+const NC_PANEL_MAX_VW = 60;
+const NC_PANEL_WIDTH_KEY = 'taskflow-note-comments-width';
+const NC_RESIZE_STEP = 16;
+
+/** Clamp a requested panel width to [300px, 60vw]. */
+const clampPanelWidth = (w: number) =>
+  Math.round(
+    Math.min((window.innerWidth * NC_PANEL_MAX_VW) / 100, Math.max(NC_PANEL_MIN_WIDTH, w)),
+  );
 
 /** Highlight + cloud styles (injected once; supports dark theme via .dark). */
 const ANNOTATION_STYLES = `
@@ -112,10 +145,16 @@ const ANNOTATION_STYLES = `
 }
 /* Comments panel open: shift the note content container left so the panel
    never covers the text — context around anchored quotes stays visible.
+   The panel width is user-resizable (T-198): --nc-panel-width on :root is
+   updated by the resize logic, fallback is the default 380px.
    Narrow screens keep the old overlay behavior (panel is max-w-full there). */
 @media (min-width: 768px) {
-  body.nc-panel-open [data-note-preview] { margin-right: 380px; }
+  body.nc-panel-open [data-note-preview] { margin-right: var(--nc-panel-width, 380px); }
 }
+/* While the panel is being resized by pointer drag: keep the resize cursor
+   everywhere and suppress text selection under the pointer. */
+body.nc-resizing { cursor: col-resize; user-select: none; }
+body.nc-resizing [data-note-preview] { pointer-events: none; }
 `;
 
 /**
@@ -190,10 +229,12 @@ function unwrapHighlights(container: HTMLElement) {
 export function NoteInlineComments({
   noteId,
   noteOwnerId,
+  noteShortId,
   content,
   active,
   allowCreate,
   syncKey,
+  badgePortalRef,
 }: NoteInlineCommentsProps) {
   const currentUserId = useAppStore((s) => s.currentUserId);
   const isGuest = useIsGuest();
@@ -203,8 +244,9 @@ export function NoteInlineComments({
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const [groupIds, setGroupIds] = useState<string[] | null>(null);
   const [listOpen, setListOpen] = useState(false);
-  const [draft, setDraft] = useState<{ anchor: NoteCommentAnchor; text: string } | null>(null);
+  const [draft, setDraft] = useState<{ anchor: NoteCommentAnchor; text: string; parentId?: string } | null>(null);
   const [editText, setEditText] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [btnPos, setBtnPos] = useState<{ top: number; left: number } | null>(null);
   const pendingSelectionRef = useRef<{
     rendered: string;
@@ -213,6 +255,63 @@ export function NoteInlineComments({
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  // User-collapsed branches. Empty by default ⇒ all reply trees are EXPANDED;
+  // collapses survive refetch/reopen (refetch only replaces `comments`).
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  // DOM node of the header badge slot (resolved after mount — see effect below).
+  const [badgeTarget, setBadgeTarget] = useState<HTMLElement | null>(null);
+  // Deep-link highlight (T-196): temporary ring on the targeted comment card.
+  const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Panel resize (T-198): width in state for re-renders, mirrored in a ref so
+  // pointermove updates the CSS var directly without re-rendering per event.
+  const [panelWidth, setPanelWidth] = useState(NC_PANEL_DEFAULT_WIDTH);
+  const panelWidthRef = useRef(NC_PANEL_DEFAULT_WIDTH);
+  const resizeHandleRef = useRef<HTMLDivElement | null>(null);
+
+  // Push a width to the CSS var consumed by the panel and the note-content
+  // margin shift. Refs only — safe to call on every pointermove.
+  const applyPanelWidth = useCallback((w: number) => {
+    const clamped = clampPanelWidth(w);
+    panelWidthRef.current = clamped;
+    document.documentElement.style.setProperty('--nc-panel-width', `${clamped}px`);
+  }, []);
+
+  // Final width change: update the var AND state/localStorage (drag end,
+  // double-click reset, keyboard step).
+  const commitPanelWidth = useCallback(
+    (w: number) => {
+      applyPanelWidth(w);
+      setPanelWidth(panelWidthRef.current);
+      try {
+        window.localStorage.setItem(NC_PANEL_WIDTH_KEY, String(panelWidthRef.current));
+      } catch {
+        // localStorage may be unavailable (private mode) — non-fatal.
+      }
+    },
+    [applyPanelWidth],
+  );
+
+  // Restore the saved width once on mount (client only — clamp needs the
+  // current viewport).
+  useEffect(() => {
+    let raw: string | null = null;
+    try {
+      raw = window.localStorage.getItem(NC_PANEL_WIDTH_KEY);
+    } catch {
+      return;
+    }
+    const n = raw ? Number.parseInt(raw, 10) : Number.NaN;
+    if (Number.isFinite(n) && n > 0) applyPanelWidth(n);
+  }, [applyPanelWidth]);
+
+  // The badge slot lives in the header actions row (rendered by the parent in
+  // the same commit). Re-check on every render: cheap state set, no-op when
+  // the node is unchanged; covers mode switches that remount the header.
+  useEffect(() => {
+    const el = badgePortalRef?.current ?? null;
+    if (el !== badgeTarget) setBadgeTarget(el);
+  });
 
   // Annotation bookkeeping (DOM outside React — plain refs, no re-renders).
   const injectingRef = useRef(false);
@@ -228,6 +327,12 @@ export function NoteInlineComments({
   const lastContentRef = useRef<string | null>(null);
 
   const activeComment = comments.find((c) => c.id === activeCommentId) ?? null;
+
+  // Build a reply tree: for each comment, collect its direct replies
+  const getReplies = (parentId: string): NoteCommentData[] =>
+    comments.filter((c) => c.parentId === parentId);
+
+  const isRoot = (c: NoteCommentData) => !c.parentId;
 
   // Flush pending anchor offset updates to the API (one PUT per comment) and
   // merge them into local state so the next sync sees fresh offsets.
@@ -262,6 +367,11 @@ export function NoteInlineComments({
   }, [flushReanchor]);
 
   // --- data loading -------------------------------------------------------
+  // Set once the first refetch for a noteId has landed — gates the nc=
+  // deep-link handler so it never judges a comment missing before load.
+  const [commentsLoadedFor, setCommentsLoadedFor] = useState<string | null>(null);
+  const ncDeepLinkHandledRef = useRef(false);
+
   const refetch = useCallback(async () => {
     if (!noteId) return;
     try {
@@ -269,6 +379,7 @@ export function NoteInlineComments({
       if (res.ok) {
         const list = await res.json();
         setComments(Array.isArray(list) ? (list as NoteCommentData[]) : []);
+        setCommentsLoadedFor(noteId);
       }
     } catch (error) {
       console.error('Failed to load note comments:', error);
@@ -281,7 +392,8 @@ export function NoteInlineComments({
     setGroupIds(null);
     setListOpen(false);
     setDraft(null);
-    setShowResolved(false);
+    // NOTE: `showResolved` is intentionally NOT reset here — it is the user's
+    // choice and must survive refetches and note reloads of this component.
     void refetch();
   }, [noteId, refetch]);
 
@@ -293,7 +405,8 @@ export function NoteInlineComments({
         setGroupIds(null);
         setListOpen(false);
         setActiveCommentId(c.id);
-        setEditText(c.content);
+        setEditingCommentId(null);
+        // Don't set editText here — open in view mode by default
       } else {
         setActiveCommentId(null);
         setGroupIds(ids);
@@ -615,6 +728,7 @@ export function NoteInlineComments({
       observersRef.current.forEach((mo) => mo.disconnect());
       observersRef.current.clear();
       if (reanchorTimerRef.current) clearTimeout(reanchorTimerRef.current);
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     };
   }, []);
 
@@ -637,6 +751,144 @@ export function NoteInlineComments({
     if (panelOpen) scheduleSync();
     return () => document.body.classList.remove('nc-panel-open');
   }, [panelOpen, scheduleSync]);
+
+  // Panel resize drag (T-198). The handle only exists while the panel is
+  // open; native pointer listeners (not React synthetic events) per the
+  // project's overlay pattern — robust against other pointer handling.
+  // setPointerCapture routes move/up to the handle even when the pointer
+  // leaves it; during the drag the width is applied to the CSS var directly
+  // (no per-move re-render), committed to state/localStorage on pointerup.
+  useEffect(() => {
+    const el = resizeHandleRef.current;
+    if (!panelOpen || !el) return;
+    let dragging = false;
+    let startX = 0;
+    let startWidth = NC_PANEL_DEFAULT_WIDTH;
+    const isDesktop = () => window.matchMedia('(min-width: 768px)').matches;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0 || !isDesktop()) return;
+      e.preventDefault(); // suppress text selection under the drag
+      dragging = true;
+      startX = e.clientX;
+      startWidth = panelWidthRef.current;
+      el.setPointerCapture(e.pointerId);
+      document.body.classList.add('nc-resizing');
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      // Handle sits on the panel's LEFT edge (right side of the screen):
+      // dragging left widens the panel.
+      applyPanelWidth(startWidth + (startX - e.clientX));
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      if (el.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId);
+      document.body.classList.remove('nc-resizing');
+      commitPanelWidth(startWidth + (startX - e.clientX));
+      // The margin change can rewrap the note text → cloud/highlight tops
+      // (vertical) go stale; re-sync the annotations onto the new layout.
+      scheduleSync();
+    };
+    el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('pointermove', onPointerMove);
+    el.addEventListener('pointerup', onPointerUp);
+    el.addEventListener('pointercancel', onPointerUp);
+    return () => {
+      el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('pointermove', onPointerMove);
+      el.removeEventListener('pointerup', onPointerUp);
+      el.removeEventListener('pointercancel', onPointerUp);
+      document.body.classList.remove('nc-resizing');
+    };
+  }, [panelOpen, applyPanelWidth, commitPanelWidth, scheduleSync]);
+
+  // When the comments panel is open, Escape closes only the top panel layer
+  // (draft → detail view → list) and must NOT close the note itself. Capture
+  // phase on document intercepts the note-editor's bubble-phase Escape handler
+  // before it runs (same overlay pattern as other project overlays).
+  useEffect(() => {
+    if (!panelOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (confirmDeleteId) {
+        // Delete-confirm dialog owns Escape: close ONLY the dialog and block
+        // the event from reaching the panel's and note-editor's bubble-phase
+        // Escape handlers (they would close the panel and the whole note).
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        setConfirmDeleteId(null);
+        return;
+      }
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      if (draft) {
+        setDraft(null);
+      } else if (activeCommentId) {
+        setActiveCommentId(null);
+        setEditingCommentId(null);
+      } else {
+        setListOpen(false);
+        setGroupIds(null);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [panelOpen, draft, activeCommentId, confirmDeleteId]);
+
+  // Refresh the list whenever the panel list is opened (false → true) so it
+  // is not stale after resolve/delete done while the panel was closed.
+  // Only replaces `comments` — collapsedIds survive.
+  useEffect(() => {
+    if (listOpen) void refetch();
+  }, [listOpen, refetch]);
+
+  // Full deep-link URL for a comment: origin + pathname (incl. NEXT_BASE_PATH)
+  // + ?note=<N-x>&id=<noteCuid>&nc=<commentCuid>.
+  const commentLink = (c: NoteCommentData) =>
+    window.location.origin + getCommentLink({ note: noteShortId || 'N-?', id: noteId, nc: c.id });
+
+  // T-196 deep link: ?...&nc=<commentCuid> — open the comments panel, force
+  // "Show resolved" (a resolved target must stay visible), expand the branch
+  // leading to the comment, highlight its card and scroll it into view.
+  // Runs once, after the note's comments have loaded; the nc= param is then
+  // stripped from the URL (one-time view, same pattern as ?v= in note-editor).
+  useEffect(() => {
+    if (ncDeepLinkHandledRef.current || commentsLoadedFor !== noteId) return;
+    ncDeepLinkHandledRef.current = true;
+    const nc = new URLSearchParams(window.location.search).get('nc');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('nc');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+    if (!nc) return;
+    const target = comments.find((c) => c.id === nc);
+    if (!target) {
+      toast.error('Comment not found');
+      return;
+    }
+    setShowResolved(true);
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      let parentId: string | undefined | null = target.parentId;
+      while (parentId) {
+        next.delete(parentId);
+        parentId = comments.find((x) => x.id === parentId)?.parentId ?? null;
+      }
+      return next;
+    });
+    setActiveCommentId(null);
+    setGroupIds(null);
+    setEditingCommentId(null);
+    setListOpen(true);
+    setHighlightCommentId(target.id);
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => setHighlightCommentId(null), 4000);
+    // Wait for the panel + list to render, then bring the card into view.
+    setTimeout(() => {
+      document.querySelector(`[data-nc-id="${nc}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  }, [commentsLoadedFor, noteId, comments]);
 
   // --- selection → floating "add comment" button ---------------------------
   useEffect(() => {
@@ -710,14 +962,18 @@ export function NoteInlineComments({
       const res = await fetch(api('/api/note-comments'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          noteId,
-          quote: draft.anchor.quote,
-          prefix: draft.anchor.prefix ?? '',
-          suffix: draft.anchor.suffix ?? '',
-          offset: draft.anchor.offset ?? 0,
-          content: draft.text.trim(),
-        }),
+        body: JSON.stringify(
+          draft.parentId
+            ? { noteId, parentId: draft.parentId, content: draft.text.trim() }
+            : {
+                noteId,
+                quote: draft.anchor.quote,
+                prefix: draft.anchor.prefix ?? '',
+                suffix: draft.anchor.suffix ?? '',
+                offset: draft.anchor.offset ?? 0,
+                content: draft.text.trim(),
+              },
+        ),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -725,7 +981,7 @@ export function NoteInlineComments({
       }
       setDraft(null);
       await refetch();
-      toast.success('Comment added');
+      toast.success(draft.parentId ? 'Reply added' : 'Comment added');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to add comment');
     } finally {
@@ -747,6 +1003,7 @@ export function NoteInlineComments({
         const body = await res.json().catch(() => null);
         throw new Error(body?.error || `Failed (${res.status})`);
       }
+      setEditingCommentId(null);
       await refetch();
       toast.success('Comment saved');
     } catch (error) {
@@ -812,6 +1069,128 @@ export function NoteInlineComments({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  // Helper to render a comment item (used in list and reply tree).
+  // `depth` = number of indent levels already applied above; the ml-4/pl-2
+  // indent wrapper is capped at 5 levels (deeper cards stay at one level,
+  // like GitHub).
+  const renderCommentItem = (c: NoteCommentData, isReply: boolean, depth = 0) => {
+    const unanchored = !c.parentId && isUnanchored(c);
+    const replies = getReplies(c.id);
+    const hasReplies = replies.length > 0;
+    const isExpanded = !collapsedIds.has(c.id);
+
+    return (
+      <div key={c.id} className="space-y-1.5">
+        <div
+          role="button"
+          tabIndex={0}
+          data-nc-id={c.id}
+          className={cn(
+            'w-full text-left rounded-md border px-2.5 py-2 hover:bg-muted/50 transition-colors space-y-1 cursor-pointer',
+            highlightCommentId === c.id && 'ring-1 ring-primary bg-primary/5',
+          )}
+          onClick={() => {
+            setActiveCommentId(c.id);
+            setEditText(c.content);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setActiveCommentId(c.id);
+              setEditText(c.content);
+            }
+          }}
+        >
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span
+              className={cn(
+                'inline-flex items-center justify-center h-3.5 w-3.5 rounded-full border shrink-0',
+                c.resolved
+                  ? 'bg-muted text-muted-foreground border-border'
+                  : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700',
+              )}
+            >
+              <MessageSquare className="h-2 w-2" />
+            </span>
+            <span className="font-medium text-foreground truncate">
+              {c.owner?.name || c.owner?.email || 'Unknown'}
+            </span>
+            {c.resolved && (
+              <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+            )}
+            {unanchored && (
+              <span className="inline-flex items-center gap-0.5 shrink-0 text-destructive/80">
+                <Unlink className="h-3 w-3" />
+                Unanchored
+              </span>
+            )}
+            <span className="truncate">
+              {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
+            </span>
+            <CommentIdBadge
+              shortId={formatCommentShortId('note-comment', c.shortIdNum)}
+              link={commentLink(c)}
+              className="shrink-0"
+            />
+            {hasReplies && (
+              <button
+                type="button"
+                className="ml-auto shrink-0 hover:bg-muted/50 rounded p-0.5"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCollapsedIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(c.id)) next.delete(c.id);
+                    else next.add(c.id);
+                    return next;
+                  });
+                }}
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <ChevronRight className="h-3 w-3" />
+                )}
+              </button>
+            )}
+          </div>
+          <p className="text-xs line-clamp-2 break-words">{c.content}</p>
+          {!c.resolved && canEdit(c) && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground rounded px-1.5 py-0.5 hover:bg-muted transition-colors max-md:min-h-8 max-md:px-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDraft({
+                    anchor: { quote: c.quote, prefix: c.prefix, suffix: c.suffix, offset: c.offset },
+                    text: '',
+                    parentId: c.id,
+                  });
+                }}
+              >
+                <Reply className="h-3 w-3" />
+                Reply
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Replies tree */}
+        {hasReplies && isExpanded && (
+          <div
+            className={cn(
+              'space-y-1.5 border-l-2 border-muted/50',
+              depth < 5 && 'ml-4 pl-2',
+            )}
+          >
+            {replies.map((reply) => renderCommentItem(reply, true, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (!mounted) return null;
 
   return createPortal(
@@ -831,26 +1210,69 @@ export function NoteInlineComments({
       )}
 
       {/* Entry point into the comments panel: without it the list (and the
-          "Show resolved" toggle) is unreachable once all clouds are hidden. */}
-      {active && comments.length > 0 && !panelOpen && !btnPos && (
-        <button
-          type="button"
-          className="fixed top-14 right-4 z-[55] inline-flex items-center gap-1.5 rounded-full border bg-background/95 px-2.5 py-1 text-xs font-medium shadow-sm backdrop-blur hover:bg-muted transition-colors"
-          onClick={() => setListOpen(true)}
-        >
-          <MessageSquare className="h-3.5 w-3.5" />
-          {comments.filter((c) => !c.resolved).length || comments.length}
-        </button>
-      )}
+          "Show resolved" toggle) is unreachable once all clouds are hidden.
+          Portaled into the header actions row — one more optional badge there,
+          next to View/Edit/Split. Counts root comments only (replies live in
+          the expandable trees), matching the cards shown in the panel list. */}
+      {active &&
+        comments.length > 0 &&
+        !panelOpen &&
+        !btnPos &&
+        badgeTarget &&
+        createPortal(
+          <button
+            type="button"
+            title="Comments"
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 text-xs font-medium rounded-md border bg-background hover:bg-muted transition-colors"
+            onClick={() => setListOpen(true)}
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            {comments.filter((c) => !c.parentId && !c.resolved).length}
+          </button>,
+          badgeTarget,
+        )}
 
       {/* Right-side panel. The note content container is shifted left via
           body.nc-panel-open (see ANNOTATION_STYLES) so the panel never covers
           the text — the context around the anchored quote stays visible. */}
       {panelOpen && (
-        <div data-nc-panel="" className="fixed inset-y-0 right-0 z-[60] w-[380px] max-w-full border-l bg-background shadow-2xl flex flex-col">
+        <div
+          data-nc-panel=""
+          className="fixed inset-y-0 right-0 z-[60] w-full md:w-[var(--nc-panel-width,380px)] border-l bg-background shadow-2xl flex flex-col"
+        >
+          {/* Resize handle (T-198): drag the panel's left edge (desktop only,
+              hidden below md). Touch zone w-3 (12px) straddles the edge;
+              the visible bar lights up on hover. Double-click resets to the
+              default width; ArrowLeft/ArrowRight step by 16px. */}
+          <div
+            ref={resizeHandleRef}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize comments panel (double-click to reset width)"
+            aria-valuenow={panelWidth}
+            aria-valuemin={NC_PANEL_MIN_WIDTH}
+            tabIndex={0}
+            onDoubleClick={() => {
+              commitPanelWidth(NC_PANEL_DEFAULT_WIDTH);
+              scheduleSync();
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+              e.preventDefault();
+              commitPanelWidth(
+                panelWidthRef.current + (e.key === 'ArrowLeft' ? NC_RESIZE_STEP : -NC_RESIZE_STEP),
+              );
+              scheduleSync();
+            }}
+            className="group absolute inset-y-0 -left-1.5 z-10 hidden w-3 cursor-col-resize touch-none select-none focus:outline-none md:block"
+          >
+            <div className="absolute inset-y-0 left-1/2 w-1 -translate-x-1/2 rounded-full bg-transparent transition-colors group-hover:bg-primary/30 group-focus-visible:bg-primary/40" />
+          </div>
           <div className="flex items-center gap-2 px-3 py-2.5 border-b shrink-0">
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{draft ? 'Add comment' : 'Comments'}</span>
+            <span className="text-sm font-medium">
+              {draft ? (draft.parentId ? 'Add reply' : 'Add comment') : 'Comments'}
+            </span>
             {!draft && (
               <div className="flex items-center gap-1.5 ml-auto mr-1">
                 <Switch
@@ -876,6 +1298,7 @@ export function NoteInlineComments({
                 setActiveCommentId(null);
                 setGroupIds(null);
                 setListOpen(false);
+                setEditingCommentId(null);
               }}
             >
               <X className="h-4 w-4" />
@@ -886,9 +1309,18 @@ export function NoteInlineComments({
             {/* Create form */}
             {draft && (
               <div className="space-y-2">
-                <div className="rounded-md border-l-2 border-amber-400 bg-amber-500/5 px-2.5 py-1.5 text-xs text-muted-foreground line-clamp-3">
-                  {draft.anchor.quote}
-                </div>
+                {draft.parentId ? (
+                  <div className="rounded-md border-l-2 border-primary/50 bg-primary/5 px-2.5 py-1.5 text-xs text-muted-foreground line-clamp-3 break-words">
+                    Replying to:{' '}
+                    <span className="text-foreground">
+                      {comments.find((c) => c.id === draft.parentId)?.content ?? '…'}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="rounded-md border-l-2 border-amber-400 bg-amber-500/5 px-2.5 py-1.5 text-xs text-muted-foreground line-clamp-3 break-words">
+                    {draft.anchor.quote}
+                  </div>
+                )}
                 <Textarea
                   value={draft.text}
                   onChange={(e) => setDraft((d) => (d ? { ...d, text: e.target.value } : d))}
@@ -919,37 +1351,56 @@ export function NoteInlineComments({
             {/* Single comment view */}
             {!draft && activeComment && (
               <div className="space-y-2">
-                {isUnanchored(activeComment) ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 gap-1 text-xs self-start max-md:h-9"
+                  onClick={() => {
+                    setActiveCommentId(null);
+                    setEditingCommentId(null);
+                  }}
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Back
+                </Button>
+                {activeComment.parentId ? null : isUnanchored(activeComment) ? (
                   <div className="flex items-center gap-1.5 rounded-md border-l-2 border-destructive/50 bg-destructive/5 px-2.5 py-1.5 text-xs text-muted-foreground">
                     <Unlink className="h-3.5 w-3.5 shrink-0 text-destructive/70" />
                     Anchored text was removed from the note
                   </div>
                 ) : (
-                  <div className="rounded-md border-l-2 border-amber-400 bg-amber-500/5 px-2.5 py-1.5 text-xs text-muted-foreground line-clamp-3">
-                    {activeComment.quote}
+                  <div className="flex items-start gap-1.5 rounded-md border-l-2 border-amber-400 bg-amber-500/5 px-2.5 py-1.5 text-xs text-muted-foreground line-clamp-3 break-words" title="Quoted note text">
+                    <Quote className="h-3 w-3 shrink-0 mt-0.5 text-amber-500/80" />
+                    <span className="italic min-w-0">{activeComment.quote}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <span className="font-medium text-foreground">
+                  <span className="font-medium text-foreground min-w-0 truncate">
                     {activeComment.owner?.name || activeComment.owner?.email || 'Unknown'}
                   </span>
-                  <span>
+                  <span className="shrink-0">
                     {formatDistanceToNow(new Date(activeComment.createdAt), { addSuffix: true })}
                   </span>
                   {activeComment.resolved && (
-                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                    <span className="inline-flex items-center gap-1 shrink-0 text-emerald-600 dark:text-emerald-400">
                       <CheckCircle2 className="h-3 w-3" /> Resolved
                     </span>
                   )}
+                  <CommentIdBadge
+                    shortId={formatCommentShortId('note-comment', activeComment.shortIdNum)}
+                    link={commentLink(activeComment)}
+                    className="shrink-0"
+                  />
                 </div>
-                {canEdit(activeComment) ? (
+                {/* Comment content: view mode by default, Edit button to switch to edit */}
+                {editingCommentId === activeComment?.id ? (
                   <Textarea
                     value={editText}
                     onChange={(e) => setEditText(e.target.value)}
                     className="min-h-[100px] text-sm"
                   />
                 ) : (
-                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm whitespace-pre-wrap">
+                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm whitespace-pre-wrap break-words">
                     {activeComment.content}
                   </div>
                 )}
@@ -983,7 +1434,40 @@ export function NoteInlineComments({
                       </Button>
                     </>
                   )}
-                  {canEdit(activeComment) && editText.trim() !== activeComment.content && (
+                  {/* Edit button - only shown in view mode */}
+                  {!activeComment.resolved && canEdit(activeComment) && editingCommentId !== activeComment?.id && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="gap-1 text-xs h-7 px-2 max-md:h-9"
+                      onClick={() => {
+                        setEditingCommentId(activeComment.id);
+                        setEditText(activeComment.content);
+                      }}
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Edit
+                    </Button>
+                  )}
+                  {/* Reply button - shown in both view and edit mode */}
+                  {!activeComment.resolved && canEdit(activeComment) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="gap-1 text-xs h-7 px-2 max-md:h-9"
+                      onClick={() => {
+                        setDraft({
+                          anchor: { quote: activeComment.quote, prefix: activeComment.prefix, suffix: activeComment.suffix, offset: activeComment.offset },
+                          text: '',
+                          parentId: activeComment.id,
+                        });
+                      }}
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                      Reply
+                    </Button>
+                  )}
+                  {editingCommentId === activeComment?.id && canEdit(activeComment) && (
                     <Button
                       size="sm"
                       className="gap-1.5"
@@ -998,7 +1482,27 @@ export function NoteInlineComments({
                       Save
                     </Button>
                   )}
+                  {editingCommentId === activeComment?.id && canEdit(activeComment) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditingCommentId(null)}
+                    >
+                      Cancel
+                    </Button>
+                  )}
                 </div>
+
+                {/* Replies thread for this comment (nested, collapsible) */}
+                {getReplies(activeComment.id).length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="text-[11px] font-medium text-muted-foreground">
+                      {getReplies(activeComment.id).length}{' '}
+                      {getReplies(activeComment.id).length === 1 ? 'reply' : 'replies'}
+                    </div>
+                    {getReplies(activeComment.id).map((reply) => renderCommentItem(reply, true, 0))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1010,50 +1514,120 @@ export function NoteInlineComments({
                     {comments.length === 0 ? 'No inline comments yet.' : 'All comments are resolved.'}
                   </p>
                 )}
-                {listedComments.map((c) => {
-                  const unanchored = isUnanchored(c);
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className="w-full text-left rounded-md border px-2.5 py-2 hover:bg-muted/50 transition-colors space-y-1"
-                      onClick={() => {
-                        setActiveCommentId(c.id);
-                        setEditText(c.content);
-                      }}
-                    >
-                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <span
+                {listedComments
+                  .filter((c) => isRoot(c))
+                  .map((root) => {
+                    const replies = getReplies(root.id);
+                    const hasReplies = replies.length > 0;
+                    const isExpanded = !collapsedIds.has(root.id);
+                    const unanchored = isUnanchored(root);
+
+                    return (
+                      <div key={root.id} className="space-y-1.5">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          data-nc-id={root.id}
                           className={cn(
-                            'inline-flex items-center justify-center h-3.5 w-3.5 rounded-full border shrink-0',
-                            c.resolved
-                              ? 'bg-muted text-muted-foreground border-border'
-                              : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700',
+                            'w-full text-left rounded-md border px-2.5 py-2 hover:bg-muted/50 transition-colors space-y-1 cursor-pointer',
+                            highlightCommentId === root.id && 'ring-1 ring-primary bg-primary/5',
                           )}
+                          onClick={() => {
+                            setActiveCommentId(root.id);
+                            setEditText(root.content);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setActiveCommentId(root.id);
+                              setEditText(root.content);
+                            }
+                          }}
                         >
-                          <MessageSquare className="h-2 w-2" />
-                        </span>
-                        <span className="font-medium text-foreground truncate">
-                          {c.owner?.name || c.owner?.email || 'Unknown'}
-                        </span>
-                        {c.resolved && (
-                          <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <span
+                              className={cn(
+                                'inline-flex items-center justify-center h-3.5 w-3.5 rounded-full border shrink-0',
+                                root.resolved
+                                  ? 'bg-muted text-muted-foreground border-border'
+                                  : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700',
+                              )}
+                            >
+                              <MessageSquare className="h-2 w-2" />
+                            </span>
+                            <span className="font-medium text-foreground truncate">
+                              {root.owner?.name || root.owner?.email || 'Unknown'}
+                            </span>
+                            {root.resolved && (
+                              <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                            )}
+                            {unanchored && (
+                              <span className="inline-flex items-center gap-0.5 shrink-0 text-destructive/80">
+                                <Unlink className="h-3 w-3" />
+                                Unanchored
+                              </span>
+                            )}
+                            <span className="truncate">
+                              {formatDistanceToNow(new Date(root.createdAt), { addSuffix: true })}
+                            </span>
+                            <CommentIdBadge
+                              shortId={formatCommentShortId('note-comment', root.shortIdNum)}
+                              link={commentLink(root)}
+                              className="shrink-0"
+                            />
+                            {hasReplies && (
+                              <button
+                                type="button"
+                                className="ml-auto shrink-0 hover:bg-muted/50 rounded p-0.5"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCollapsedIds((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(root.id)) next.delete(root.id);
+                                    else next.add(root.id);
+                                    return next;
+                                  });
+                                }}
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-3 w-3" />
+                                ) : (
+                                  <ChevronRight className="h-3 w-3" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-xs line-clamp-2 break-words">{root.content}</p>
+                          {!root.resolved && canEdit(root) && (
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground rounded px-1.5 py-0.5 hover:bg-muted transition-colors max-md:min-h-8 max-md:px-2"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDraft({
+                                    anchor: { quote: root.quote, prefix: root.prefix, suffix: root.suffix, offset: root.offset },
+                                    text: '',
+                                    parentId: root.id,
+                                  });
+                                }}
+                              >
+                                <Reply className="h-3 w-3" />
+                                Reply
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Replies tree (first indent level — always allowed) */}
+                        {hasReplies && isExpanded && (
+                          <div className="ml-4 space-y-1.5 border-l-2 border-muted/50 pl-2">
+                            {replies.map((reply) => renderCommentItem(reply, true, 1))}
+                          </div>
                         )}
-                        {unanchored && (
-                          <span className="inline-flex items-center gap-0.5 shrink-0 text-destructive/80">
-                            <Unlink className="h-3 w-3" />
-                            Unanchored
-                          </span>
-                        )}
-                        <span className="truncate">
-                          {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
-                        </span>
-                        <ChevronRight className="h-3 w-3 ml-auto shrink-0" />
                       </div>
-                      <p className="text-xs line-clamp-2">{c.content}</p>
-                    </button>
-                  );
-                })}
+                    );
+                  })}
               </div>
             )}
           </div>

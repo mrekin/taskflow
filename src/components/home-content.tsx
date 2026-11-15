@@ -843,7 +843,7 @@ function HomeContent({ publicReadonly = false, hasOidc = false }: { publicReadon
       )}
       <aside
         className={cn(
-          'bg-card flex flex-col shrink-0 h-screen',
+          'bg-card flex flex-col shrink-0 h-screen supports-[height:100dvh]:h-[100dvh]',
           isMobile
             ? cn(
                 'fixed top-0 left-0 z-50 w-64 border-r shadow-xl transition-transform duration-300',

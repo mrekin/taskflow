@@ -108,6 +108,8 @@ export interface Comment {
   ownerId: string;
   parentId: string | null;
   deleted: boolean;
+  /** Short ID number (TC-x); 0 for comments created before numbering (T-196). */
+  shortIdNum?: number;
   createdAt: string;
   updatedAt: string;
   owner?: { id: string; name: string | null; email: string; image: string | null };

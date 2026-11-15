@@ -23,7 +23,7 @@ interface MarkdownRendererProps {
   stripFirstH1?: boolean;
 }
 
-function EntityMentionBadge({ type, num, id }: { type: string; num?: number; id?: string }) {
+function EntityMentionBadge({ type, num, id, commentParam }: { type: string; num?: number; id?: string; commentParam?: string }) {
   const { tasks, projects, notes, areas } = useAppStore();
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -59,7 +59,10 @@ function EntityMentionBadge({ type, num, id }: { type: string; num?: number; id?
   const displayId = shortId || `${upperType}-${num ?? '\u2026'}`;
   const paramMap: Record<string, string> = { T: 'task', P: 'project', N: 'note', A: 'area' };
   const param = paramMap[upperType] || 'task';
-  const href = `${window.location.origin}${window.location.pathname}?${param}=${displayId}`;
+  // commentParam (e.g. "nc=<cuid>" / "comment=<cuid>") carries a comment
+  // deep-link (T-196) that survived linification \u2014 keep it in the href so the
+  // badge opens the entity at that comment.
+  const href = `${window.location.origin}${window.location.pathname}?${param}=${displayId}${commentParam ? `&${commentParam}` : ''}`;
 
   if (!entityId) {
     return (
@@ -400,11 +403,17 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
                 const type = href.substring(7, colonIndex);
                 const value = href.substring(colonIndex + 1);
                 if (type && value) {
-                  const num = parseInt(value, 10);
-                  if (!isNaN(num) && /^\d+$/.test(value)) {
-                    return <EntityMentionBadge type={type} num={num} />;
+                  // Comment deep-links (T-196) travel as a query suffix on the
+                  // entity: dest ("entity:T:5?comment=<cuid>") — split it off
+                  // before id/num parsing and pass it to the badge.
+                  const qIndex = value.indexOf('?');
+                  const commentParam = qIndex >= 0 ? value.substring(qIndex + 1) : undefined;
+                  const rawValue = qIndex >= 0 ? value.substring(0, qIndex) : value;
+                  const num = parseInt(rawValue, 10);
+                  if (!isNaN(num) && /^\d+$/.test(rawValue)) {
+                    return <EntityMentionBadge type={type} num={num} commentParam={commentParam} />;
                   } else {
-                    return <EntityMentionBadge type={type} id={value} />;
+                    return <EntityMentionBadge type={type} id={rawValue} commentParam={commentParam} />;
                   }
                 }
               }
@@ -425,7 +434,8 @@ export function MarkdownRenderer({ content, className = '', compact = false, str
               const prefix = entityUrlMatch[2].split('-')[0].toUpperCase();
               const numStr = entityUrlMatch[2].split('-')[1];
               if (numStr) {
-                return <EntityMentionBadge type={prefix} num={parseInt(numStr, 10)} />;
+                const commentParamMatch = href.match(/[?&]((?:nc|comment)=[A-Za-z0-9_-]+)/i);
+                return <EntityMentionBadge type={prefix} num={parseInt(numStr, 10)} commentParam={commentParamMatch?.[1]} />;
               }
             }
 

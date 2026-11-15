@@ -9,6 +9,7 @@ import {
 } from "@/lib/visibility";
 import { cleanupAttachments } from "@/lib/attachment-cleanup";
 import { isPublicReadonly } from "@/lib/config";
+import { getNextShortIdNum } from "@/lib/api-utils";
 import type { ServiceResult } from "./types";
 
 export interface CreateCommentData {
@@ -138,6 +139,7 @@ export const CommentService = {
         taskId: data.taskId,
         ownerId: userId,
         parentId: data.parentId || null,
+        shortIdNum: await getNextShortIdNum(db.comment, userId),
       },
       include: {
         owner: { select: { id: true, name: true, email: true, image: true, metadata: true } },

@@ -11,6 +11,8 @@ import { MarkdownToolbar } from '@/components/markdown-toolbar';
 import { MentionTextarea } from '@/components/mention-autocomplete';
 import { AttachmentList } from '@/components/attachment-list';
 import { Button } from '@/components/ui/button';
+import { CommentIdBadge } from '@/components/comment-id-badge';
+import { formatCommentShortId, getCommentLink } from '@/lib/utils';
 import { useConfirmClose } from '@/hooks/use-confirm-close';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -183,6 +185,19 @@ export function CommentView() {
             onBack={handleBack}
             headerLeft={
               <>
+                {comment && (
+                  <CommentIdBadge
+                    shortId={formatCommentShortId('task-comment', comment.shortIdNum)}
+                    link={
+                      window.location.origin +
+                      getCommentLink({
+                        task: task?.shortId || `T-${task?.shortIdNum ?? '?'}`,
+                        id: comment.taskId,
+                        comment: comment.id,
+                      })
+                    }
+                  />
+                )}
                 {comment.owner?.name && (
                   <span className="text-xs text-muted-foreground truncate">
                     {comment.owner.name}

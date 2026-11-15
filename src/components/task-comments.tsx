@@ -5,7 +5,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Send, Pencil, Trash2, Check, X, ListTodo, Reply, ChevronDown, ChevronUp, Paperclip, Loader2, AlertCircle, Maximize2, NotebookPen } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
+import { cn, formatCommentShortId, getCommentLink } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +14,7 @@ import { CreateTaskDialog } from '@/components/create-task-dialog';
 import { CreateNoteFromCommentDialog } from '@/components/create-note-from-comment-dialog';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { MarkdownToolbar } from '@/components/markdown-toolbar';
+import { CommentIdBadge } from '@/components/comment-id-badge';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -77,6 +78,8 @@ function CommentItem({
   onOpenFullView,
   onCreateNote,
   taskOwnerId,
+  taskShortId,
+  highlightId,
   depth,
   currentUserId,
   prices,
@@ -103,6 +106,10 @@ function CommentItem({
   onOpenFullView: (comment: Comment) => void;
   onCreateNote: (comment: Comment) => void;
   taskOwnerId: string;
+  /** Task short ID ("T-7") — used to build comment deep-links (T-196). */
+  taskShortId?: string;
+  /** Comment short ID to temporarily highlight (deep-link target). */
+  highlightId?: string | null;
   depth: number;
   currentUserId: string;
   prices?: TaskPrice[];
@@ -146,6 +153,13 @@ function CommentItem({
 
   const hasReplies = comment.replies && comment.replies.length > 0;
 
+  // Deep-link URL for this comment (T-196): ?task=<T-x>&id=<taskCuid>&comment=<commentCuid>
+  const commentLink = window.location.origin + getCommentLink({
+    task: taskShortId || 'T-?',
+    id: comment.taskId,
+    comment: comment.id,
+  });
+
   // "Create note from comment" — mirror the server rule: comment author or task owner
   const canCreateNote = !!currentUserId && (comment.ownerId === currentUserId || currentUserId === taskOwnerId);
 
@@ -156,7 +170,13 @@ function CommentItem({
     <>
       <div style={{ paddingLeft: indent }}>
         <div className="group">
-          <div className="flex gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 transition-colors">
+          <div
+            data-comment-id={comment.id}
+            className={cn(
+              "flex gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 transition-colors",
+              highlightId === comment.id && "ring-1 ring-primary bg-primary/5",
+            )}
+          >
             {/* Avatar */}
             <div className={cn(
               "size-5 rounded-full flex items-center justify-center shrink-0 mt-0.5",
@@ -177,6 +197,10 @@ function CommentItem({
                 <span className="text-[10px] text-muted-foreground">
                   {formatTimestamp(comment.createdAt)}
                 </span>
+                <CommentIdBadge
+                  shortId={formatCommentShortId('task-comment', comment.shortIdNum)}
+                  link={commentLink}
+                />
               </div>
 
               {/* Body or edit */}
@@ -362,6 +386,8 @@ function CommentItem({
                   onOpenFullView={onOpenFullView}
                   onCreateNote={onCreateNote}
                   taskOwnerId={taskOwnerId}
+                  taskShortId={taskShortId}
+                  highlightId={highlightId}
                   depth={depth + 1}
                   currentUserId={currentUserId}
                   prices={prices}
@@ -428,6 +454,40 @@ export function TaskComments({ taskId, prices, currency }: TaskCommentsProps) {
 
   const taskComments = comments.filter((c) => c.taskId === taskId);
   const tree = buildTree(taskComments);
+
+  // T-196 deep link: ?task=...&comment=<commentCuid> — highlight and scroll to
+  // the comment once this task's comments are loaded; the param is stripped
+  // from the URL (one-time view). Missing comment → toast, no crash.
+  const commentDeepLinkHandledRef = useRef(false);
+  const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (commentDeepLinkHandledRef.current || taskComments.length === 0) return;
+    commentDeepLinkHandledRef.current = true;
+    const cid = new URLSearchParams(window.location.search).get('comment');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('comment');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+    if (!cid) return;
+    if (!taskComments.some((c) => c.id === cid)) {
+      toast.error('Comment not found');
+      return;
+    }
+    setHighlightCommentId(cid);
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => setHighlightCommentId(null), 4000);
+    setTimeout(() => {
+      document.querySelector(`[data-comment-id="${cid}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  }, [taskComments]);
+
+  // Cleanup the highlight timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    };
+  }, []);
 
   const pendingFilesRef = useRef(pendingFiles);
   pendingFilesRef.current = pendingFiles;
@@ -682,6 +742,8 @@ export function TaskComments({ taskId, prices, currency }: TaskCommentsProps) {
                     onOpenFullView={(c) => openCommentView(c.id)}
                     onCreateNote={setNoteFromComment}
                     taskOwnerId={task?.ownerId ?? ''}
+                    taskShortId={task?.shortId || (task ? `T-${task.shortIdNum}` : undefined)}
+                    highlightId={highlightCommentId}
                     depth={0}
                     currentUserId={currentUserId || ''}
                     prices={prices}
