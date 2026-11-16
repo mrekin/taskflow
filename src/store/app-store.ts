@@ -109,6 +109,11 @@ interface SyncMergeResult<T> {
   touched: boolean;
   applied: Map<string, T>;
   deletedIds: Set<string>;
+  /**
+   * Changed rows absent from the store in a scoped view (allowAdditions=false):
+   * the merge cannot place them, the caller must refetch the view to pick them up.
+   */
+  hasMissedAdditions: boolean;
   /** Watched ids (open dialog / open note) silently merged — drives refresh ticks. */
   mergedWatched: string[];
 }
@@ -127,6 +132,7 @@ function mergeSyncedEntities<T extends { id: string; updatedAt: string }>(
   const known = new Set(p.current.map((r) => r.id));
   const applyIds = new Set<string>();
   const deletedIds = new Set<string>();
+  const missedAdditionIds = new Set<string>();
   const mergedWatched: string[] = [];
 
   const queueConflict = (id: string, kind: SyncConflict['kind'], serverEntity: unknown, serverUpdatedAt: string) => {
@@ -151,7 +157,12 @@ function mergeSyncedEntities<T extends { id: string; updatedAt: string }>(
       queueConflict(r.id, 'updated', r, r.updatedAt);
       continue;
     }
-    if (!curRow && !p.allowAdditions) continue; // scoped view: the correction refetch picks it up
+    if (!curRow && !p.allowAdditions) {
+      // Scoped view: the merge cannot place the new row — the correction
+      // refetch (driven by hasMissedAdditions) picks it up
+      missedAdditionIds.add(r.id);
+      continue;
+    }
     applyIds.add(r.id);
     if (watchIds.includes(r.id)) mergedWatched.push(r.id);
   }
@@ -173,7 +184,14 @@ function mergeSyncedEntities<T extends { id: string; updatedAt: string }>(
   const additions = p.changed.filter((r) => !known.has(r.id) && applyIds.has(r.id));
   if (p.allowAdditions && additions.length) rows.push(...(additions as T[]));
 
-  return { rows, touched, applied, deletedIds, mergedWatched };
+  return {
+    rows,
+    touched,
+    applied,
+    deletedIds,
+    hasMissedAdditions: missedAdditionIds.size > 0,
+    mergedWatched,
+  };
 }
 
 interface AppState {
@@ -1792,9 +1810,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     set(patches);
 
     // Scoped views: search/project filters are server-side, so restore the exact
-    // view with one refetch — but only when the merge actually touched rows.
+    // view with one refetch — when the merge touched rows, or when rows were
+    // created outside the store's reach (missed additions, e.g. via the API).
     const s2 = get();
-    if (taskMerge.touched && (s2.tasksScope?.projectId || s2.tasksScope?.search)) {
+    if (
+      (taskMerge.touched || taskMerge.hasMissedAdditions) &&
+      (s2.tasksScope?.projectId || s2.tasksScope?.search)
+    ) {
       get().fetchTasks(s2.tasksScope?.projectId, s2.tasksScope?.search);
     }
     // Release rows carry the badge text/status shown on task/note/folder cards —
@@ -1804,10 +1826,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       get().fetchNotes(s2.notesScope?.projectId);
       get().fetchFolders(s2.foldersScope?.projectId);
     }
-    if (noteMerge.touched && s2.notesScope?.projectId) {
+    if ((noteMerge.touched || noteMerge.hasMissedAdditions) && s2.notesScope?.projectId) {
       get().fetchNotes(s2.notesScope.projectId);
     }
-    if (folderMerge.touched && s2.foldersScope?.projectId) {
+    if ((folderMerge.touched || folderMerge.hasMissedAdditions) && s2.foldersScope?.projectId) {
       get().fetchFolders(s2.foldersScope.projectId);
     }
     if ((projectMerge.touched || areaMerge.touched) && s2.projectsScope?.areaId) {

@@ -78,18 +78,8 @@ function extractCurrencyFromMetadata(metadata: Record<string, unknown>): string 
   return typeof metadata.currency === 'string' ? metadata.currency : undefined;
 }
 
-/**
- * Builds the Prisma where clause for listTasks: visibility + explicit filters
- * (ANDed into both the search and the plain branch) + API-token project scope.
- */
-async function buildTaskListWhere(
-  userId: string,
-  filters: ListTasksFilters,
-  restrictProjectIds?: string[],
-): Promise<Record<string, unknown>> {
-  const ignoredUserIds = await getIgnoredUserIds(userId);
-  const visibilityClause = await buildVisibilityWhereClause(userId, !!userId, ignoredUserIds);
-  const filterWhere: Record<string, unknown> = {
+function buildFilterWhere(filters: ListTasksFilters): Record<string, unknown> {
+  return {
     ...(filters.projectId ? { projectId: filters.projectId } : {}),
     ...(filters.status ? { status: filters.status } : {}),
     ...(filters.assigneeId ? { assigneeId: filters.assigneeId } : {}),
@@ -104,98 +94,138 @@ async function buildTaskListWhere(
       : {}),
     ...(filters.updatedSince ? { updatedAt: { gt: filters.updatedSince } } : {}),
   };
+}
+
+function scopeClausesFor(restrictProjectIds?: string[]): Record<string, unknown>[] {
   // API-token scope restriction (extra AND term so it never clashes with filters.projectId)
-  const scopeClauses = restrictProjectIds
-    ? [{ projectId: { in: restrictProjectIds } }]
-    : [];
+  return restrictProjectIds ? [{ projectId: { in: restrictProjectIds } }] : [];
+}
 
-  if (filters.search) {
-    const shortIdMatch = filters.search.match(/^T-(\d+)$/i);
-    const shortIdNum = shortIdMatch ? parseInt(shortIdMatch[1], 10) : null;
-
-    const dateMatch = filters.search.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-    const dateStart = dateMatch
-      ? new Date(`${dateMatch[1]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[3].padStart(2, "0")}T00:00:00.000Z`)
-      : null;
-    const dateEnd = dateStart ? new Date(dateStart.getTime() + 86400000) : null;
-
-    const taskConditions: Record<string, unknown>[] = [
-      { title: { contains: filters.search } },
-      { description: { contains: filters.search } },
-      // Comments of ignored authors are hidden — they must not surface via search either
-      {
-        comments: {
-          some: {
-            content: { contains: filters.search },
-            ...(ignoredUserIds.length > 0 ? { ownerId: { notIn: ignoredUserIds } } : {}),
-          },
-        },
-      },
-    ];
-
-    if (shortIdNum !== null) {
-      taskConditions.push({ shortIdNum });
-    }
-
-    if (dateStart && dateEnd) {
-      taskConditions.push({ dueDate: { gte: dateStart, lt: dateEnd } });
-      taskConditions.push({ createdAt: { gte: dateStart, lt: dateEnd } });
-      taskConditions.push({ updatedAt: { gte: dateStart, lt: dateEnd } });
-    }
-
-    const subtaskConditions: Record<string, unknown>[] = [
-      { title: { contains: filters.search } },
-      { description: { contains: filters.search } },
-    ];
-
-    if (shortIdNum !== null) {
-      subtaskConditions.push({ shortIdNum });
-    }
-
-    taskConditions.push({ subtasks: { some: { OR: subtaskConditions } } });
-    taskConditions.push({ assignee: { OR: [{ name: { contains: filters.search } }, { email: { contains: filters.search } }] } });
-
-    return {
-      AND: [
-        visibilityClause,
-        filterWhere,
-        { parentId: null },
-        { OR: taskConditions },
-        ...scopeClauses,
-      ],
-    };
-  }
-
+/**
+ * Builds the Prisma where clause for the non-search listTasks branch:
+ * visibility + explicit filters + API-token project scope.
+ * (The search branch cannot run in SQL — see listTasks.)
+ */
+async function buildTaskListWhere(
+  userId: string,
+  filters: ListTasksFilters,
+  restrictProjectIds?: string[],
+): Promise<Record<string, unknown>> {
+  const ignoredUserIds = await getIgnoredUserIds(userId);
+  const visibilityClause = await buildVisibilityWhereClause(userId, !!userId, ignoredUserIds);
   return {
     AND: [
       visibilityClause,
-      filterWhere,
+      buildFilterWhere(filters),
       ...(filters.parentId !== undefined ? [{ parentId: filters.parentId || null }] : []),
-      ...scopeClauses,
+      ...scopeClausesFor(restrictProjectIds),
     ],
   };
 }
 
+const TASK_LIST_INCLUDE = {
+  _count: { select: { subtasks: true } },
+  subtasks: { select: { id: true, title: true, description: true, status: true, priority: true, parentId: true, shortIdNum: true, assigneeId: true, ownerId: true, metadata: true, assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } } } },
+  assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
+  project: { select: { id: true, name: true, color: true } },
+  release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true } },
+} as const;
+
 export const TaskService = {
   async listTasks(userId: string, filters: ListTasksFilters, opts?: { restrictProjectIds?: string[] }) {
-    const where = await buildTaskListWhere(userId, filters, opts?.restrictProjectIds);
     const paginated = filters.limit !== undefined || filters.offset !== undefined;
+    let tasks;
+    let total: number;
 
-    const [tasks, total] = await Promise.all([
-      db.task.findMany({
-        where,
-        ...(paginated ? { take: filters.limit, skip: filters.offset ?? 0 } : {}),
+    if (filters.search) {
+      // Case-insensitive search: SQLite's LIKE (Prisma `contains`) ignores case
+      // for ASCII only, and `mode: 'insensitive'` is unsupported on SQLite —
+      // so match in JS, same approach as NoteService.searchNotes.
+      const ignoredUserIds = await getIgnoredUserIds(userId);
+      const visibilityClause = await buildVisibilityWhereClause(userId, !!userId, ignoredUserIds);
+      const candidates = await db.task.findMany({
+        where: {
+          AND: [
+            visibilityClause,
+            buildFilterWhere(filters),
+            // Search matches top-level tasks (their subtasks surface with them)
+            { parentId: null },
+            ...scopeClausesFor(opts?.restrictProjectIds),
+          ],
+        },
         orderBy: { sortOrder: "asc" },
-      include: {
-        _count: { select: { subtasks: true } },
-        subtasks: { select: { id: true, title: true, status: true, priority: true, parentId: true, shortIdNum: true, assigneeId: true, ownerId: true, metadata: true, assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } } } },
-        assignee: { select: { id: true, name: true, email: true, image: true, metadata: true } },
-        project: { select: { id: true, name: true, color: true } },
-        release: { select: { id: true, title: true, version: true, status: true, shortIdNum: true } },
-      },
-      }),
-      ...(paginated ? [db.task.count({ where })] : []),
-    ]);
+        include: TASK_LIST_INCLUDE,
+      });
+
+      // Comments of ignored authors are hidden — they must not surface via search either
+      const candidateIds = candidates.map((t) => t.id);
+      const comments = candidateIds.length
+        ? await db.comment.findMany({
+            where: {
+              taskId: { in: candidateIds },
+              ...(ignoredUserIds.length > 0 ? { ownerId: { notIn: ignoredUserIds } } : {}),
+            },
+            select: { taskId: true, content: true },
+          })
+        : [];
+      const commentsByTask = new Map<string, string[]>();
+      for (const c of comments) {
+        const list = commentsByTask.get(c.taskId);
+        if (list) list.push(c.content);
+        else commentsByTask.set(c.taskId, [c.content]);
+      }
+
+      const searchLower = filters.search.toLowerCase();
+      const shortIdMatch = filters.search.match(/^T-(\d+)$/i);
+      const shortIdNum = shortIdMatch ? parseInt(shortIdMatch[1], 10) : null;
+      const dateMatch = filters.search.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      const dateStart = dateMatch
+        ? new Date(`${dateMatch[1]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[3].padStart(2, "0")}T00:00:00.000Z`)
+        : null;
+      const dateEnd = dateStart ? new Date(dateStart.getTime() + 86400000) : null;
+
+      const inDay = (d: Date | string | null) =>
+        !!d && dateStart !== null && dateEnd !== null && new Date(d) >= dateStart && new Date(d) < dateEnd;
+      const contains = (text: string | null | undefined) => !!text && text.toLowerCase().includes(searchLower);
+
+      const matched = candidates.filter((t) => {
+        if (contains(t.title) || contains(t.description)) return true;
+        if (shortIdNum !== null && t.shortIdNum === shortIdNum) return true;
+        if (inDay(t.dueDate) || inDay(t.createdAt) || inDay(t.updatedAt)) return true;
+        if (commentsByTask.get(t.id)?.some((content) => contains(content))) return true;
+        if (
+          t.subtasks.some(
+            (st) =>
+              contains(st.title) ||
+              contains(st.description) ||
+              (shortIdNum !== null && st.shortIdNum === shortIdNum),
+          )
+        ) {
+          return true;
+        }
+        if (t.assignee && (contains(t.assignee.name) || contains(t.assignee.email))) return true;
+        return false;
+      });
+
+      total = matched.length;
+      const skip = filters.offset ?? 0;
+      tasks = paginated && filters.limit !== undefined
+        ? matched.slice(skip, skip + filters.limit)
+        : matched;
+    } else {
+      const where = await buildTaskListWhere(userId, filters, opts?.restrictProjectIds);
+      const [rows, count] = await Promise.all([
+        db.task.findMany({
+          where,
+          ...(paginated ? { take: filters.limit, skip: filters.offset ?? 0 } : {}),
+          orderBy: { sortOrder: "asc" },
+          include: TASK_LIST_INCLUDE,
+        }),
+        ...(paginated ? [db.task.count({ where })] : []),
+      ]);
+      tasks = rows;
+      total = count;
+    }
 
     const taskIds = tasks.map(t => t.id);
     const attachmentCounts = await db.attachment.groupBy({

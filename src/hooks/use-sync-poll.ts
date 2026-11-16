@@ -5,7 +5,7 @@ import { useAppStore } from '@/store/app-store';
 import { api } from '@/lib/api-utils';
 
 /** Base poll interval; jittered ±20% per cycle to avoid synchronized request waves. */
-const SYNC_INTERVAL_MS = 30_000;
+const SYNC_INTERVAL_MS = 10_000;
 const JITTER = 0.2;
 /** Safety net: rebuild everything from full fetches this often. */
 const FULL_REFETCH_EVERY_MS = 15 * 60_000;
