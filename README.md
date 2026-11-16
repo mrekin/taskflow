@@ -14,13 +14,16 @@ Self-hosted task and notes management application for individual use or small te
 - **Kanban board** — Drag-and-drop task board with status columns
 - **Markdown notes** — Full editor with live preview, tagging, and import/export
 - **Comments** — Comments on tasks with inline editing
+- **Inline note comments** — Anchored to a selected text range, threaded replies, resolve flow, deep-links
 - **Task costs** — Track planned and completed costs per task with multi-currency support, subtask inheritance, and `$mention` references in Markdown
 - **Tags** — Cross-entity tagging with color coding
 - **Quick create** — Streamlined entity creation from a single text input
-- **Entity links & mentions** — Reference tasks, projects, and notes with short IDs (T-5, P-2, N-3) and `#mentions` in Markdown
+- **Entity links & mentions** — Reference tasks, projects, and notes with short IDs (T-5, P-2, N-3) and `#mentions` in Markdown; comments get clickable short-ID badges (TC-7, NC-3) with copy-id and deep-link
 - **Webhooks** — Automated notifications on task/project events with scope matching and placeholder substitution
+- **Releases** — Version releases that group tasks, notes, and folders of a project, with a fixed status set (planned / in_work / testing / ready / done)
+- **Note versions** — Automatic version history per note with pin/restore and configurable retention (`NOTE_VERSIONS_MAX`)
 - **Personal API tokens** — Bearer-token REST API access with per-entity-type permissions, project scoping, expiry, and revocation
-- **File attachments** — Upload files to tasks and notes with deduplication, inline image rendering, and configurable limits
+- **File attachments** — Upload files to tasks and notes with deduplication, inline image rendering, gallery preview navigation, and configurable limits
 - **Bulk operations** — Select multiple tasks for delete or export
 - **Dark / Light theme** — System-aware theme switching
 - **OIDC / SSO** — Enterprise authentication via Keycloak, Auth0, Okta, Google, etc.
@@ -160,6 +163,7 @@ Also update `NEXTAUTH_URL` to include the subpath, e.g. `https://domain.com/task
 ## Documentation
 
 - [Entities reference](docs/ENTITIES.md) — data models, relationships, and feature documentation
+- [REST API reference](docs/API.md) — API access via personal tokens
 - [Build instructions](docs/BUILD.md) — production builds, Docker, cross-compilation
 - [Deployment guide](docs/DEPLOYMENT.md) — Docker, manual deploy, reverse proxy, OIDC, backups
 

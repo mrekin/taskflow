@@ -97,13 +97,15 @@ docker compose logs -f taskflow
 
 # В логах при старте должна быть строка шедулера:
 # [Scheduler] Started. Interval: 1 min. Pending jobs: 0
+# и строки entrypoint/бэкфиллов ("=== TaskFlow Docker Entrypoint ===",
+# "[Backfill] ...shortIdNum: nothing to do" или присвоение номеров)
 
 # Проверить доступность
 curl -s -o /dev/null -w "%{http_code}" http://localhost:3000
 # Ожидаемый ответ: 200
 ```
 
-### 5. Остановка
+### 6. Остановка
 
 ```bash
 docker compose down        # Остановить, сохранить данные
@@ -204,8 +206,8 @@ sudo systemctl status taskflow
 | `OIDC_ISSUER` | ❌ | — | URL OIDC-провайдера (например, Keycloak realm) |
 | `OIDC_CLIENT_ID` | ❌ | — | Client ID у OIDC-провайдера |
 | `OIDC_CLIENT_SECRET` | ❌ | — | Client Secret у OIDC-провайдера |
-| `NOAUTH_MODE` | ❌ | — | Пропустить аутентификацию, автоматический вход как демо-пользователь |
-| `DEMO_MODE` | ❌ | — | Публичный демо-режим с автоматическим сбросом БД (несовместим с `NOAUTH_MODE` и OIDC) |
+| `NOAUTH_MODE` | ❌ | `false` | Пропустить аутентификацию, автоматический вход как демо-пользователь |
+| `DEMO_MODE` | ❌ | `false` | Публичный демо-режим с автоматическим сбросом БД (несовместим с `NOAUTH_MODE` и OIDC) |
 | `DEMO_RESET_MIN` | ❌ | `15` | Интервал сброса БД в минутах. Не рекомендуется ставить ниже 5 — пользователь должен успеть попробовать (только при `DEMO_MODE=true`) |
 | `PUBLIC_READONLY` | ❌ | `false` | Режим публичного чтения: неаутентифицированные гости могут просматривать сущности с visibility `world` (несовместим с `NOAUTH_MODE` и `DEMO_MODE`) |
 | `NEXT_BASE_PATH` | ❌ | `""` | Субпуть для развертывания за прокси (например, `/taskflow`) |
@@ -219,6 +221,7 @@ sudo systemctl status taskflow
 | `ATTACHMENT_USER_MAX_SIZE` | ❌ | `512` | Лимит хранилища вложений на пользователя в МБ. `0` = безлимит |
 | `STORAGE_ADAPTER` | ❌ | `local` | Адаптер хранилища: `local` (другие адаптеры планируются) |
 | `STORAGE_LOCAL_PATH` | ❌ | `/app/uploads` | Путь к директории для загруженных файлов |
+| `NOTE_VERSIONS_MAX` | ❌ | `100` | Максимум версий на заметку. При превышении старейшие не-«pinned» версии удаляются FIFO |
 
 **Пример `KANBAN_COLUMNS`:**
 
@@ -403,6 +406,10 @@ docker compose up -d
 # Проверить
 docker compose logs -f --tail=50
 ```
+
+> Миграция схемы и бэкап БД выполняются **автоматически**: `docker-entrypoint.sh` при каждом старте контейнера сравнивает хэш `schema.prisma`, при изменении делает бэкап SQLite и запускает `prisma db push`. Ручной `db:push` внутри Docker не нужен.
+
+> При старте, помимо шедулера и demo-ресета, выполняются стартовые бэкфиллы (`runStartupBackfills`): комментариям с `shortIdNum = 0` присваиваются номера (per-owner, по `createdAt`). Операция идемпотентна — если таких строк нет, это no-op (в логе: `[Backfill] ...: nothing to do`).
 
 ### Без Docker
 

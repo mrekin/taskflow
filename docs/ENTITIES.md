@@ -12,7 +12,8 @@ User
  │         ├── Task       (задача → подзадачи)
  │         │    └── Comment  (комментарий)
  │         ├── Note       (заметка → версии)
- │         │    └── NoteVersion (версия заметки)
+ │         │    ├── NoteVersion  (версия заметки)
+ │         │    └── NoteComment  (инлайн-комментарий → ответы)
  │         └── NoteFolder (папка заметок)
  ├── Tag           (тег — привязывается к Area, Project, Task, Note)
  ├── Webhook       (вебхук)
@@ -34,7 +35,8 @@ User
 | Версия заметки | `NoteVersion` | `src/app/api/notes/[id]/versions/route.ts`<br>`src/app/api/notes/[id]/versions/[number]/route.ts`<br>`src/app/api/notes/[id]/versions/[number]/restore/route.ts` | `src/components/note-version-history.tsx`<br>`src/components/note-editor.tsx`<br>`src/components/entity-id-badge.tsx` | `src/store/app-store.ts`<br>`src/services/note-version.service.ts` |
 | Папка заметок | `NoteFolder` | `src/app/api/folders/route.ts`<br>`src/app/api/folders/[id]/route.ts` | `src/components/notes-list.tsx`<br>`src/components/create-note-dialog.tsx` | `src/store/app-store.ts` |
 | Релиз | `Release` | `src/app/api/releases/route.ts`<br>`src/app/api/releases/[id]/route.ts` | `src/components/releases-view.tsx`<br>`src/components/release-card.tsx`<br>`src/components/release-badge.tsx`<br>`src/components/release-picker.tsx`<br>`src/components/create-release-dialog.tsx`<br>`src/components/project-detail.tsx` | `src/store/app-store.ts`<br>`src/services/release.service.ts` |
-| Комментарий | `Comment` | `src/app/api/comments/route.ts`<br>`src/app/api/comments/[id]/route.ts` | `src/components/task-comments.tsx` | `src/store/app-store.ts` |
+| Комментарий | `Comment` | `src/app/api/comments/route.ts`<br>`src/app/api/comments/[id]/route.ts` | `src/components/task-comments.tsx`<br>`src/components/comment-view.tsx`<br>`src/components/comment-id-badge.tsx` | `src/store/app-store.ts`<br>`src/lib/utils.ts` (короткий ID `TC-x`) |
+| Инлайн-комментарий заметки | `NoteComment` | `src/app/api/note-comments/route.ts`<br>`src/app/api/note-comments/[id]/route.ts` | `src/components/note-inline-comments.tsx`<br>`src/components/comment-id-badge.tsx` | `src/store/app-store.ts`<br>`src/lib/utils.ts` (короткий ID `NC-x`) |
 | Тег | `Tag` | `src/app/api/tags/route.ts`<br>`src/app/api/tags/[id]/route.ts` | `src/components/tag-picker.tsx`<br>`src/components/tag-badges.tsx` | `src/store/app-store.ts`<br>`src/lib/api-utils.ts` |
 | Вебхук | `Webhook` | `src/app/api/webhooks/route.ts`<br>`src/app/api/webhooks/[id]/route.ts` | `src/components/webhooks-section.tsx` | `src/store/app-store.ts`<br>`src/lib/webhook-engine.ts` |
 | Триггер вебхука | `WebhookTrigger` | `src/app/api/webhooks/triggers/route.ts`<br>`src/app/api/webhooks/triggers/[triggerId]/route.ts` | `src/components/webhooks-section.tsx`<br>`src/components/task-detail-dialog.tsx` | `src/store/app-store.ts`<br>`src/lib/webhook-engine.ts` |
@@ -70,7 +72,7 @@ HTTP-запрос, который отправляется при наступл
 - **URL** — адрес, на который отправляется запрос
 - **Method** — HTTP-метод (GET / POST)
 - **Headers** — кастомные заголовки (JSON)
-- **Body Template** — шаблон тела запроса с плейсхолдерами (`{entityId}`, `{title}`, `{status}` и др.)
+- **Body Template** — шаблон тела запроса с плейсхолдерами (`{entityId}`, `{title}`, `{status}` и др.). Плейсхолдеры `{taskId}` / `{projectId}` / `{entityId}` подставляют **короткий ID** сущности (`T-7`, `P-3`), а не cuid; `{status}` — новое значение статуса (пусто, если событие не про статус)
 - **Active** — флаг включён/выключен
 
 ### Event (событие)
@@ -83,8 +85,17 @@ HTTP-запрос, который отправляется при наступл
 | `task.priority_changed` | Изменён приоритет задачи |
 | `task.due_date_reached` | Наступила дата выполнения задачи (шедулер) |
 | `task.created` | Задача создана |
+| `task.assigned_to_me` | Задача назначена исполнителю (при создании с исполнителем и при смене исполнителя). Отправляется новому исполнителю; если исполнитель игнорирует владельца задачи — событие не отправляется (чтобы назначение не превращалось в канал спама) |
 | `project.status_changed` | Изменён статус проекта |
 | `project.created` | Проект создан |
+| `entity.access_granted` | Пользователю выдан доступ к сущности (плейсхолдеры `{grantedToId}` / `{grantedToName}` / `{grantedToEmail}`) |
+| `entity.access_revoked` | У пользователя отозван доступ к сущности |
+| `entity.visibility_changed` | Изменён уровень видимости сущности (плейсхолдеры `{visibilityFrom}` / `{visibilityTo}`) |
+| `note.comment_created` | Создан инлайн-комментарий заметки (в changes — текст комментария и имя автора) |
+| `note.comment_resolved` | Изменён флаг resolved инлайн-комментария (уведомление владельцу заметки; в changes — `resolved: {from, to}`) |
+| `note.comment_deleted` | Удалён инлайн-комментарий заметки (вместе с ответами) |
+
+> Примечание: события `entity.*` объявлены в движке (`WebhookEvent`, `buildAccessContext`) и доступны для выбора в триггерах вебхуков, но на текущий момент сервисы ещё не диспетчеризуют их — фактические отправки начинаются с появления вызовов `buildAccessContext` в сервисах доступа/видимости.
 
 ### WebhookTrigger (триггер)
 
@@ -301,6 +312,20 @@ $ 100 (250) USD
 | `src/lib/demo-reset.ts` | Очистка токенов при demo-ресете |
 | `docs/API.md` | Справочник API для потребителей (в т.ч. MCP) |
 
+## Инлайн-комментарии заметок (NoteComment) и короткие ID комментариев
+
+Инлайн-комментарии привязываются к диапазону текста заметки (выделение при создании). Модель `NoteComment`: `noteId`, якорь (`quote` — выделенный текст, `prefix`/`suffix` — контекст до/после, `offset` — подсказка позиции для ре-анкора после правок текста), `content`, `resolved`, `parentId`/`replies` (треды), `ownerId`, `shortIdNum`. Управление (редактирование/resolve/удаление) — автор комментария или владелец заметки; удаление каскадно удаляет ответы.
+
+### Короткие ID: TC-x и NC-x
+
+Обе модели комментариев (`Comment` и `NoteComment`) имеют `shortIdNum Int @default(0)`, номерация per-owner (как у всех сущностей). Префиксы различаются: **TC-x** — комментарии задач, **NC-x** — инлайн-комментарии заметок (`COMMENT_SHORT_ID_PREFIX` в `src/lib/utils.ts`, форматирование — `formatCommentShortId`). Комментарии **не участвуют** в системе упоминаний/ссылок (`#TC-5`-рефов нет) — у них только кликабельные бейджи (`comment-id-badge.tsx`): клик копирует ID и/или открывает deep-link.
+
+Форматы deep-link: заметка `?note=N-x&id=<noteCuid>&nc=<commentCuid>`, задача `?task=T-x&id=<taskCuid>&comment=<commentCuid>` (`getCommentLink` в `src/lib/utils.ts`). Для легаси-комментариев с `shortIdNum = 0` бейдж не показывается.
+
+### Бэкфилл при старте
+
+При старте приложения (`src/instrumentation.ts` → `runStartupBackfills()` в `src/services/backfill.service.ts`) всем комментариям с `shortIdNum = 0` присваиваются номера: per-owner, продолжая после текущего максимума владельца, в порядке `createdAt ASC` (включая «удалённые» task-комментарии). Операция идемпотентна — когда строк с нулём нет, это no-op.
+
 ## Releases (релизы)
 
 ### Модель Release
@@ -338,3 +363,31 @@ $ 100 (250) USD
 | `src/components/release-picker.tsx` | Выбор релиза в диалогах |
 | `src/components/create-release-dialog.tsx` | Создание/редактирование релиза |
 | `src/store/app-store.ts` | `releases`, `selectedReleaseId`, CRUD-действия, sync-merge |
+
+## Экспорт / импорт (архив данных)
+
+Полный экспорт/импорт данных пользователя (`src/services/data.service.ts`, маршруты `/api/export`, `/api/import` — только сессия, токенам закрыты).
+
+### Состав архива
+
+JSON-бандл внутри ZIP (`schemaVersion`, `appVersion`, `exportedAt`) содержит все сущности, принадлежащие пользователю (`ownerId`; NoteVersion — по `authorId`):
+
+- tags
+- areas
+- projects
+- tasks
+- noteFolders
+- notes
+- noteVersions
+- comments
+- noteComments
+- webhooks (+ webhookTriggers)
+
+Вложения и FileBlobs в JSON-бандл **не входят** — файлы выгружаются отдельно (`export-files`, ZIP + манифест, привязанный к сущностям). Рантайм-таблицы (WebhookDelivery, ScheduledJob) и пользователи (User) в архив не попадают.
+
+### Поведение импорта
+
+- ID и `shortIdNum` сохраняются как есть (без перенумерации) — внутренние ссылки (`#T-5`, `$cost`, иерархии, TC-x/NC-x) остаются валидными.
+- Каждая запись при импорте **перепроштампуется** `ownerId` импортирующего пользователя (исходный экземпляр мог принадлежать другому пользователю); `visibleUserIds` сбрасывается в `[]`.
+- Единственный ремап ID — теги: у `Tag` уникальность `@@unique([name, ownerId])`, при коллизии имени переиспользуется существующий тег с ремапом ссылок в `tagIds`.
+

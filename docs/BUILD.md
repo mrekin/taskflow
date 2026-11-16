@@ -224,8 +224,20 @@ Dockerfile использует трёхстадийную сборку:
   - `node_modules/.prisma/` и `node_modules/@prisma/` — Prisma Client
   - `prisma/` — схема БД
   - `db/` — база данных
+  - `docker-entrypoint.sh` — скрипт инициализации
 - Порт: 3000
-- CMD: `node server.js`
+- ENTRYPOINT: `./docker-entrypoint.sh`
+
+**Что делает `docker-entrypoint.sh` при каждом старте контейнера:**
+
+1. Проверяет доступность директории БД на запись (и даёт понятную подсказку про `chown 1001:1001`, если bind mount не принадлежит пользователю контейнера).
+2. Считает md5-хэш `prisma/schema.prisma` и сравнивает с сохранённым при прошлой миграции.
+3. Если схема изменилась (или БД создаётся с нуля): делает **бэкап SQLite** (`<db>.bak.<timestamp>`, хранятся последние 10), при наличии старой схемы Webhook (`events`-колонка) выполняет миграцию данных в `WebhookTrigger`, затем запускает `npx prisma db push --accept-data-loss` и сохраняет новый хэш. Если схема не менялась — пропуск.
+4. Запускает сервер: `exec node server.js`.
+
+> Поэтому **внутри Docker ручной `db:push` не нужен** — схема применяется автоматически при старте контейнера.
+
+После старта сервера, помимо шедулера и demo-ресета, выполняются стартовые бэкфиллы (`src/instrumentation.ts` → `runStartupBackfills()`): легаси-комментариям без номера присваивается `shortIdNum` (см. docs/ENTITIES.md).
 
 **Итоговый размер образа:** ~120–150 МБ (Alpine + Node.js + приложение).
 
@@ -264,9 +276,24 @@ taskflow/
 │   │       ├── areas/           # CRUD Areas
 │   │       ├── projects/        # CRUD Projects
 │   │       ├── tasks/           # CRUD Tasks
-│   │       ├── notes/           # CRUD Notes
-│   │       ├── comments/        # CRUD Comments
+│   │       ├── notes/           # CRUD Notes (+ versions/, search/)
+│   │       ├── note-comments/   # Инлайн-комментарии заметок
+│   │       ├── comments/        # Комментарии задач
 │   │       ├── tags/            # CRUD Tags
+│   │       ├── folders/         # Папки заметок
+│   │       ├── releases/        # Релизы
+│   │       ├── attachments/     # Вложения (list, upload, file)
+│   │       ├── search/          # Глобальный поиск
+│   │       ├── sync/            # Инкрементальная синхронизация (changes)
+│   │       ├── statuses/        # Статусы канбан пользователя
+│   │       ├── webhooks/        # Вебхуки (triggers, deliveries)
+│   │       ├── export/          # Экспорт данных (включая export-files/)
+│   │       ├── import/          # Импорт данных
+│   │       ├── users/           # Поиск/профили пользователей
+│   │       ├── user/            # Токены, профиль, настройки пользователя
+│   │       ├── settings/        # Публичные настройки
+│   │       ├── token-info/      # Интроспекция API-токена
+│   │       ├── config/          # Публичная конфигурация
 │   │       └── auth/            # NextAuth.js
 │   ├── components/              # React-компоненты
 │   │   ├── ui/                  # shadcn/ui компоненты
@@ -369,7 +396,7 @@ docker buildx build \
 |--------|---------|----------|
 | `dev` | `next dev -p 3000` | Запуск dev-сервера с горячей перезагрузкой |
 | `build` | `next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/` | Полная production-сборка |
-| `start` | `NODE_ENV=production bun .next/standalone/server.js` | Запуск собранного приложения |
+| `start` | `NODE_ENV=production bun .next/standalone/server.js 2>&1 \| tee server.log` | Запуск собранного приложения (лог дублируется в `server.log`) |
 | `lint` | `eslint .` | Проверка качества кода |
 | `db:push` | `prisma db push` | Применить схему Prisma к БД |
 | `db:generate` | `prisma generate` | Сгенерировать Prisma Client |

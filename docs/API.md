@@ -53,6 +53,8 @@ curl -H "Authorization: Bearer tfa_4f1a..." https://your-taskflow/taskflow/api/t
 | `/api/notes/[id]/versions/[number]/restore` | POST | `notes:update` | |
 | `/api/comments` | GET, POST | `comments:read/create` | GET требует `?taskId=`; создание комментария требует право на чтение задачи (существующая семантика приложения) |
 | `/api/comments/[id]` | PUT, DELETE | `comments:update/delete` | Сервисные правила автора/владельца задачи сохраняются |
+| `/api/note-comments` | GET, POST | `comments:read/create` | Инлайн-комментарии заметок. GET требует `?noteId=`; без пагинации — отдаёт все комментарии заметки. Вне скоупа: GET → `[]`, POST → `404 "Note not found"` (как у task-комментариев) |
+| `/api/note-comments/[id]` | PUT, DELETE | `comments:update/delete` | PUT: контент, `resolved`, повторный якорь (`quote`/`prefix`/`suffix`/`offset`); сервисные правила автора/владельца заметки сохраняются |
 | `/api/folders` | GET, POST | `notes:read/create` | Папки следуют правам заметок 1:1; GET: фильтры `projectId`, `parentId`, пагинация `limit`/`offset` |
 | `/api/folders/[id]` | GET, PUT, DELETE | `notes:read/update/delete` | |
 | `/api/attachments` | GET, DELETE | право чтения/удаления родителя | GET: `?entityId=&entityType=`; родитель определяет тип права (task→tasks, note→notes, comment→comments) |
@@ -62,19 +64,23 @@ curl -H "Authorization: Bearer tfa_4f1a..." https://your-taskflow/taskflow/api/t
 | `/api/tags` | только GET | любое право `read` | Теги — пользовательский уровень, мутации тегов через токен запрещены |
 | `/api/projects` | только GET | любое право `read` | Отдаёт только проекты в скоупе |
 | `/api/areas` | только GET | любое право `read` | Отдаёт только области, содержащие скоуп-проекты |
+| `/api/releases` | только GET | — (visibility пользователя токена) | Только чтение (мутации через токен запрещены). Фильтр `projectId`; отдельной группы прав для релизов нет |
+| `/api/releases/[id]` | GET | — (visibility пользователя токена) | Только чтение |
+| `/api/statuses` | только GET | любое право `read` | Набор статусов канбан пользователя (то, что показывает его экран настроек); пользовательский уровень, без фильтра по скоупу |
+| `/api/sync/changes` | только GET | любое право `read` | Инкрементальная дельта для поллинга: `?since=<ISO>` (старше 24 ч → `400 stale-since`) + полные наборы видимых ID. Опционально сужается вью-фильтрами (`taskProjectId`, `taskSearch`, `noteProjectId`, `folderProjectId`, `projectAreaId`); `commentTaskId` учитывается только при `comments:read`. Секции режутся правами токена (нет `tasks:read` → пустые `tasks`, нет `notes:read` → пустые `notes`/`folders`); секции релизов токенам не отдаются. Пустой скоуп → пустой payload |
 
 ## Пагинация и фильтры списков
 
 - Ответы списков остаются **голым JSON-массивом**. Пагинация включается только явной передачей `limit` и/или `offset`; без них список возвращается целиком — существующие клиенты не меняются.
 - При пагинации полный размер выборки (с учётом фильтров, но без `limit`/`offset`) передаётся заголовком **`X-Total-Count`**.
 - Лимиты: `limit` — целое 1..500, `offset` — целое ≥ 0, иначе `400 {"error": "Invalid limit: ..."}`.
-- Пагинируются `tasks`, `notes`, `folders`. `comments` (всегда строго по `taskId`), `tags`, `projects`, `areas` сознательно не пагинируются — списки маленькие.
+- Пагинируются `tasks`, `notes`, `folders`. `comments` (всегда строго по `taskId`), `note-comments` (всегда строго по `noteId`), `tags`, `projects`, `areas` сознательно не пагинируются — списки маленькие.
 - `tagIds` — через запятую, семантика **OR** (сущность с любым из тегов): `?tagIds=<id1>,<id2>`.
 - `dueFrom`/`dueTo` (tasks) — инклюзивно; `YYYY-MM-DD` трактуется как UTC-день (`dueTo` включает весь день), полный ISO тоже принимается. Задачи без `dueDate` исключаются.
 
 ## Эндпоинты, закрытые для токенов
 
-`export`, `export-files`, `import`, `webhooks/*`, `users/*`, `user/profile`, `user/preferences`, `attachments/check`, `attachments/config`, `attachments/storage`, `attachments/user-files`, `tags` (POST/PUT/DELETE), `tags/usage`, `projects`/`areas` (POST/PUT/DELETE).
+`export`, `export-files`, `import`, `webhooks/*`, `users/*` (включая `users/lookup`, `users/search`), `user/profile`, `user/preferences`, `user/ignored-users`, `attachments/check`, `attachments/config`, `attachments/storage`, `attachments/user-files`, `tags` (POST/PUT/DELETE), `tags/usage`, `projects`/`areas` (POST/PUT/DELETE), `releases` (POST/PUT/DELETE).
 
 Запрос с валидным токеном на них → `403 {"error": "API tokens are not allowed on this endpoint"}`. Публичные эндпоинты (`/api/config`, `/api/settings`) заголовок игнорируют.
 
