@@ -24,3 +24,4 @@ coverage
 .github
 .gitea
 src/generated/prisma
+mcp
