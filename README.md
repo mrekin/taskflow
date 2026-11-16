@@ -4,7 +4,7 @@ MCP-сервер (Model Context Protocol) для работы с [TaskFlow](../t
 
 ## Возможности
 
-35 инструментов, полный CRUD по всему, что доступно токену:
+39 инструментов, полный CRUD по всему, что доступно токену:
 
 | Группа | Инструменты |
 |---|---|
@@ -14,6 +14,7 @@ MCP-сервер (Model Context Protocol) для работы с [TaskFlow](../t
 | Заметки | `note_list`, `note_get`, `note_create`, `note_update`, `note_delete`, `note_search` |
 | Версии заметок | `note_version_list`, `note_version_restore` |
 | Комментарии | `comment_list` (лимит «N последних», поиск по подстроке), `comment_create`, `comment_update`, `comment_delete` |
+| Инлайн-комментарии заметок | `note_comment_list`, `note_comment_create` (якорь: quote + prefix/suffix + offset), `note_comment_update` (текст/`resolved`), `note_comment_delete` |
 | Папки | `folder_list`, `folder_create`, `folder_update`, `folder_delete` |
 | Релизы | `release_list`, `release_get`, `release_contents` (только чтение) |
 | Навигация | `project_list`, `area_list`, `tag_list` (только чтение) |

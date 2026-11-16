@@ -43,6 +43,8 @@ async def lifespan(_server: FastMCP):
         max_list_items=_config.max_list_items,
         max_download_mb=_config.max_download_mb,
     )
+    # Initialize the reset timestamp so periodic reconnect logic works
+    await _client.reset()
     try:
         yield
     finally:
@@ -484,6 +486,66 @@ async def comment_update(comment_id: str, content: str) -> dict:
 async def comment_delete(comment_id: str) -> dict:
     """Delete a comment (author or task owner only). Requires comments:delete."""
     return await get_client().request("DELETE", f"api/comments/{comment_id}")
+
+
+# --- inline note comments --------------------------------------------------
+
+@mcp.tool()
+async def note_comment_list(note_id: str) -> list:
+    """List inline comments of a note (internal note id, resolve N-<n> via
+    note_search first). Returns chronological list with quote/prefix/suffix
+    anchors, resolved flag and author. Requires comments:read."""
+    return await get_client().get(
+        "api/note-comments", params={"noteId": note_id}
+    )
+
+
+@mcp.tool()
+async def note_comment_create(
+    note_id: str,
+    content: str,
+    quote: str,
+    prefix: str | None = None,
+    suffix: str | None = None,
+    offset: int | None = None,
+) -> dict:
+    """Create an inline comment on a note anchored to a text quote (internal
+    note id). quote is the exact highlighted text; prefix/suffix (~30 chars of
+    surrounding text) and offset (hint position in the note content) help
+    disambiguate repeated text. Requires comments:create."""
+    body: dict[str, object] = {"noteId": note_id, "content": content, "quote": quote}
+    if prefix is not None:
+        body["prefix"] = prefix
+    if suffix is not None:
+        body["suffix"] = suffix
+    if offset is not None:
+        body["offset"] = offset
+    return await get_client().request("POST", "api/note-comments", json_body=body)
+
+
+@mcp.tool()
+async def note_comment_update(
+    comment_id: str,
+    content: str | None = None,
+    resolved: bool | None = None,
+) -> dict:
+    """Update an inline note comment: edit its text and/or toggle resolved
+    (author or note owner only). Requires comments:update."""
+    body: dict[str, object] = {}
+    if content is not None:
+        body["content"] = content
+    if resolved is not None:
+        body["resolved"] = resolved
+    return await get_client().request(
+        "PUT", f"api/note-comments/{comment_id}", json_body=body
+    )
+
+
+@mcp.tool()
+async def note_comment_delete(comment_id: str) -> dict:
+    """Delete an inline note comment (author or note owner only). Requires
+    comments:delete."""
+    return await get_client().request("DELETE", f"api/note-comments/{comment_id}")
 
 
 # --- folders -------------------------------------------------------------
