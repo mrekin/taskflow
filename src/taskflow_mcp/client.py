@@ -6,6 +6,7 @@ All API errors surface as ToolError with plain text (no tracebacks):
 
 import base64
 import binascii
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
@@ -17,6 +18,11 @@ try:  # official SDK path; fall back so the module stays importable for tests
 except ImportError:  # pragma: no cover
     class ToolError(Exception):
         pass
+
+
+def _now_utc() -> datetime:
+    """Return current UTC time."""
+    return datetime.now(timezone.utc)
 
 
 def _extract_api_error(body: bytes, status: int) -> str:
@@ -45,9 +51,38 @@ class TaskFlowClient:
             timeout=timeout,
             headers={"Authorization": f"Bearer {token}"},
         )
+        self._last_reset = None  # track last reset time for periodic reconnect
 
     async def close(self) -> None:
         await self._http.aclose()
+
+    async def reset(self) -> None:
+        """Recreate the underlying httpx client to flush stale connections."""
+        await self._http.aclose()
+        self._http = httpx.AsyncClient(
+            base_url=self.api_base,
+            timeout=self.timeout,
+            headers={"Authorization": f"Bearer {self.token}"},
+        )
+        self._last_reset = _now_utc()
+
+    async def _send(self, method: str, path: str, **kwargs: Any) -> Any:
+        """Send an HTTP request, flushing stale connections: reconnects
+        periodically (every 12h) and retries once on a connect error."""
+        if self._last_reset is not None:
+            elapsed = (_now_utc() - self._last_reset).total_seconds()
+            if elapsed > 12 * 3600:
+                await self.reset()
+        try:
+            return await self._http.request(method, path, **kwargs)
+        except httpx.ConnectError:
+            await self.reset()
+            try:
+                return await self._http.request(method, path, **kwargs)
+            except httpx.ConnectError:
+                raise ToolError(
+                    f"Cannot connect to TaskFlow at {self.api_base} — is the server running?"
+                ) from None
 
     def _require_token(self) -> None:
         if not self.token:
@@ -61,11 +96,7 @@ class TaskFlowClient:
         """Performs an API call, returns parsed JSON (dict or list)."""
         self._require_token()
         try:
-            resp = await self._http.request(method, path, params=params, json=json_body)
-        except httpx.ConnectError:
-            raise ToolError(
-                f"Cannot connect to TaskFlow at {self.api_base} — is the server running?"
-            ) from None
+            resp = await self._send(method, path, params=params, json=json_body)
         except httpx.TimeoutException:
             raise ToolError(
                 f"TaskFlow request timed out after {self.timeout:g}s: {method} {path}"
@@ -121,11 +152,7 @@ class TaskFlowClient:
     async def _fetch_page(self, path: str, params: dict, *, caller_paged: bool) -> dict:
         self._require_token()
         try:
-            resp = await self._http.get(path, params=params)
-        except httpx.ConnectError:
-            raise ToolError(
-                f"Cannot connect to TaskFlow at {self.api_base} — is the server running?"
-            ) from None
+            resp = await self._send("GET", path, params=params)
         except httpx.TimeoutException:
             raise ToolError(f"TaskFlow request timed out after {self.timeout:g}s: GET {path}") from None
         if resp.status_code >= 400:
@@ -143,11 +170,7 @@ class TaskFlowClient:
         """Downloads a file blob, base64-encoded. Refuses files over the cap."""
         self._require_token()
         try:
-            resp = await self._http.get(f"api/attachments/file/{blob_id}")
-        except httpx.ConnectError:
-            raise ToolError(
-                f"Cannot connect to TaskFlow at {self.api_base} — is the server running?"
-            ) from None
+            resp = await self._send("GET", f"api/attachments/file/{blob_id}")
         except httpx.TimeoutException:
             raise ToolError(f"TaskFlow request timed out after {self.timeout:g}s") from None
         if resp.status_code >= 400:
@@ -206,15 +229,12 @@ class TaskFlowClient:
         else:
             upload_name = file_name or "attachment"
         try:
-            resp = await self._http.post(
+            resp = await self._send(
+                "POST",
                 "api/attachments/upload",
                 files={"file": (upload_name, content)},
                 data={"entityId": entity_id, "entityType": entity_type},
             )
-        except httpx.ConnectError:
-            raise ToolError(
-                f"Cannot connect to TaskFlow at {self.api_base} — is the server running?"
-            ) from None
         except httpx.TimeoutException:
             raise ToolError(
                 f"TaskFlow request timed out after {self.timeout:g}s: POST api/attachments/upload"
