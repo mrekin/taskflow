@@ -1,6 +1,6 @@
 # TaskFlow MCP Server
 
-MCP-сервер (Model Context Protocol) для работы с [TaskFlow](../taskflow) через персональные API-токены. Python + официальный `mcp` SDK (FastMCP), транспорт stdio.
+MCP-сервер (Model Context Protocol) для работы с [TaskFlow](../..) через персональные API-токены. Python + официальный `mcp` SDK (FastMCP), транспорт stdio.
 
 ## Возможности
 
