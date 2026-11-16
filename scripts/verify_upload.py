@@ -130,20 +130,41 @@ async def mcp_checks() -> list[str]:
                 failures.append(f"bad-base64 error wrong: {err}")
             print("[ok] error cases: no-source / both-sources / bad-base64")
 
-            # 3: real roundtrip on the first task
+            # 3: roundtrip — on a scratch task created AND deleted within this
+            # run. Gated on tasks:delete BEFORE any mutation: never write to
+            # live data unless cleanup is proven possible first (a previous
+            # version uploaded to the first real task and could not clean up).
+            import json as _json
+
+            who, err = await call("whoami", {})
+            if err or "tasks:delete" not in _json.dumps(who):
+                failures.append(
+                    "token lacks tasks:delete — roundtrip aborted BEFORE any "
+                    "mutation (cleanup could not be guaranteed). Grant "
+                    "tasks:delete or run against a fuller token"
+                )
+                return failures
             tasks, _ = await call("task_list", {"limit": 1})
             items = tasks.get("items") or tasks.get("tasks") or []
-            if not items:
-                failures.append(f"no tasks available for the roundtrip: {tasks}")
+            create_args = {
+                "title": f"verify_upload scratch {os.getpid()} — auto-deleted",
+            }
+            if items and items[0].get("projectId"):
+                create_args["project_id"] = items[0]["projectId"]
+            scratch, err = await call("task_create", create_args)
+            if err or not scratch.get("id"):
+                failures.append(f"scratch task_create failed: {err or scratch}")
                 return failures
-            task_id = items[0]["id"]
-            short_id = items[0].get("shortId") or task_id
+            short_id = scratch.get("shortId") or scratch["id"]
             att, err = await call("attachment_upload",
                                   {"entity_id": short_id, "entity_type": "task",
                                    "content_base64": base64.b64encode(PAYLOAD).decode(),
                                    "file_name": NAME})
             if err or not att.get("id"):
                 failures.append(f"blob upload failed: {err or att}")
+                _, derr = await call("task_delete", {"task_id": short_id})
+                if derr:
+                    failures.append(f"SCRATCH TASK NOT CLEANED ({short_id}): {derr}")
                 return failures
             print(f"[ok] uploaded via content_base64: id={att['id']}")
 
@@ -171,19 +192,15 @@ async def mcp_checks() -> list[str]:
                 print(f"[ok] attachment_get roundtrip: {len(data)} bytes match")
 
             _, err = await call("attachment_delete", {"attachment_id": att["id"]})
-            if err and "403" in err:
-                # this token lacks tasks:delete — cleanup is a manual UI job;
-                # not a feature failure, but the leftover must be reported
-                print(f"[warn] cleanup skipped (token scope): {err.strip()}")
-                print(f"[warn] LEFTOVER on the task: {NAME} (attachment {att['id']})")
-            elif err:
-                failures.append(f"cleanup delete failed: {err}")
-            listed, _ = await call("attachment_list",
-                                   {"entity_id": short_id, "entity_type": "task"})
-            if not err and any(att_name(a) == NAME for a in att_items(listed)):
-                failures.append("attachment still listed after delete")
-            elif not err:
+            if err:
+                failures.append(f"cleanup attachment_delete failed: {err}")
+            else:
                 print("[ok] cleaned up (attachment deleted)")
+            _, err = await call("task_delete", {"task_id": short_id})
+            if err:
+                failures.append(f"SCRATCH TASK NOT CLEANED ({short_id}): {err}")
+            else:
+                print("[ok] scratch task deleted")
     return failures
 
 
