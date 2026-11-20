@@ -268,6 +268,15 @@ export function CreateTaskDialog({
 
   const onFileDragLeave = useCallback(() => setIsDragging(false), []);
 
+  // Paste from clipboard: only intercept when the clipboard actually holds
+  // files (screenshot, copied file); regular text paste is left untouched.
+  const onDialogPaste = useCallback((e: React.ClipboardEvent) => {
+    const files = e.clipboardData?.files;
+    if (!files || files.length === 0) return;
+    e.preventDefault();
+    handleAddFiles(files);
+  }, [handleAddFiles]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
@@ -368,7 +377,7 @@ export function CreateTaskDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={confirmOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" onPaste={onDialogPaste}>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{parentId ? 'Create Subtask' : 'Create Task'}</DialogTitle>
@@ -804,7 +813,7 @@ export function CreateTaskDialog({
                 {isDragging ? (
                   'Drop files here'
                 ) : pendingFiles.length === 0 ? (
-                  'Drag and drop files here, or click "Add files"'
+                  'Drag and drop files here, paste from clipboard, or click "Add files"'
                 ) : null}
               </div>
 

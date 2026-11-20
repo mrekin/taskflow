@@ -207,13 +207,13 @@ function ScopePicker({
         </div>
       </RadioGroup>
       {scopeType === 'projects' && (
-        <ScrollArea className="mt-2 max-h-36 rounded-md border border-border/50 p-2">
+        <ScrollArea className="mt-2 max-h-[50vh] rounded-md border border-border/50">
           {projects.length === 0 ? (
             <p className="p-2 text-xs text-muted-foreground">No projects available</p>
           ) : (
-            <div className="space-y-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 p-2">
               {projects.map((project) => (
-                <div key={project.id} className="flex items-center gap-2">
+                <div key={project.id} className="flex items-center gap-2 min-w-0">
                   <Checkbox
                     id={`project-${project.id}`}
                     checked={selectedProjectIds.includes(project.id)}
@@ -227,8 +227,9 @@ function ScopePicker({
                   />
                   <Label
                     htmlFor={`project-${project.id}`}
-                    className="font-normal cursor-pointer text-xs"
+                    className="font-normal cursor-pointer text-xs truncate min-w-0"
                     style={{ color: project.color }}
+                    title={project.name}
                   >
                     {project.name}
                   </Label>
@@ -552,7 +553,7 @@ function CreateTokenDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create API token</DialogTitle>
           <DialogDescription>
@@ -666,7 +667,7 @@ function EditTokenDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit API token</DialogTitle>
           <DialogDescription>
